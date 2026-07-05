@@ -28,7 +28,7 @@ from .tree import (
     PackageRef,
     Rule,
     RuleResult,
-    Tree,
+    Bom,
     delete_node,
     find_nodes,
     get_node,
@@ -57,7 +57,7 @@ register_standard()  # geometry contracts get their native implementations
 __all__ = [
     "Provenance", "Quantity", "design_target", "inferred", "measured",
     "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
-    "Tree", "SolverDef", "SolverError",
+    "Bom", "SolverDef", "SolverError",
     "GEOMETRY_PACKAGE", "Shape", "SolidView", "Transform", "register_standard",
     "solver_blob", "validate_package",
     "bbox", "clearance", "delete_node", "find_nodes", "get_node", "load_blob",

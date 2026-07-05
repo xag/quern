@@ -8,7 +8,7 @@ and pass, and every solver blob must exist and meet the ABI. A package that can'
 demonstrate itself doesn't enter the library.
 
 Versions are immutable: republishing name@version with different content is
-refused, so a pin (`Tree.packages`) means the same thing forever — packaged
+refused, so a pin (`Bom.packages`) means the same thing forever — packaged
 clients freeze on pins and never go stale, live environments move their pins.
 
 Merging is by precedence, never by magic: a tree's own vocabulary, rules and
@@ -24,7 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .tree import KindDef, Node, Rule, Tree, run_rules
+from .tree import KindDef, Node, Rule, Bom, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
 
 
@@ -94,7 +94,7 @@ class Library:
                         encoding="utf-8")
         return log
 
-    def resolve(self, tree: Tree, strict: bool = True) -> list[Package]:
+    def resolve(self, tree: Bom, strict: bool = True) -> list[Package]:
         """The pinned packages, in pin order. A dangling pin raises when strict —
         a silent hole in the semantics is worse than an error — but read paths may
         pass strict=False to keep serving while tree_package reports the hole."""
@@ -109,7 +109,7 @@ class Library:
             out.append(pkg)
         return out
 
-    def effective(self, tree: Tree, strict: bool = True) -> Tree:
+    def effective(self, tree: Bom, strict: bool = True) -> Bom:
         """A composed copy where package semantics apply, the tree's own always
         winning — precedence, never merge magic."""
         eff = tree.model_copy(deep=True)
@@ -144,7 +144,7 @@ def validate_package(package: Package, blob_dir: Path) -> list[str]:
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
 
-    stage = Tree(vocabulary=package.vocabulary, rules=package.rules)
+    stage = Bom(vocabulary=package.vocabulary, rules=package.rules)
     stage.root.children = [n.model_copy(deep=True) for n in package.examples]
     results = run_rules(stage)
     exercised = {r.rule for r in results}
