@@ -1,7 +1,7 @@
 [project]
 name = "bom"
 version = "0.1.0"
-description = "Generic backend substrate: a node tree whose semantics (vocabulary, rules, solvers) are data — private while it hardens, built to be open-sourced"
+description = "BOM (Business Object Model): a generic node tree whose semantics (vocabulary, rules, solvers) are data — not Bill of Materials; private while it hardens, built to be open-sourced"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",

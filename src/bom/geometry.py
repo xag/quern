@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .library import Package
-from .tree import Node, Tree, get_node, register_native, _segs
+from .tree import Node, Bom, get_node, register_native, _segs
 from .solver import SolverDef
 
 
@@ -96,7 +96,7 @@ class SolidView(BaseModel):
 Pose = tuple[float, float, float, float]  # x, y, z, rotation rad
 
 
-def realize(tree: Tree, path: str = "") -> list[SolidView]:
+def realize(tree: Bom, path: str = "") -> list[SolidView]:
     """Flatten a subtree into world-space solids for rendering and checks."""
     start = get_node(tree, path)
     if start is None:
@@ -429,7 +429,7 @@ def _dashed_line(drw, a, b, color, dash: int = 5) -> None:
 
 # --- standard registration: geometry as content, natives as accelerators --------
 
-def _bb(tree: Tree, p: str) -> dict:
+def _bb(tree: Bom, p: str) -> dict:
     b = bbox(realize(tree, p))
     if b is None:
         raise ValueError(f"'{p}' has no solids")
