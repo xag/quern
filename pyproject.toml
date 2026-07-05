@@ -1,13 +1,17 @@
 [project]
 name = "bom"
 version = "0.1.0"
-description = "Generic BOM/design substrate: a node tree whose semantics (vocabulary, rules) are data — private while it hardens, built to be open-sourced"
+description = "Generic backend substrate: a node tree whose semantics (vocabulary, rules, solvers) are data — private while it hardens, built to be open-sourced"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
-    "pillow>=10",    # PNG views of the tree
     "wasmtime>=25",  # sandboxed solver runtime: fuel-metered, no ambient authority
 ]
+
+[project.optional-dependencies]
+# The geometry package (bom.geometry) is the only part that renders; a consumer
+# that never touches shapes never needs Pillow.
+geometry = ["pillow>=10"]
 
 [build-system]
 requires = ["hatchling"]
