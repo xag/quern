@@ -627,7 +627,22 @@ def _dashed_line(drw, a, b, color, dash: int = 5) -> None:
 #
 # A tiny recursive-descent evaluator instead of eval(): rules come from clients at
 # runtime on a multi-tenant server, so they get arithmetic, comparisons, booleans,
-# string literals and a fixed set of geometry functions — nothing else.
+# string literals and STRUCTURAL builtins only — path/param/children lookups,
+# aggregation over lists, and one bridge to meaning: solve('name', ...). Everything
+# that interprets content (geometry included) lives behind solve(), as a solver —
+# content in the library, or a registered native implementation of a standard
+# contract. The grammar never grows a domain function again.
+
+NATIVE: dict[str, Any] = {}  # name -> callable(scene, *args): standard implementations
+
+
+def register_native(name: str, fn) -> None:
+    """Install a first-class implementation of a solver contract. The name is the
+    contract (e.g. 'geometry/volume'); the callable takes (scene, *args). Natives
+    are an optimisation of content, never a semantics of their own: if a native
+    disagrees with the contract's reference module, the native is wrong."""
+    NATIVE[name] = fn
+
 
 class RuleResult(BaseModel):
     rule: str
@@ -636,13 +651,22 @@ class RuleResult(BaseModel):
     detail: str = ""
 
 
-def run_rules(scene: Scene, path: str = "") -> list[RuleResult]:
-    """Evaluate every rule that applies at or under `path`."""
+def run_rules(scene: Scene, path: str = "",
+              context: dict[str, Any] | None = None,
+              solver_runner=None) -> list[RuleResult]:
+    """Evaluate every rule that applies at or under `path`.
+
+    `context` is the caller-supplied evaluation payload (feeds, series windows,
+    anything) exposed through ctx('key') — the rules see it and nothing else,
+    which is what makes an evaluation deterministic and replayable. solve() runs
+    against the NATIVE registry first, then `solver_runner(name, args)` if the
+    caller wires one (e.g. to the sandboxed WASM machinery)."""
     out: list[RuleResult] = []
+    env = _env(scene, context or {}, solver_runner)
     for rule in scene.rules:
         for node_path, variables in _rule_bindings(scene, rule, path):
             try:
-                value = _eval_expr(rule.expr, _env(scene), variables)
+                value = _eval_expr(rule.expr, env, variables)
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value)))
             except Exception as e:  # a broken rule must report, not crash the check
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
@@ -675,27 +699,44 @@ def _iter_paths(node: Node, path: str):
         yield from _iter_paths(c, cpath)
 
 
-def _env(scene: Scene) -> dict[str, Any]:
-    def solids(p: str) -> list[SolidView]:
-        return realize(scene, p)
+def _env(scene: Scene, context: dict[str, Any] | None = None,
+         solver_runner=None) -> dict[str, Any]:
+    """Structural builtins + the solve() bridge. Nothing here interprets content."""
+    context = context or {}
 
-    def _bb(p: str) -> dict[str, list[float]]:
-        b = bbox(solids(p))
-        if b is None:
-            raise ValueError(f"'{p}' has no solids")
-        return b
+    def solve(name: str, *args):
+        fn = NATIVE.get(name)
+        if fn is not None:
+            return fn(scene, *args)
+        if solver_runner is not None:
+            return solver_runner(name, list(args))
+        raise ValueError(f"no implementation for solver '{name}' — register a "
+                         "native or install a package that carries it")
+
+    def nodes(kind: str | None = None, under: str = "") -> list[str]:
+        start = get_node(scene, under)
+        if start is None:
+            return []
+        return [p for p, n in _iter_paths(start, under.strip("/"))
+                if kind is None or n.kind == kind]
+
+    def params_of(paths, name: str) -> list[float]:
+        return [_param_of(scene, p, name) for p in paths]
+
+    def ctx(name: str):
+        if name not in context:
+            raise ValueError(f"nothing named '{name}' in the evaluation context")
+        return context[name]
 
     return {
-        "volume": lambda p: volume_mm3(solids(p)),
-        "bbox_w": lambda p: _bb(p)["max"][0] - _bb(p)["min"][0],
-        "bbox_d": lambda p: _bb(p)["max"][1] - _bb(p)["min"][1],
-        "bbox_h": lambda p: _bb(p)["max"][2] - _bb(p)["min"][2],
-        "z_min": lambda p: _bb(p)["min"][2],
-        "z_max": lambda p: _bb(p)["max"][2],
-        "clearance": lambda a, b: clearance_mm(solids(a), solids(b)),
-        "count": lambda p: len((get_node(scene, p) or Node(id="_")).children),
+        "solve": solve,                       # the one bridge to content
         "param": lambda p, name: _param_of(scene, p, name),
+        "count": lambda p: len((get_node(scene, p) or Node(id="_")).children),
+        "nodes": nodes,                       # structural query: paths by kind/branch
+        "params_of": params_of,               # a param across many nodes -> list
+        "ctx": ctx,                           # caller-supplied evaluation payload
         "abs": abs, "min": min, "max": max,
+        "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),
     }
 
 

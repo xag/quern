@@ -162,6 +162,10 @@ def validate_package(package: Package, blob_dir: Path) -> list[str]:
                    f"{len(package.examples)} example(s), all pass")
 
     for s in package.solvers:
+        if s.native:
+            log.append(f"solver '{s.name}' is a native contract — trusted server "
+                       "code, outside the sandbox gate")
+            continue
         wasm = load_blob(blob_dir, s.blob)  # exists + hashes true
         _check_abi(wasm, s.name)
         log.append(f"solver '{s.name}' @ {s.blob[:12]}… meets the ABI")
