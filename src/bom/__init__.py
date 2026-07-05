@@ -10,6 +10,8 @@ grammar is structural and reaches meaning through one bridge, solve(); domains
 implementations behind the same names.
 
 Canonical repository: xag/bom (private while it hardens; built to be published).
+The substrate knows nothing of its consumers: a domain is a package plus the code
+that embeds this library — never a reference from inside it.
 """
 
 from .provenance import Provenance, Quantity, design_target, inferred, measured

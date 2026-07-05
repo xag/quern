@@ -11,7 +11,7 @@ computes in its `solvers` — all written and read through the same API as the t
 The core interprets none of the payload: shapes, rendering and geometric checks
 live entirely in the `bom.geometry` package, reached — like any domain — through
 the rule language's one bridge, solve('geometry/…', …). Nodes are addressed by
-slash paths ("wardrobe/frame/side-left"), so a client edits a branch without
+slash paths ("parent/child/leaf"), so a client edits a branch without
 resending the tree.
 """
 
@@ -62,9 +62,9 @@ class Node(BaseModel):
 class KindDef(BaseModel):
     """One vocabulary entry: what a `kind` means, in prose the next client reads.
 
-    This is where semantics live — registered at runtime, per home, by whoever
+    This is where semantics live — registered at runtime, per tree, by whoever
     designs there. `params` and `links` document the names a node of this kind is
-    expected to carry ("depth: rail-to-front in mm", "separates: the two spaces").
+    expected to carry ("depth: how deep, in mm", "separates: the two it divides").
     """
 
     kind: str
@@ -101,7 +101,7 @@ class PackageRef(BaseModel):
 
 
 class Bom(BaseModel):
-    """A home's design tree plus the semantics that give it meaning — vocabulary
+    """A design tree plus the semantics that give it meaning — vocabulary
     (what kinds are), rules (what must hold) and solvers (code that computes over
     branches, sandboxed), all data, all written through the same API as the tree.
     `packages` pins library packages whose semantics apply here too; the tree's

@@ -33,6 +33,12 @@ safety only; everything that *means* something is content:
 caller-supplied `context`, nothing else — every evaluation is deterministic and
 replayable (what makes backtesting structural for time-series consumers).
 
-invariants stay in consumer code: meaning is data, safety is code.
+The substrate knows nothing of its consumers. A domain lives entirely outside this
+library — as a package (vocabulary, rules, solvers) plus the backend code that
+embeds `bom` — and domain safety invariants stay in that consumer code: meaning is
+data, safety is code.
 
+Canonical repo: `xag/bom` (private while it hardens). A consumer that vendors it
+(e.g. via `git subtree` under some `<prefix>`) syncs with:
 
+    git subtree pull --prefix=<prefix> <remote> main --squash
