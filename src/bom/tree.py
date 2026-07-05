@@ -5,7 +5,7 @@ a class: nothing in this module branches on it), parameters whose every number i
 unit- and provenance-carrying Quantity, named `links` to other nodes, a generic
 `payload` for domain-typed content (a geometry package puts shapes there; another
 domain puts whatever it defines), free-form `meta`, and children. What a kind
-*means* lives in the scene's `vocabulary`, what must hold in its `rules`, what
+*means* lives in the tree's `vocabulary`, what must hold in its `rules`, what
 computes in its `solvers` — all written and read through the same API as the tree.
 
 The core interprets none of the payload: shapes, rendering and geometric checks
@@ -33,7 +33,7 @@ class Node(BaseModel):
     """One BOM line: a component, an assembly, or anything the vocabulary defines."""
 
     id: str
-    kind: str = ""   # free label — meaning lives in the scene vocabulary, not here
+    kind: str = ""   # free label — meaning lives in the tree vocabulary, not here
     name: str = ""
     params: dict[str, Quantity] = Field(default_factory=dict)
     links: dict[str, list[str]] = Field(default_factory=dict)  # name -> node paths
@@ -92,7 +92,7 @@ class Rule(BaseModel):
 
 
 class PackageRef(BaseModel):
-    """A pin on a library package: this scene uses `name` at exactly `version`.
+    """A pin on a library package: this tree uses `name` at exactly `version`.
     Frozen deployments stay coherent because the pin, not the library head,
     decides what semantics apply here — a lockfile, one line at a time."""
 
@@ -100,24 +100,24 @@ class PackageRef(BaseModel):
     version: str
 
 
-class Scene(BaseModel):
+class Tree(BaseModel):
     """A home's design tree plus the semantics that give it meaning — vocabulary
     (what kinds are), rules (what must hold) and solvers (code that computes over
     branches, sandboxed), all data, all written through the same API as the tree.
-    `packages` pins library packages whose semantics apply here too; the scene's
+    `packages` pins library packages whose semantics apply here too; the tree's
     own entries always win over package ones."""
 
     vocabulary: list[KindDef] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
     solvers: list["SolverDef"] = Field(default_factory=list)
     packages: list[PackageRef] = Field(default_factory=list)
-    root: Node = Field(default_factory=lambda: Node(id="scene"))
+    root: Node = Field(default_factory=lambda: Node(id="tree"))
 
 
 # --- path addressing ----------------------------------------------------------
 
-def get_node(scene: Scene, path: str) -> Node | None:
-    node = scene.root
+def get_node(tree: Tree, path: str) -> Node | None:
+    node = tree.root
     for seg in _segs(path):
         node = node.child(seg)
         if node is None:
@@ -125,7 +125,7 @@ def get_node(scene: Scene, path: str) -> Node | None:
     return node
 
 
-def find_nodes(scene: Scene, query: str | None = None, kind: str | None = None,
+def find_nodes(tree: Tree, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", limit: int = 20) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
@@ -133,7 +133,7 @@ def find_nodes(scene: Scene, query: str | None = None, kind: str | None = None,
     meta values; `kind` and `has_param` match exactly; `links_to` matches any link
     target (a path, exact); `under` scopes the search to a branch. Purely
     structural — the search knows no more about kinds than the tree does."""
-    start = get_node(scene, under)
+    start = get_node(tree, under)
     if start is None:
         return []
     q = query.lower() if query else None
@@ -157,7 +157,7 @@ def find_nodes(scene: Scene, query: str | None = None, kind: str | None = None,
     return out
 
 
-def semantics_at(scene: Scene, path: str, depth: int | None = None) -> dict[str, Any]:
+def semantics_at(tree: Tree, path: str, depth: int | None = None) -> dict[str, Any]:
     """The meaning of a slice of the tree, discovered with the slice itself.
 
     Returns the vocabulary entries for every kind present at `path` (down to
@@ -165,7 +165,7 @@ def semantics_at(scene: Scene, path: str, depth: int | None = None) -> dict[str,
     looking at exactly as it navigates, the way an MCP tool carries its own
     description. Nothing global to fetch, nothing to know in advance.
     """
-    node = get_node(scene, path)
+    node = get_node(tree, path)
     if node is None:
         return {}
     kinds: set[str] = set()
@@ -180,8 +180,8 @@ def semantics_at(scene: Scene, path: str, depth: int | None = None) -> dict[str,
 
     collect(node, depth)
     voc = {k.kind: k.model_dump(exclude_defaults=True)
-           for k in scene.vocabulary if k.kind in kinds}
-    rules = [r.model_dump(exclude_none=True) for r in scene.rules
+           for k in tree.vocabulary if k.kind in kinds}
+    rules = [r.model_dump(exclude_none=True) for r in tree.rules
              if (r.kind in kinds if r.kind is not None else
                  (r.path or "").startswith(path) or path.startswith(r.path or ""))]
     out: dict[str, Any] = {}
@@ -195,14 +195,14 @@ def semantics_at(scene: Scene, path: str, depth: int | None = None) -> dict[str,
     return out
 
 
-def set_node(scene: Scene, path: str, data: dict[str, Any]) -> Node:
+def set_node(tree: Tree, path: str, data: dict[str, Any]) -> Node:
     """Create or update the node at `path`. Given fields replace those fields
     (children included — edit a child by addressing it, not by resending lists);
     missing intermediate nodes are created as bare groups."""
     segs = _segs(path)
     if not segs:
         raise ValueError("the root is not editable — address a child path")
-    node = scene.root
+    node = tree.root
     for seg in segs[:-1]:
         nxt = node.child(seg)
         if nxt is None:
@@ -241,11 +241,11 @@ def _fold_payload(data: dict[str, Any], base_payload: dict[str, Any]) -> dict[st
     return data
 
 
-def delete_node(scene: Scene, path: str) -> Node:
+def delete_node(tree: Tree, path: str) -> Node:
     segs = _segs(path)
     if not segs:
         raise ValueError("the root is not deletable")
-    parent = get_node(scene, "/".join(segs[:-1]))
+    parent = get_node(tree, "/".join(segs[:-1]))
     target = parent.child(segs[-1]) if parent is not None else None
     if target is None:
         raise ValueError(f"no node at '{path}'")
@@ -275,12 +275,12 @@ def _coerce(model: type[BaseModel], field: str, value: Any) -> Any:
 # content in the library, or a registered native implementation of a standard
 # contract. The grammar never grows a domain function again.
 
-NATIVE: dict[str, Any] = {}  # name -> callable(scene, *args): standard implementations
+NATIVE: dict[str, Any] = {}  # name -> callable(tree, *args): standard implementations
 
 
 def register_native(name: str, fn) -> None:
     """Install a first-class implementation of a solver contract. The name is the
-    contract (e.g. 'geometry/volume'); the callable takes (scene, *args). Natives
+    contract (e.g. 'geometry/volume'); the callable takes (tree, *args). Natives
     are an optimisation of content, never a semantics of their own: if a native
     disagrees with the contract's reference module, the native is wrong."""
     NATIVE[name] = fn
@@ -293,7 +293,7 @@ class RuleResult(BaseModel):
     detail: str = ""
 
 
-def run_rules(scene: Scene, path: str = "",
+def run_rules(tree: Tree, path: str = "",
               context: dict[str, Any] | None = None,
               solver_runner=None) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
@@ -304,9 +304,9 @@ def run_rules(scene: Scene, path: str = "",
     against the NATIVE registry first, then `solver_runner(name, args)` if the
     caller wires one (e.g. to the sandboxed WASM machinery)."""
     out: list[RuleResult] = []
-    env = _env(scene, context or {}, solver_runner)
-    for rule in scene.rules:
-        for node_path, variables in _rule_bindings(scene, rule, path):
+    env = _env(tree, context or {}, solver_runner)
+    for rule in tree.rules:
+        for node_path, variables in _rule_bindings(tree, rule, path):
             try:
                 value = _eval_expr(rule.expr, env, variables)
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value)))
@@ -316,10 +316,10 @@ def run_rules(scene: Scene, path: str = "",
     return out
 
 
-def _rule_bindings(scene: Scene, rule: Rule, under: str):
+def _rule_bindings(tree: Tree, rule: Rule, under: str):
     """(path, variables) pairs the rule evaluates against."""
     if rule.kind is not None:
-        for node_path, node in _iter_paths(scene.root, ""):
+        for node_path, node in _iter_paths(tree.root, ""):
             if node.kind == rule.kind and node_path.startswith(under):
                 variables = {k: q.value for k, q in node.params.items()}
                 variables["self"] = node_path
@@ -327,7 +327,7 @@ def _rule_bindings(scene: Scene, rule: Rule, under: str):
     else:
         target = rule.path or ""
         if target.startswith(under) or under.startswith(target):
-            node = get_node(scene, target)
+            node = get_node(tree, target)
             variables = ({k: q.value for k, q in node.params.items()}
                          if node is not None else {})
             variables["self"] = target
@@ -341,7 +341,7 @@ def _iter_paths(node: Node, path: str):
         yield from _iter_paths(c, cpath)
 
 
-def _env(scene: Scene, context: dict[str, Any] | None = None,
+def _env(tree: Tree, context: dict[str, Any] | None = None,
          solver_runner=None) -> dict[str, Any]:
     """Structural builtins + the solve() bridge. Nothing here interprets content."""
     context = context or {}
@@ -349,21 +349,21 @@ def _env(scene: Scene, context: dict[str, Any] | None = None,
     def solve(name: str, *args):
         fn = NATIVE.get(name)
         if fn is not None:
-            return fn(scene, *args)
+            return fn(tree, *args)
         if solver_runner is not None:
             return solver_runner(name, list(args))
         raise ValueError(f"no implementation for solver '{name}' — register a "
                          "native or install a package that carries it")
 
     def nodes(kind: str | None = None, under: str = "") -> list[str]:
-        start = get_node(scene, under)
+        start = get_node(tree, under)
         if start is None:
             return []
         return [p for p, n in _iter_paths(start, under.strip("/"))
                 if kind is None or n.kind == kind]
 
     def params_of(paths, name: str) -> list[float]:
-        return [_param_of(scene, p, name) for p in paths]
+        return [_param_of(tree, p, name) for p in paths]
 
     def ctx(name: str):
         if name not in context:
@@ -372,8 +372,8 @@ def _env(scene: Scene, context: dict[str, Any] | None = None,
 
     return {
         "solve": solve,                       # the one bridge to content
-        "param": lambda p, name: _param_of(scene, p, name),
-        "count": lambda p: len((get_node(scene, p) or Node(id="_")).children),
+        "param": lambda p, name: _param_of(tree, p, name),
+        "count": lambda p: len((get_node(tree, p) or Node(id="_")).children),
         "nodes": nodes,                       # structural query: paths by kind/branch
         "params_of": params_of,               # a param across many nodes -> list
         "ctx": ctx,                           # caller-supplied evaluation payload
@@ -382,8 +382,8 @@ def _env(scene: Scene, context: dict[str, Any] | None = None,
     }
 
 
-def _param_of(scene: Scene, path: str, name: str) -> float:
-    node = get_node(scene, path)
+def _param_of(tree: Tree, path: str, name: str) -> float:
+    node = get_node(tree, path)
     if node is None or name not in node.params:
         raise ValueError(f"no param '{name}' at '{path}'")
     return node.params[name].value

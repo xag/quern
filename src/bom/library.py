@@ -8,10 +8,10 @@ and pass, and every solver blob must exist and meet the ABI. A package that can'
 demonstrate itself doesn't enter the library.
 
 Versions are immutable: republishing name@version with different content is
-refused, so a pin (`Scene.packages`) means the same thing forever — packaged
+refused, so a pin (`Tree.packages`) means the same thing forever — packaged
 clients freeze on pins and never go stale, live environments move their pins.
 
-Merging is by precedence, never by magic: a scene's own vocabulary, rules and
+Merging is by precedence, never by magic: a tree's own vocabulary, rules and
 solvers always win over package ones; among packages, install order decides.
 The library interprets nothing — it stores, validates and serves.
 """
@@ -24,7 +24,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .scene import KindDef, Node, Rule, Scene, run_rules
+from .tree import KindDef, Node, Rule, Tree, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
 
 
@@ -94,12 +94,12 @@ class Library:
                         encoding="utf-8")
         return log
 
-    def resolve(self, scene: Scene, strict: bool = True) -> list[Package]:
+    def resolve(self, tree: Tree, strict: bool = True) -> list[Package]:
         """The pinned packages, in pin order. A dangling pin raises when strict —
         a silent hole in the semantics is worse than an error — but read paths may
-        pass strict=False to keep serving while scene_package reports the hole."""
+        pass strict=False to keep serving while tree_package reports the hole."""
         out = []
-        for ref in scene.packages:
+        for ref in tree.packages:
             pkg = self.get(ref.name, ref.version)
             if pkg is None:
                 if strict:
@@ -109,14 +109,14 @@ class Library:
             out.append(pkg)
         return out
 
-    def effective(self, scene: Scene, strict: bool = True) -> Scene:
-        """A composed copy where package semantics apply, the scene's own always
+    def effective(self, tree: Tree, strict: bool = True) -> Tree:
+        """A composed copy where package semantics apply, the tree's own always
         winning — precedence, never merge magic."""
-        eff = scene.model_copy(deep=True)
+        eff = tree.model_copy(deep=True)
         kinds = {k.kind for k in eff.vocabulary}
         rules = {r.name for r in eff.rules}
         solvers = {s.name for s in eff.solvers}
-        for pkg in self.resolve(scene, strict=strict):
+        for pkg in self.resolve(tree, strict=strict):
             for k in pkg.vocabulary:
                 if k.kind not in kinds:
                     eff.vocabulary.append(k)
@@ -144,7 +144,7 @@ def validate_package(package: Package, blob_dir: Path) -> list[str]:
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
 
-    stage = Scene(vocabulary=package.vocabulary, rules=package.rules)
+    stage = Tree(vocabulary=package.vocabulary, rules=package.rules)
     stage.root.children = [n.model_copy(deep=True) for n in package.examples]
     results = run_rules(stage)
     exercised = {r.rule for r in results}

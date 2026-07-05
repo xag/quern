@@ -22,13 +22,13 @@ from .solver import (
     save_blob,
     stamp,
 )
-from .scene import (
+from .tree import (
     KindDef,
     Node,
     PackageRef,
     Rule,
     RuleResult,
-    Scene,
+    Tree,
     delete_node,
     find_nodes,
     get_node,
@@ -57,7 +57,7 @@ register_standard()  # geometry contracts get their native implementations
 __all__ = [
     "Provenance", "Quantity", "design_target", "inferred", "measured",
     "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
-    "Scene", "SolverDef", "SolverError",
+    "Tree", "SolverDef", "SolverError",
     "GEOMETRY_PACKAGE", "Shape", "SolidView", "Transform", "register_standard",
     "solver_blob", "validate_package",
     "bbox", "clearance", "delete_node", "find_nodes", "get_node", "load_blob",

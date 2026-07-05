@@ -1,12 +1,12 @@
 """Solvers as data: client-submitted code, run in a sandbox, answering in proposals.
 
 A solver is a WebAssembly module stored as a content-addressed blob and described
-by a `SolverDef` in the scene — name, prose contract, and the branch prefixes it is
+by a `SolverDef` in the tree — name, prose contract, and the branch prefixes it is
 allowed to read (its *capabilities*: no declaration, no access; never the whole
-scene by right). The runtime grants it nothing but memory and fuel: no filesystem,
+tree by right). The runtime grants it nothing but memory and fuel: no filesystem,
 no network, no clock. It cannot mutate the tree — it returns *diagnostics* (free
 text) and *proposals* (param values), each proposal stamped `derived` with the
-solver's identity, and the caller decides what to apply with an ordinary scene_set.
+solver's identity, and the caller decides what to apply with an ordinary tree_set.
 The server never learns what the solver means; it meters it and files its output.
 
 ABI (deliberately tiny, any guest language can meet it):
