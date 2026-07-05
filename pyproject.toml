@@ -12,6 +12,8 @@ dependencies = [
 # The geometry package (bom.geometry) is the only part that renders; a consumer
 # that never touches shapes never needs Pillow.
 geometry = ["pillow>=10"]
+# bom.host registers the tree_* MCP tools over a Workspace; only a server needs it.
+host = ["mcp[cli]>=1.2"]
 
 [build-system]
 requires = ["hatchling"]
