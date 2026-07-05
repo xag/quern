@@ -26,6 +26,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .provenance import Quantity
+from .solver import SolverDef
 
 
 class Transform(BaseModel):
@@ -103,11 +104,12 @@ class Rule(BaseModel):
 
 class Scene(BaseModel):
     """A home's design tree plus the semantics that give it meaning — vocabulary
-    (what kinds are) and rules (what must hold), both data, both written through
-    the same API as the tree."""
+    (what kinds are), rules (what must hold) and solvers (code that computes over
+    branches, sandboxed), all data, all written through the same API as the tree."""
 
     vocabulary: list[KindDef] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
+    solvers: list["SolverDef"] = Field(default_factory=list)
     root: Node = Field(default_factory=lambda: Node(id="scene"))
 
 

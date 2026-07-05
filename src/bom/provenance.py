@@ -13,6 +13,8 @@ class Provenance(str, Enum):
     MEASURED = "measured"          # tape / laser; trustworthy within tolerance
     INFERRED = "inferred"          # from a photo or estimate; rough, design-only
     DESIGN_TARGET = "design-target"  # a value we chose, not yet a measured constraint
+    DERIVED = "derived"            # computed by a solver from other values; only as
+    #                                trustworthy as its inputs — never counts as measured
 
 
 class Quantity(BaseModel):

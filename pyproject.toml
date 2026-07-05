@@ -5,7 +5,8 @@ description = "Generic BOM/design substrate: a node tree whose semantics (vocabu
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
-    "pillow>=10",  # orthographic PNG views of the tree
+    "pillow>=10",    # PNG views of the tree
+    "wasmtime>=25",  # sandboxed solver runtime: fuel-metered, no ambient authority
 ]
 
 [build-system]
