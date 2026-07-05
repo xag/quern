@@ -17,7 +17,7 @@ safety only; everything that *means* something is content:
   them locally (same artefact, same ABI).
 - **Library**: versioned, immutable packages `{vocabulary, rules, solvers,
   examples}` — publication is proof-gated (rules must be exercised by the
-  package's own examples and pass; modules must meet the ABI). Scenes pin
+  package's own examples and pass; modules must meet the ABI). Trees pin
   `name@version`; local content always wins over packages.
 - **Standard contracts**: `geometry@1` documents shape conventions and solver
   contracts (`geometry/volume`, `bbox_*`, `clearance`, …); the Python here is
