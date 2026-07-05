@@ -33,10 +33,16 @@ safety only; everything that *means* something is content:
 caller-supplied `context`, nothing else — every evaluation is deterministic and
 replayable (what makes backtesting structural for time-series consumers).
 
+- **Host** (`bom.host`, extra `bom[host]`): registers the generic `tree_*` MCP
+  tools once over a **`Workspace`** — the few seams a domain provides (its live
+  bom, its effective read view, the write guard, persistence, its blob store,
+  its library, its starter vocabulary). One endpoint hosts several domains by
+  resolving a different Workspace per call — same code, separate stores.
+
 The substrate knows nothing of its consumers. A domain lives entirely outside this
-library — as a package (vocabulary, rules, solvers) plus the backend code that
-embeds `bom` — and domain safety invariants stay in that consumer code: meaning is
-data, safety is code.
+library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
+`bom` — and domain safety invariants stay in that consumer code: meaning is data,
+safety is code.
 
 Canonical repo: `xag/bom` (private while it hardens). A consumer that vendors it
 (e.g. via `git subtree` under some `<prefix>`) syncs with:
