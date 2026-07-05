@@ -100,7 +100,7 @@ class PackageRef(BaseModel):
     version: str
 
 
-class Tree(BaseModel):
+class Bom(BaseModel):
     """A home's design tree plus the semantics that give it meaning — vocabulary
     (what kinds are), rules (what must hold) and solvers (code that computes over
     branches, sandboxed), all data, all written through the same API as the tree.
@@ -116,7 +116,7 @@ class Tree(BaseModel):
 
 # --- path addressing ----------------------------------------------------------
 
-def get_node(tree: Tree, path: str) -> Node | None:
+def get_node(tree: Bom, path: str) -> Node | None:
     node = tree.root
     for seg in _segs(path):
         node = node.child(seg)
@@ -125,7 +125,7 @@ def get_node(tree: Tree, path: str) -> Node | None:
     return node
 
 
-def find_nodes(tree: Tree, query: str | None = None, kind: str | None = None,
+def find_nodes(tree: Bom, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", limit: int = 20) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
@@ -157,7 +157,7 @@ def find_nodes(tree: Tree, query: str | None = None, kind: str | None = None,
     return out
 
 
-def semantics_at(tree: Tree, path: str, depth: int | None = None) -> dict[str, Any]:
+def semantics_at(tree: Bom, path: str, depth: int | None = None) -> dict[str, Any]:
     """The meaning of a slice of the tree, discovered with the slice itself.
 
     Returns the vocabulary entries for every kind present at `path` (down to
@@ -195,7 +195,7 @@ def semantics_at(tree: Tree, path: str, depth: int | None = None) -> dict[str, A
     return out
 
 
-def set_node(tree: Tree, path: str, data: dict[str, Any]) -> Node:
+def set_node(tree: Bom, path: str, data: dict[str, Any]) -> Node:
     """Create or update the node at `path`. Given fields replace those fields
     (children included — edit a child by addressing it, not by resending lists);
     missing intermediate nodes are created as bare groups."""
@@ -241,7 +241,7 @@ def _fold_payload(data: dict[str, Any], base_payload: dict[str, Any]) -> dict[st
     return data
 
 
-def delete_node(tree: Tree, path: str) -> Node:
+def delete_node(tree: Bom, path: str) -> Node:
     segs = _segs(path)
     if not segs:
         raise ValueError("the root is not deletable")
@@ -293,7 +293,7 @@ class RuleResult(BaseModel):
     detail: str = ""
 
 
-def run_rules(tree: Tree, path: str = "",
+def run_rules(tree: Bom, path: str = "",
               context: dict[str, Any] | None = None,
               solver_runner=None) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
@@ -316,7 +316,7 @@ def run_rules(tree: Tree, path: str = "",
     return out
 
 
-def _rule_bindings(tree: Tree, rule: Rule, under: str):
+def _rule_bindings(tree: Bom, rule: Rule, under: str):
     """(path, variables) pairs the rule evaluates against."""
     if rule.kind is not None:
         for node_path, node in _iter_paths(tree.root, ""):
@@ -341,7 +341,7 @@ def _iter_paths(node: Node, path: str):
         yield from _iter_paths(c, cpath)
 
 
-def _env(tree: Tree, context: dict[str, Any] | None = None,
+def _env(tree: Bom, context: dict[str, Any] | None = None,
          solver_runner=None) -> dict[str, Any]:
     """Structural builtins + the solve() bridge. Nothing here interprets content."""
     context = context or {}
@@ -382,7 +382,7 @@ def _env(tree: Tree, context: dict[str, Any] | None = None,
     }
 
 
-def _param_of(tree: Tree, path: str, name: str) -> float:
+def _param_of(tree: Bom, path: str, name: str) -> float:
     node = get_node(tree, path)
     if node is None or name not in node.params:
         raise ValueError(f"no param '{name}' at '{path}'")
