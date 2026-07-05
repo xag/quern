@@ -34,11 +34,14 @@ MAX_OUTPUT_BYTES = 4 * 2**20
 
 
 class SolverDef(BaseModel):
-    """One solver's descriptor — the code itself lives in the blob store."""
+    """One solver's descriptor — the code itself lives in the blob store, or, for a
+    standard contract, in a first-class native implementation registered under the
+    same name (`native=True`, no blob)."""
 
     name: str
     description: str = ""
-    blob: str  # sha256 of the wasm module
+    blob: str = ""  # sha256 of the wasm module; empty for native contracts
+    native: bool = False
     reads: list[str] = Field(default_factory=list)  # branch prefixes it may see
     params_doc: dict[str, str] = Field(default_factory=dict)
     fuel: int = DEFAULT_FUEL

@@ -1,16 +1,20 @@
-"""bom — the generic design substrate.
+"""bom — the generic backend substrate.
 
 A BOM-like tree where semantics are data: nodes carry free-text kinds, params
-whose every number states its provenance, and named links; what kinds mean lives
-in the scene's vocabulary and what must hold in its rules — both registered at
-runtime through the same API as the tree, and both *discovered at each node*:
-reading a slice of the tree returns the semantics of that slice.
+whose every number states its unit and provenance, and named links; what kinds
+mean lives in the scene's vocabulary, what must hold in its rules, what computes
+in its solvers — all registered at runtime through the same API as the tree, all
+*discovered at each node*, all capitalizable as versioned packages. The rule
+grammar is structural and reaches meaning through one bridge, solve(); standard
+contracts (geometry first) get first-class native implementations behind the
+same names.
 
-Private while it hardens; built to be published on its own.
+Canonical repository: xag/bom (private while it hardens; built to be published).
+Consumers: home (twin + robots), invest (research notebook), your next domain.
 """
 
 from .library import Library, Package, solver_blob, validate_package
-from .provenance import Provenance, Quantity
+from .provenance import Provenance, Quantity, design_target, inferred, measured
 from .solver import (
     SolverDef,
     SolverError,
@@ -36,19 +40,23 @@ from .scene import (
     find_nodes,
     get_node,
     realize,
+    register_native,
     render_png,
     run_rules,
     semantics_at,
     set_node,
     volume_mm3,
 )
+from .standard import GEOMETRY_PACKAGE, register_standard
+
+register_standard()  # the standard library is available wherever bom is imported
 
 __all__ = [
-    "Provenance", "Quantity",
+    "Provenance", "Quantity", "design_target", "inferred", "measured",
     "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
     "Scene", "Shape", "SolidView", "SolverDef", "SolverError", "Transform",
-    "solver_blob", "validate_package",
+    "GEOMETRY_PACKAGE", "register_standard", "solver_blob", "validate_package",
     "bbox", "clearance_mm", "delete_node", "find_nodes", "get_node", "load_blob",
-    "path_allowed", "realize", "render_png", "run_rules", "run_solver", "save_blob",
-    "semantics_at", "set_node", "stamp", "volume_mm3",
+    "path_allowed", "realize", "register_native", "render_png", "run_rules",
+    "run_solver", "save_blob", "semantics_at", "set_node", "stamp", "volume_mm3",
 ]
