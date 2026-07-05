@@ -124,6 +124,38 @@ def get_node(scene: Scene, path: str) -> Node | None:
     return node
 
 
+def find_nodes(scene: Scene, query: str | None = None, kind: str | None = None,
+               has_param: str | None = None, links_to: str | None = None,
+               under: str = "", limit: int = 20) -> list[tuple[str, Node]]:
+    """Search the tree instead of walking it: (path, node) pairs matching every
+    given filter. `query` is a case-insensitive substring over id, name, kind and
+    meta values; `kind` and `has_param` match exactly; `links_to` matches any link
+    target (a path, exact); `under` scopes the search to a branch. Purely
+    structural — the search knows no more about kinds than the tree does."""
+    start = get_node(scene, under)
+    if start is None:
+        return []
+    q = query.lower() if query else None
+    out: list[tuple[str, Node]] = []
+
+    def visit(node: Node, path: str) -> None:
+        if len(out) >= limit:
+            return
+        if path:  # the root is an anchor, not a result
+            hay = " ".join([node.id, node.name, node.kind, *node.meta.values()]).lower()
+            if ((q is None or q in hay)
+                    and (kind is None or node.kind == kind)
+                    and (has_param is None or has_param in node.params)
+                    and (links_to is None
+                         or any(links_to in v for v in node.links.values()))):
+                out.append((path, node))
+        for c in node.children:
+            visit(c, f"{path}/{c.id}" if path else c.id)
+
+    visit(start, under.strip("/"))
+    return out
+
+
 def semantics_at(scene: Scene, path: str, depth: int | None = None) -> dict[str, Any]:
     """The meaning of a slice of the tree, discovered with the slice itself.
 

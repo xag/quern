@@ -31,6 +31,7 @@ from .scene import (
     bbox,
     clearance_mm,
     delete_node,
+    find_nodes,
     get_node,
     realize,
     render_png,
@@ -44,7 +45,7 @@ __all__ = [
     "Provenance", "Quantity",
     "KindDef", "Node", "Rule", "RuleResult", "Scene", "Shape", "SolidView",
     "SolverDef", "SolverError", "Transform",
-    "bbox", "clearance_mm", "delete_node", "get_node", "load_blob", "path_allowed",
-    "realize", "render_png", "run_rules", "run_solver", "save_blob", "semantics_at",
-    "set_node", "stamp", "volume_mm3",
+    "bbox", "clearance_mm", "delete_node", "find_nodes", "get_node", "load_blob",
+    "path_allowed", "realize", "render_png", "run_rules", "run_solver", "save_blob",
+    "semantics_at", "set_node", "stamp", "volume_mm3",
 ]
