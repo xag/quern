@@ -102,14 +102,26 @@ class Rule(BaseModel):
     path: str | None = None
 
 
+class PackageRef(BaseModel):
+    """A pin on a library package: this scene uses `name` at exactly `version`.
+    Frozen deployments stay coherent because the pin, not the library head,
+    decides what semantics apply here — a lockfile, one line at a time."""
+
+    name: str
+    version: str
+
+
 class Scene(BaseModel):
     """A home's design tree plus the semantics that give it meaning — vocabulary
     (what kinds are), rules (what must hold) and solvers (code that computes over
-    branches, sandboxed), all data, all written through the same API as the tree."""
+    branches, sandboxed), all data, all written through the same API as the tree.
+    `packages` pins library packages whose semantics apply here too; the scene's
+    own entries always win over package ones."""
 
     vocabulary: list[KindDef] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
     solvers: list["SolverDef"] = Field(default_factory=list)
+    packages: list[PackageRef] = Field(default_factory=list)
     root: Node = Field(default_factory=lambda: Node(id="scene"))
 
 

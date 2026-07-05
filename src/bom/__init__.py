@@ -9,6 +9,7 @@ reading a slice of the tree returns the semantics of that slice.
 Private while it hardens; built to be published on its own.
 """
 
+from .library import Library, Package, solver_blob, validate_package
 from .provenance import Provenance, Quantity
 from .solver import (
     SolverDef,
@@ -22,6 +23,7 @@ from .solver import (
 from .scene import (
     KindDef,
     Node,
+    PackageRef,
     Rule,
     RuleResult,
     Scene,
@@ -43,8 +45,9 @@ from .scene import (
 
 __all__ = [
     "Provenance", "Quantity",
-    "KindDef", "Node", "Rule", "RuleResult", "Scene", "Shape", "SolidView",
-    "SolverDef", "SolverError", "Transform",
+    "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
+    "Scene", "Shape", "SolidView", "SolverDef", "SolverError", "Transform",
+    "solver_blob", "validate_package",
     "bbox", "clearance_mm", "delete_node", "find_nodes", "get_node", "load_blob",
     "path_allowed", "realize", "render_png", "run_rules", "run_solver", "save_blob",
     "semantics_at", "set_node", "stamp", "volume_mm3",
