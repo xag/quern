@@ -10,6 +10,15 @@ Private while it hardens; built to be published on its own.
 """
 
 from .provenance import Provenance, Quantity
+from .solver import (
+    SolverDef,
+    SolverError,
+    load_blob,
+    path_allowed,
+    run_solver,
+    save_blob,
+    stamp,
+)
 from .scene import (
     KindDef,
     Node,
@@ -34,7 +43,8 @@ from .scene import (
 __all__ = [
     "Provenance", "Quantity",
     "KindDef", "Node", "Rule", "RuleResult", "Scene", "Shape", "SolidView",
-    "Transform",
-    "bbox", "clearance_mm", "delete_node", "get_node", "realize", "render_png",
-    "run_rules", "semantics_at", "set_node", "volume_mm3",
+    "SolverDef", "SolverError", "Transform",
+    "bbox", "clearance_mm", "delete_node", "get_node", "load_blob", "path_allowed",
+    "realize", "render_png", "run_rules", "run_solver", "save_blob", "semantics_at",
+    "set_node", "stamp", "volume_mm3",
 ]
