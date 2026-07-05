@@ -77,7 +77,7 @@ def load_blob(blob_dir: Path, sha: str) -> bytes:
 # --- capabilities ----------------------------------------------------------------
 
 def path_allowed(reads: list[str], path: str) -> bool:
-    """Segment-aware prefix check: 'home' allows 'home/salon', not 'homework'."""
+    """Segment-aware prefix check: 'foo' allows 'foo/bar', not 'foobar'."""
     want = [s for s in path.split("/") if s]
     for r in reads:
         have = [s for s in r.split("/") if s]
