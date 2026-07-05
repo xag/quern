@@ -21,7 +21,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from .library import Package
-from .scene import Node, Scene, get_node, register_native, _segs
+from .tree import Node, Tree, get_node, register_native, _segs
 from .solver import SolverDef
 
 
@@ -80,7 +80,7 @@ class SolidView(BaseModel):
 
     `dims` are the solid's own [w, d, h] in its local frame — what you would cut
     it to. The world-space footprint places it; the dims size it: a rotated panel
-    keeps its true dimensions no matter how it sits in the scene.
+    keeps its true dimensions no matter how it sits in the tree.
     """
 
     path: str
@@ -96,12 +96,12 @@ class SolidView(BaseModel):
 Pose = tuple[float, float, float, float]  # x, y, z, rotation rad
 
 
-def realize(scene: Scene, path: str = "") -> list[SolidView]:
+def realize(tree: Tree, path: str = "") -> list[SolidView]:
     """Flatten a subtree into world-space solids for rendering and checks."""
-    start = get_node(scene, path)
+    start = get_node(tree, path)
     if start is None:
         raise ValueError(f"no node at '{path}'")
-    chain_to_start: list[Node] = [scene.root]
+    chain_to_start: list[Node] = [tree.root]
     for seg in _segs(path):
         chain_to_start.append(chain_to_start[-1].child(seg))
     out: list[SolidView] = []
@@ -301,7 +301,7 @@ def render_perspective_png(
 ) -> bytes:
     """A pinhole-camera wireframe of the solids, seen from where the caller says.
 
-    `eye` and `look_at` are [x, y, z] mm in the scene frame; when omitted, the
+    `eye` and `look_at` are [x, y, z] mm in the tree frame; when omitted, the
     camera backs away from the bounding box along a corner direction. Solids draw
     as their extrusion edges; cuts dashed; geometry behind the camera is clipped.
     """
@@ -429,22 +429,22 @@ def _dashed_line(drw, a, b, color, dash: int = 5) -> None:
 
 # --- standard registration: geometry as content, natives as accelerators --------
 
-def _bb(scene: Scene, p: str) -> dict:
-    b = bbox(realize(scene, p))
+def _bb(tree: Tree, p: str) -> dict:
+    b = bbox(realize(tree, p))
     if b is None:
         raise ValueError(f"'{p}' has no solids")
     return b
 
 
 GEOMETRY_NATIVES = {
-    "geometry/volume": lambda scene, p: volume(realize(scene, p)),
-    "geometry/bbox_w": lambda scene, p: _bb(scene, p)["max"][0] - _bb(scene, p)["min"][0],
-    "geometry/bbox_d": lambda scene, p: _bb(scene, p)["max"][1] - _bb(scene, p)["min"][1],
-    "geometry/bbox_h": lambda scene, p: _bb(scene, p)["max"][2] - _bb(scene, p)["min"][2],
-    "geometry/z_min": lambda scene, p: _bb(scene, p)["min"][2],
-    "geometry/z_max": lambda scene, p: _bb(scene, p)["max"][2],
-    "geometry/clearance": lambda scene, a, b: clearance(realize(scene, a),
-                                                        realize(scene, b)),
+    "geometry/volume": lambda tree, p: volume(realize(tree, p)),
+    "geometry/bbox_w": lambda tree, p: _bb(tree, p)["max"][0] - _bb(tree, p)["min"][0],
+    "geometry/bbox_d": lambda tree, p: _bb(tree, p)["max"][1] - _bb(tree, p)["min"][1],
+    "geometry/bbox_h": lambda tree, p: _bb(tree, p)["max"][2] - _bb(tree, p)["min"][2],
+    "geometry/z_min": lambda tree, p: _bb(tree, p)["min"][2],
+    "geometry/z_max": lambda tree, p: _bb(tree, p)["max"][2],
+    "geometry/clearance": lambda tree, a, b: clearance(realize(tree, a),
+                                                        realize(tree, b)),
 }
 
 
@@ -453,7 +453,7 @@ def register_standard() -> None:
         register_native(name, fn)
 
 
-from .scene import KindDef  # noqa: E402  (kept below the natives for readability)
+from .tree import KindDef  # noqa: E402  (kept below the natives for readability)
 
 GEOMETRY_PACKAGE = Package(
     name="geometry",
