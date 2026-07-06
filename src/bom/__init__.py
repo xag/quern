@@ -34,24 +34,34 @@ from .solver import (
 from .tree import (
     DERIVED_FROM,
     SUPERSEDES,
+    USES,
     KindDef,
     Node,
+    Occurrence,
     PackageRef,
     Rule,
     RuleResult,
     Bom,
+    TreeStore,
+    definition,
     delete_node,
+    explode,
     find_nodes,
     get_node,
     is_superseded,
     lineage,
     register_native,
+    resolve_params,
+    rollup,
     run_rules,
     semantics_at,
     set_node,
     superseders,
+    tally,
+    users,
 )
 from .library import Library, Package, solver_blob, validate_package
+from .store import SqliteStore
 
 # geometry is NOT re-exported here: it is a domain package, reached as `bom.geometry`,
 # not a citizen of the substrate's surface. Importing that submodule installs its
@@ -59,11 +69,12 @@ from .library import Library, Package, solver_blob, validate_package
 
 __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
-    "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
-    "Bom", "SolverDef", "SolverError", "DERIVED_FROM", "SUPERSEDES",
+    "KindDef", "Library", "Node", "Occurrence", "Package", "PackageRef", "Rule",
+    "RuleResult", "Bom", "SolverDef", "SolverError", "SqliteStore", "TreeStore",
+    "DERIVED_FROM", "SUPERSEDES", "USES",
     "solver_blob", "validate_package",
-    "delete_node", "find_nodes", "get_node", "is_superseded",
-    "lineage", "load_blob", "path_allowed", "register_native",
-    "run_rules", "run_solver", "save_blob",
-    "semantics_at", "set_node", "stamp", "superseders",
+    "definition", "delete_node", "explode", "find_nodes", "get_node",
+    "is_superseded", "lineage", "load_blob", "path_allowed", "register_native",
+    "resolve_params", "rollup", "run_rules", "run_solver", "save_blob",
+    "semantics_at", "set_node", "stamp", "superseders", "tally", "users",
 ]
