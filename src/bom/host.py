@@ -1,13 +1,18 @@
 """bom.host — the reusable MCP host: one `tree_*` surface over any Workspace.
 
-The generic Business Object Model tools (navigate, author, render, check, solve,
-package) are the same verbs whatever the domain. This module registers them once
-against a `Workspace` — the few seams a domain must provide: its live bom, its
-effective read view (its own derived overlays plus pinned library packages), the
-guard on which branches are writable, persistence, its solver blob store, its
-library, and its starter vocabulary. A consumer provides the first Workspace; a
-second domain is the next. One endpoint can host several by resolving a different
-Workspace per call — the same code, no shared datastore.
+The generic Business Object Model tools (navigate, author, check, solve, package)
+are the same verbs whatever the domain. This module registers them once against a
+`Workspace` — the few seams a domain must provide: its live bom, its effective read
+view (its own derived overlays plus pinned library packages), the guard on which
+branches are writable, persistence, its solver blob store, its library, and its
+starter vocabulary. A consumer provides the first Workspace; a second domain is the
+next. One endpoint can host several by resolving a different Workspace per call — the
+same code, no shared datastore.
+
+Rendering is a domain concern, not a generic verb: a spatial domain draws PNGs of
+shapes, a mind map draws a graph. So the geometry tools (`tree_render`, `tree_measure`)
+live in `bom.geometry_host.register_geometry_tools`, which a shape-carrying domain
+opts into alongside this — the generic surface here stays geometry-free.
 
 Importing this needs the MCP SDK: install `bom[host]`.
 """
@@ -18,9 +23,9 @@ import base64
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from mcp.server.fastmcp import FastMCP, Image
+from mcp.server.fastmcp import FastMCP
 
-from . import geometry, library as librarymod, solver as solvermod, tree as treemod
+from . import library as librarymod, solver as solvermod, tree as treemod
 from .library import Library
 from .tree import Bom, KindDef
 
@@ -128,24 +133,6 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         return f"deleted '{path}' ({len(node.children)} children went with it)"
 
     @mcp.tool()
-    def tree_render(path: str = "", eye: list[float] | None = None,
-                    look_at: list[float] | None = None, fov_deg: float = 50,
-                    views: list[str] | None = None) -> Image:
-        """Render a branch as a PNG from the viewpoint YOU choose: `eye` and
-        `look_at` are [x, y, z] mm in the tree frame, `fov_deg` the field of view —
-        a perspective wireframe (solid = material, dashed = cuts; behind-camera
-        geometry clipped). Omit `eye` for a default corner view. Pass `views`
-        (['top','front','left']) for flat drafting projections instead."""
-        ws = get_ws()
-        if isinstance(ws, str):
-            raise ValueError(ws)
-        solids = geometry.realize(ws.effective(), path)
-        png = (geometry.render(solids, views, fmt="png") if views
-               else geometry.render_perspective(solids, eye, look_at, fov_deg,
-                                                fmt="png"))
-        return Image(data=png, format="png")
-
-    @mcp.tool()
     def tree_vocabulary(kind: str | None = None, description: str | None = None,
                         params: dict[str, str] | None = None,
                         links: dict[str, str] | None = None) -> str:
@@ -227,35 +214,21 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
 
     @mcp.tool()
     def tree_check(path: str = "") -> str:
-        """Run every applicable rule at or under `path`, plus a geometry summary
-        (bounding box, signed volume estimate) of the branch."""
+        """Run every applicable rule at or under `path` — the domain's data checks.
+        Structural only; domain summaries (e.g. geometry's bounding box / volume via
+        tree_measure) are registered by the domain's own tools, not here."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        tree = ws.effective()
+        results = treemod.run_rules(ws.effective(), path)
+        if not results:
+            return "no rules apply — register some with tree_rule."
         lines = []
-        try:
-            solids = geometry.realize(tree, path)
-            bb = geometry.bbox(solids)
-            if bb is not None:
-                w = bb["max"][0] - bb["min"][0]
-                d = bb["max"][1] - bb["min"][1]
-                h = bb["max"][2] - bb["min"][2]
-                lines.append(f"bbox: {w:g} x {d:g} x {h:g} mm; "
-                             f"volume ~ {geometry.volume(solids) / 1e9:.4f} m3 "
-                             f"({len(solids)} solids)")
-            else:
-                lines.append("no solids in this branch yet")
-        except ValueError as e:
-            lines.append(str(e))
-        results = treemod.run_rules(tree, path)
         for r in results:
             state = "PASS" if r.ok else "FAIL"
             where = f" @ {r.node}" if r.node else ""
             detail = f" ({r.detail})" if r.detail else ""
             lines.append(f"{state} {r.rule}{where}{detail}")
-        if not results:
-            lines.append("no rules apply — register some with tree_rule.")
         return "\n".join(lines)
 
     @mcp.tool()
