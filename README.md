@@ -47,8 +47,8 @@ safety only; everything that *means* something is content:
   each node you read (`semantics_at`).
 - **Rules**: a tiny safe expression language (no eval). Builtins are structural
   (`param`, `nodes`, `params_of`, `count`, `sum`, `len`, `ctx`, `superseded`,
-  arithmetic, comparisons, booleans) plus **one bridge to meaning:
-  `solve('contract', …)`**.
+  `uses`, `where_used`, `rollup`, `tally`, arithmetic, comparisons, booleans)
+  plus **one bridge to meaning: `solve('contract', …)`**.
 - **Solvers**: sandboxed WASM (wasmtime: fuel + memory caps, zero imports, no
   clock/net) that *propose* — outputs stamped `derived` with the code hash —
   and never write the tree. Content-addressed blobs; clients may fetch and run
@@ -72,10 +72,29 @@ safety only; everything that *means* something is content:
 kind *is* stays vocabulary (data); the only meanings frozen into the substrate are
 the handful of relations every consumer would otherwise re-implement and get wrong —
 `grounded` (may I act on this value?), `supersedes` (which node do we currently
-hold?), and `derived_from` (what does this rest on, and what must fall when it
-changes?). Provenance was once a fixed four-word epistemics; it is now a free label
-plus that one `grounded` predicate — the label is the domain's to name, the verb is
-the core's to enforce.
+hold?), `derived_from` (what does this rest on, and what must fall when it
+changes?), and `uses` (what is this an instance of?). Provenance was once a fixed
+four-word epistemics; it is now a free label plus that one `grounded` predicate —
+the label is the domain's to name, the verb is the core's to enforce.
+
+**Reuse reads through `uses`.** A node that links `uses -> [definition]` is a
+*usage*: params it does not carry resolve through the definition (usage always
+wins), its kind inherits when empty, and `explode()` grafts the definition's
+children under the usage — cycle-refused, dangling-refused. One definition, many
+occurrences: what a bill of materials calls part reuse, kept a verb. The folds a
+BOM lives on take their nouns as data — `rollup(under, 'qty', 'cost')` is a costed
+bill, `tally(under, 'fastener', 'qty')` a where-used count — so the core multiplies
+and sums without ever learning the word "qty". `where_used` is one indexed query,
+like `superseded`.
+
+**Scale is a choice of store, never a change of model.** Every verb runs against
+the `TreeStore` protocol: `Bom` satisfies it in memory (the default, right for
+design-sized trees), `bom.store.SqliteStore` satisfies it on disk with real
+indexes — path ranges for walks, a kind column, a link table behind
+supersession/where-used — plus WAL snapshot reads. The same call sites serve a
+hundred-node design and a hundred-thousand-line bill; a consumer opens a store
+instead of loading a Bom and changes nothing else. Multi-user change workflow
+stays consumer code: the substrate stores, it does not arbitrate.
 
 **Evaluation is pure**: rules and solvers see the tree slice and the
 caller-supplied `context`, nothing else — every evaluation is deterministic and
