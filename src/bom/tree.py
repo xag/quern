@@ -28,6 +28,12 @@ from .solver import SolverDef
 # exactly like Quantity.tolerance_mm. The core still assigns them no meaning.
 _LEGACY_PAYLOAD_KEYS = ("shape", "transform")
 
+# The reserved structural verbs: link names the core reads (unlike every other link
+# name, whose meaning is domain data). They are *verbs a consumer branches on*, not
+# nouns a domain names — the only kind of meaning the substrate is allowed to fix.
+SUPERSEDES = "supersedes"      # A links supersedes->[B]: A replaces B; B is not current
+DERIVED_FROM = "derived_from"  # A links derived_from->[B]: A was computed from B (lineage)
+
 
 class Node(BaseModel):
     """One BOM line: a component, an assembly, or anything the vocabulary defines."""
@@ -127,16 +133,19 @@ def get_node(tree: Bom, path: str) -> Node | None:
 
 def find_nodes(tree: Bom, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
-               under: str = "", limit: int = 20) -> list[tuple[str, Node]]:
+               under: str = "", current_only: bool = False,
+               limit: int = 20) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
     given filter. `query` is a case-insensitive substring over id, name, kind and
     meta values; `kind` and `has_param` match exactly; `links_to` matches any link
-    target (a path, exact); `under` scopes the search to a branch. Purely
-    structural — the search knows no more about kinds than the tree does."""
+    target (a path, exact); `under` scopes the search to a branch; `current_only`
+    drops nodes some other node supersedes — the "what do we hold now?" query.
+    Purely structural — the search knows no more about kinds than the tree does."""
     start = get_node(tree, under)
     if start is None:
         return []
     q = query.lower() if query else None
+    stale = _superseded_set(tree) if current_only else None
     out: list[tuple[str, Node]] = []
 
     def visit(node: Node, path: str) -> None:
@@ -148,13 +157,55 @@ def find_nodes(tree: Bom, query: str | None = None, kind: str | None = None,
                     and (kind is None or node.kind == kind)
                     and (has_param is None or has_param in node.params)
                     and (links_to is None
-                         or any(links_to in v for v in node.links.values()))):
+                         or any(links_to in v for v in node.links.values()))
+                    and (stale is None or path not in stale)):
                 out.append((path, node))
         for c in node.children:
             visit(c, f"{path}/{c.id}" if path else c.id)
 
     visit(start, under.strip("/"))
     return out
+
+
+# --- the reserved structural verbs: supersession and lineage --------------------
+#
+# Two relations the core reads by name, where every other link is opaque data. Each
+# answers a question a flat, append-only record cannot without being re-read whole:
+# "what do we currently hold?" (supersession) and "where did this come from?"
+# (lineage). A node declares them like any link; these readers, the `current_only`
+# filter above, and the superseded() rule builtin are what make them load-bearing.
+
+def _superseded_set(tree: Bom) -> set[str]:
+    stale: set[str] = set()
+    for _, n in _iter_paths(tree.root, ""):
+        stale.update(n.links.get(SUPERSEDES, []))
+    return stale
+
+
+def superseders(tree: Bom, path: str) -> list[str]:
+    """Paths of nodes that declare (via the reserved `supersedes` link) that they
+    replace `path`. Non-empty ⇒ `path` is superseded — no longer current belief."""
+    return sorted(p for p, n in _iter_paths(tree.root, "")
+                  if path in n.links.get(SUPERSEDES, []))
+
+
+def is_superseded(tree: Bom, path: str) -> bool:
+    """True iff some node supersedes `path`. The current-belief predicate a check or
+    query keys on to keep only what still stands."""
+    return path in _superseded_set(tree)
+
+
+def lineage(tree: Bom, path: str) -> list[str]:
+    """What `path` was derived from: the union of its node-level `derived_from` link
+    and the `derived_from` of every value it carries. The traversable half of
+    provenance — walk it to find what a change upstream should invalidate."""
+    node = get_node(tree, path)
+    if node is None:
+        return []
+    refs = set(node.links.get(DERIVED_FROM, []))
+    for q in node.params.values():
+        refs.update(q.derived_from)
+    return sorted(refs)
 
 
 def semantics_at(tree: Bom, path: str, depth: int | None = None) -> dict[str, Any]:
@@ -376,6 +427,7 @@ def _env(tree: Bom, context: dict[str, Any] | None = None,
         "count": lambda p: len((get_node(tree, p) or Node(id="_")).children),
         "nodes": nodes,                       # structural query: paths by kind/branch
         "params_of": params_of,               # a param across many nodes -> list
+        "superseded": lambda p: is_superseded(tree, p),  # current-belief verb
         "ctx": ctx,                           # caller-supplied evaluation payload
         "abs": abs, "min": min, "max": max,
         "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),
