@@ -159,10 +159,13 @@ def _validate_output(out: Any) -> dict[str, Any]:
 
 def stamp(proposals: list[dict[str, Any]], solver_name: str, blob_sha: str,
           path: str) -> list[dict[str, Any]]:
-    """Attach the ready-to-apply Quantity to each proposal: provenance 'derived',
-    source naming the exact code and slice that produced it — auditable, and
-    invalidatable the day the inputs change."""
+    """Attach the ready-to-apply Quantity to each proposal: provenance 'derived'
+    (never grounded — only as good as its inputs), source naming the exact code and
+    slice that produced it, and `derived_from` carrying the input slice as
+    machine-usable lineage — auditable, and invalidatable the day the inputs change."""
     src = f"solver {solver_name}@{blob_sha[:8]} on '{path}'"
     return [{**p, "quantity": {"value": p["value"], "provenance": "derived",
-                               "source": src, **({"note": p["note"]} if "note" in p else {})}}
+                               "grounded": False, "source": src,
+                               "derived_from": [path],
+                               **({"note": p["note"]} if "note" in p else {})}}
             for p in proposals]
