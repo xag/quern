@@ -20,6 +20,7 @@ Importing this needs the MCP SDK: install `bom[host]`.
 from __future__ import annotations
 
 import base64
+import json
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
@@ -77,9 +78,11 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     @mcp.tool(structured_output=True)
     def tree_get(path: str = "", depth: int | None = None) -> dict[str, Any]:
         """Read the BOM at `path` (default: whole tree), pruned to `depth` levels if
-        given. Each slice arrives with its own semantics (the kinds present, the
-        rules that apply). A workspace may expose derived branches (recomputed from
-        their source on every read) — inspect and link to them, don't edit."""
+        given. Each slice arrives with its own semantics: the kinds present (with
+        the operations they afford — full contract at operation://{kind}/{name}),
+        the rules that apply, the solvers whose reads cover the slice. A workspace
+        may expose derived branches (recomputed from their source on every read) —
+        inspect and link to them, don't edit."""
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
@@ -135,12 +138,16 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     @mcp.tool()
     def tree_vocabulary(kind: str | None = None, description: str | None = None,
                         params: dict[str, str] | None = None,
-                        links: dict[str, str] | None = None) -> str:
+                        links: dict[str, str] | None = None,
+                        operations: dict[str, dict[str, Any]] | None = None) -> str:
         """The tree's semantics, as data. No arguments: list every kind defined
         (stored + pinned packages + the domain's starter kinds). With kind +
         description: define or refine what that kind means, and optionally what its
-        params/links stand for. Nothing branches on kinds — they mean exactly what
-        this vocabulary says."""
+        params/links stand for and what `operations` it affords — name:
+        {contract, description, params_doc, medium}, binding the kind to a solver
+        contract that makes sense on it (fetch the full contract at
+        operation://{kind}/{name}, execute with tree_solve). Nothing branches on
+        kinds — they mean exactly what this vocabulary says."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
@@ -151,21 +158,32 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                       *(k for k in ws.starter_vocabulary() if k.kind not in have)]
             return "\n".join(f"[{k.kind}] {k.description}"
                              + (f" params: {k.params}" if k.params else "")
-                             + (f" links: {k.links}" if k.links else "") for k in merged)
+                             + (f" links: {k.links}" if k.links else "")
+                             + (f" operations: {sorted(k.operations)}"
+                                if k.operations else "") for k in merged)
         if description is None:
             entry = next((k for k in voc if k.kind == kind), None)
             return (f"[{entry.kind}] {entry.description} params: {entry.params} "
-                    f"links: {entry.links}") if entry else f"kind '{kind}' is not defined."
+                    f"links: {entry.links}"
+                    + (f" operations: {sorted(entry.operations)}"
+                       if entry.operations else "")
+                    ) if entry else f"kind '{kind}' is not defined."
+        ops = ({name: treemod.OperationDef.model_validate(o)
+                for name, o in operations.items()}
+               if operations is not None else None)
         entry = next((k for k in voc if k.kind == kind), None)
         if entry is None:
             voc.append(KindDef(kind=kind, description=description,
-                               params=params or {}, links=links or {}))
+                               params=params or {}, links=links or {},
+                               operations=ops or {}))
         else:
             entry.description = description
             if params is not None:
                 entry.params = params
             if links is not None:
                 entry.links = links
+            if ops is not None:
+                entry.operations = ops
         ws.save()
         return f"defined kind '{kind}'"
 
@@ -293,6 +311,29 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if isinstance(ws, str):
             raise ValueError(ws)
         return librarymod.solver_blob(ws.blob_dir, ws.library, sha)
+
+    @mcp.resource("operation://{kind}/{name}", name="Operation contract",
+                  mime_type="application/json")
+    def operation_contract(kind: str, name: str) -> str:
+        """The full contract behind an operation a slice's semantics surfaced:
+        the operation's binding plus the solver descriptor its `contract` resolves
+        to in this workspace (None when nothing provides it yet). Execute through
+        the existing verb — tree_solve(contract, path) — or fetch the module at
+        solver://{sha} and run it client-side."""
+        ws = get_ws()
+        if isinstance(ws, str):
+            raise ValueError(ws)
+        eff = ws.effective()
+        have = {k.kind for k in eff.vocabulary}
+        merged = [*eff.vocabulary,
+                  *(k for k in ws.starter_vocabulary() if k.kind not in have)]
+        entry = next((k for k in merged if k.kind == kind), None)
+        if entry is None or name not in entry.operations:
+            raise ValueError(f"no operation '{name}' on kind '{kind}'")
+        op = entry.operations[name]
+        solver = next((s for s in eff.solvers if s.name == op.contract), None)
+        return json.dumps({"kind": kind, "operation": name, **op.model_dump(),
+                           "solver": solver.model_dump() if solver else None})
 
     @mcp.tool(structured_output=True)
     def tree_solve(name: str, path: str = "", params: dict[str, Any] | None = None) -> dict[str, Any]:
