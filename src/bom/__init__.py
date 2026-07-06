@@ -14,7 +14,14 @@ The substrate knows nothing of its consumers: a domain is a package plus the cod
 that embeds this library — never a reference from inside it.
 """
 
-from .provenance import Provenance, Quantity, design_target, inferred, measured
+from .provenance import (
+    Provenance,
+    Quantity,
+    derived,
+    design_target,
+    inferred,
+    measured,
+)
 from .solver import (
     SolverDef,
     SolverError,
@@ -25,6 +32,8 @@ from .solver import (
     stamp,
 )
 from .tree import (
+    DERIVED_FROM,
+    SUPERSEDES,
     KindDef,
     Node,
     PackageRef,
@@ -34,36 +43,27 @@ from .tree import (
     delete_node,
     find_nodes,
     get_node,
+    is_superseded,
+    lineage,
     register_native,
     run_rules,
     semantics_at,
     set_node,
+    superseders,
 )
 from .library import Library, Package, solver_blob, validate_package
-from .geometry import (
-    GEOMETRY_PACKAGE,
-    Shape,
-    SolidView,
-    Transform,
-    bbox,
-    clearance,
-    realize,
-    register_standard,
-    render_perspective_png,
-    render_png,
-    volume,
-)
 
-register_standard()  # geometry contracts get their native implementations
+# geometry is NOT re-exported here: it is a domain package, reached as `bom.geometry`,
+# not a citizen of the substrate's surface. Importing that submodule installs its
+# geometry/* natives; `import bom` alone pulls in no domain, no Pillow, no registration.
 
 __all__ = [
-    "Provenance", "Quantity", "design_target", "inferred", "measured",
+    "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
     "KindDef", "Library", "Node", "Package", "PackageRef", "Rule", "RuleResult",
-    "Bom", "SolverDef", "SolverError",
-    "GEOMETRY_PACKAGE", "Shape", "SolidView", "Transform", "register_standard",
+    "Bom", "SolverDef", "SolverError", "DERIVED_FROM", "SUPERSEDES",
     "solver_blob", "validate_package",
-    "bbox", "clearance", "delete_node", "find_nodes", "get_node", "load_blob",
-    "path_allowed", "realize", "register_native", "render_perspective_png",
-    "render_png", "run_rules", "run_solver", "save_blob", "semantics_at",
-    "set_node", "stamp", "volume",
+    "delete_node", "find_nodes", "get_node", "is_superseded",
+    "lineage", "load_blob", "path_allowed", "register_native",
+    "run_rules", "run_solver", "save_blob",
+    "semantics_at", "set_node", "stamp", "superseders",
 ]
