@@ -61,7 +61,12 @@ safety only; everything that *means* something is content:
   contracts (`geometry/volume`, `bbox_*`, `clearance`, …); the Python here is
   its first-class native implementation, registered behind the same names
   (`register_native`). A native is an optimisation of content, never a
-  semantics of its own.
+  semantics of its own. It is reached as the `bom.geometry` package, **not** the
+  substrate's top-level namespace — importing it installs its natives, so a plain
+  `import bom` pulls in no domain. Rendering (`render`, `render_perspective`, with
+  the encoding `fmt` a data argument, not a name) is the package's own presentation,
+  deliberately not a contract: it returns bytes for a human, never a value into the
+  tree.
 
 **The core fixes verbs a consumer branches on, never nouns a domain names.** What a
 kind *is* stays vocabulary (data); the only meanings frozen into the substrate are

@@ -237,9 +237,13 @@ _TEXT = (92, 103, 118)
 _BG = (255, 255, 255)
 
 
-def render_png(solids: list[SolidView], views: list[str], px: int = 480) -> bytes:
-    """The requested orthographic views side by side, as one PNG (flat drafting
-    projections; use render_perspective_png for a chosen viewpoint)."""
+def render(solids: list[SolidView], views: list[str], px: int = 480,
+           fmt: str = "png") -> bytes:
+    """The requested orthographic views side by side (flat drafting projections;
+    use render_perspective for a chosen viewpoint). `fmt` is the encoding — a data
+    argument, not a name: "png" today, the seam where svg/others would slot in."""
+    if fmt != "png":
+        raise ValueError(f"unsupported render format '{fmt}' — only 'png' so far")
     from PIL import Image, ImageDraw
 
     views = [v for v in views if v in VIEWS] or ["top"]
@@ -292,19 +296,23 @@ def _project(s: SolidView, view: str) -> list[list[float]]:
     return [[lo, s.z0], [hi, s.z0], [hi, s.z1], [lo, s.z1]]
 
 
-def render_perspective_png(
+def render_perspective(
     solids: list[SolidView],
     eye: list[float] | None = None,
     look_at: list[float] | None = None,
     fov_deg: float = 50.0,
     px: int = 640,
+    fmt: str = "png",
 ) -> bytes:
     """A pinhole-camera wireframe of the solids, seen from where the caller says.
 
     `eye` and `look_at` are [x, y, z] mm in the tree frame; when omitted, the
     camera backs away from the bounding box along a corner direction. Solids draw
     as their extrusion edges; cuts dashed; geometry behind the camera is clipped.
+    `fmt` is the encoding (data, not a name): "png" today, the seam for others.
     """
+    if fmt != "png":
+        raise ValueError(f"unsupported render format '{fmt}' — only 'png' so far")
     from PIL import Image, ImageDraw
 
     centre, radius = _scene_sphere(solids)
@@ -479,3 +487,9 @@ GEOMETRY_PACKAGE = Package(
         for name in GEOMETRY_NATIVES
     ],
 )
+
+
+# Importing the geometry package installs its geometry/* natives — the cost falls on
+# consumers that actually reach for shapes, not on every `import bom`. Idempotent, so
+# a consumer may also call register_standard() explicitly (as invest does for its own).
+register_standard()
