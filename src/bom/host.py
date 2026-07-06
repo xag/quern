@@ -188,8 +188,10 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                   path: str | None = None, remove: bool = False) -> str:
         """The tree's checks, as data. No arguments: list the rules. With name +
         expr: register one — a boolean expression whose builtins are STRUCTURAL only
-        (param, nodes, params_of, count, sum/len/abs/min/max, ctx, and/or/not) plus
-        one bridge to meaning: solve('contract', args…), e.g.
+        (param, nodes, params_of, count, sum/len/abs/min/max, ctx, superseded,
+        uses/where_used and the reuse folds rollup(under, mult, value) /
+        tally(under, kind, mult) — mult/value name params, data not schema —
+        and/or/not) plus one bridge to meaning: solve('contract', args…), e.g.
         solve('geometry/bbox_h', 'pieces/x'). Contracts come from packages. Scope
         with `kind` (per node of that kind; its params + `self` in scope) or `path`;
         neither = global. Rules run in tree_check; `remove` deletes one."""
