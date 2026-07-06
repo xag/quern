@@ -44,7 +44,12 @@ safety only; everything that *means* something is content:
   `derived_from` lineage), named links, optional shape payload, children.
   Path-addressed, partially updatable.
 - **Vocabulary**: what kinds mean — prose, registered at runtime, discovered with
-  each node you read (`semantics_at`).
+  each node you read (`semantics_at`). A kind may also declare `operations` —
+  name → `{contract, description, params_doc, medium}` — binding it to solver
+  contracts that make sense on it, so every read answers "what is this, what
+  must hold, what can be computed here". Capability attaches to what a node
+  *means*, as data: nodes get affordances everywhere the kind appears, the tool
+  surface stays closed, and the core never branches on an operation name.
 - **Rules**: a tiny safe expression language (no eval). Builtins are structural
   (`param`, `nodes`, `params_of`, `count`, `sum`, `len`, `ctx`, `superseded`,
   `uses`, `where_used`, `rollup`, `tally`, arithmetic, comparisons, booleans)

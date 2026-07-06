@@ -38,6 +38,7 @@ from .tree import (
     KindDef,
     Node,
     Occurrence,
+    OperationDef,
     PackageRef,
     Rule,
     RuleResult,
@@ -69,7 +70,8 @@ from .store import SqliteStore
 
 __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
-    "KindDef", "Library", "Node", "Occurrence", "Package", "PackageRef", "Rule",
+    "KindDef", "Library", "Node", "Occurrence", "OperationDef", "Package",
+    "PackageRef", "Rule",
     "RuleResult", "Bom", "SolverDef", "SolverError", "SqliteStore", "TreeStore",
     "DERIVED_FROM", "SUPERSEDES", "USES",
     "solver_blob", "validate_package",
