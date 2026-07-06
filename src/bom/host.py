@@ -93,17 +93,21 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     @mcp.tool(structured_output=True)
     def tree_find(query: str | None = None, kind: str | None = None,
                   has_param: str | None = None, links_to: str | None = None,
-                  under: str = "", limit: int = 20) -> dict[str, Any]:
+                  under: str = "", current_only: bool = False,
+                  limit: int = 20) -> dict[str, Any]:
         """Search the BOM instead of walking it — when the user names an element,
         locate it in one call. `query` matches id/name/kind/meta (case-insensitive
         substring); `kind`/`has_param` match exactly; `links_to` finds every node
-        referencing a path; `under` scopes to a branch. Returns paths + a one-line
-        summary each; then tree_get the one you meant. Purely structural."""
+        referencing a path; `under` scopes to a branch; `current_only` drops nodes
+        another node supersedes (the "what do we hold now?" query). Returns paths +
+        a one-line summary each; then tree_get the one you meant. Purely structural."""
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
-        hits = treemod.find_nodes(ws.effective(), query, kind, has_param, links_to,
-                                  under, limit)
+        hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
+                                  has_param=has_param, links_to=links_to,
+                                  under=under, current_only=current_only,
+                                  limit=limit)
         return {"matches": [
             {"path": p, "kind": n.kind or None, "name": n.name or None,
              "shape": (n.payload.get("shape") or {}).get("op"),
@@ -136,8 +140,9 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if isinstance(ws, str):
             raise ValueError(ws)
         solids = geometry.realize(ws.effective(), path)
-        png = (geometry.render_png(solids, views) if views
-               else geometry.render_perspective_png(solids, eye, look_at, fov_deg))
+        png = (geometry.render(solids, views, fmt="png") if views
+               else geometry.render_perspective(solids, eye, look_at, fov_deg,
+                                                fmt="png"))
         return Image(data=png, format="png")
 
     @mcp.tool()
