@@ -24,17 +24,25 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from .tree import KindDef, Node, Rule, Bom, run_rules
+from .tree import KindDef, Node, PackageRef, Rule, Bom, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
 
 
 class Package(BaseModel):
-    """One versioned bundle of semantics, self-demonstrating via its examples."""
+    """One versioned bundle of semantics, self-demonstrating via its examples.
+
+    `requires` lets a package depend on and extend others — exact versions only,
+    so a pin (direct or transitive) means the same thing forever. No ranges, no
+    resolver algebra: organic innovation favors fork-or-republish over dependency
+    SAT solving. Extension needs no machinery beyond precedence: redefining a
+    dependency's kind or re-implementing a contract name already wins for whoever
+    sits nearer in the closure."""
 
     name: str
     version: str
     description: str = ""
     publisher: str = ""
+    requires: list[PackageRef] = Field(default_factory=list)
     vocabulary: list[KindDef] = Field(default_factory=list)
     rules: list[Rule] = Field(default_factory=list)
     solvers: list[SolverDef] = Field(default_factory=list)
@@ -79,7 +87,7 @@ class Library:
         for s in package.solvers:
             if s.name in wasm_blobs:
                 s.blob = save_blob(self.blob_dir, wasm_blobs[s.name])
-        log = validate_package(package, self.blob_dir)
+        log = validate_package(package, self.blob_dir, self)
 
         path = self._path(package.name, package.version)
         if path.exists():
@@ -95,18 +103,39 @@ class Library:
         return log
 
     def resolve(self, tree: Bom, strict: bool = True) -> list[Package]:
-        """The pinned packages, in pin order. A dangling pin raises when strict —
-        a silent hole in the semantics is worse than an error — but read paths may
-        pass strict=False to keep serving while tree_package reports the hole."""
-        out = []
-        for ref in tree.packages:
+        """The pinned packages and their dependency closure, in deterministic
+        order: each pin followed depth-first by its requires, already-seen
+        skipped — so a package precedes its dependencies and `effective`'s
+        precedence fold makes the extender win over what it extends.
+
+        A dangling reference (pin or require) raises when strict — a silent hole
+        in the semantics is worse than an error — as does a diamond conflict
+        (two exact versions of one name in the closure). Read paths may pass
+        strict=False to keep serving while tree_package reports the hole; there
+        the first version encountered wins."""
+        out: list[Package] = []
+        chosen: dict[str, str] = {}
+
+        def visit(ref: PackageRef, via: str) -> None:
+            if ref.name in chosen:
+                if chosen[ref.name] != ref.version and strict:
+                    raise ValueError(
+                        f"diamond conflict: {ref.name}@{chosen[ref.name]} and "
+                        f"{ref.name}@{ref.version} ({via}) are both in the "
+                        "closure — exact versions only, republish against one")
+                return
             pkg = self.get(ref.name, ref.version)
             if pkg is None:
                 if strict:
-                    raise ValueError(f"pinned package {ref.name}@{ref.version} "
+                    raise ValueError(f"{ref.name}@{ref.version} ({via}) "
                                      "is not in the library")
-                continue
+                return
+            chosen[ref.name] = ref.version
             out.append(pkg)
+            for req in pkg.requires:
+                visit(req, f"required by {ref.name}@{ref.version}")
+        for ref in tree.packages:
+            visit(ref, "pinned")
         return out
 
     def effective(self, tree: Bom, strict: bool = True) -> Bom:
@@ -132,19 +161,33 @@ class Library:
         return eff
 
 
-def validate_package(package: Package, blob_dir: Path) -> list[str]:
+def validate_package(package: Package, blob_dir: Path,
+                     library: Library | None = None) -> list[str]:
     """The publish gate: a package must demonstrate itself.
 
     Every rule must be *exercised* by the package's own examples (at least one
     binding) and pass on all of them; every solver blob must exist, hash true and
-    export the ABI. Raises ValueError with the first failure; returns the proof
-    log when everything holds.
+    export the ABI. The examples run against the package's dependency closure —
+    the chain's vocabulary, rules and solvers in scope, the package's own on top —
+    so a package that extends another proves itself in the semantics it will
+    actually live in, and its examples must satisfy the layers beneath too.
+    Raises ValueError with the first failure; returns the proof log when
+    everything holds.
     """
     log: list[str] = []
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
 
-    stage = Bom(vocabulary=package.vocabulary, rules=package.rules)
+    stage = Bom(vocabulary=package.vocabulary, rules=package.rules,
+                solvers=package.solvers, packages=package.requires)
+    if package.requires:
+        if library is None:
+            raise ValueError("the package declares requires but there is no "
+                             "library to resolve them against")
+        closure = library.resolve(stage)  # dangling require / diamond raise here
+        log.append("closure: " + ", ".join(f"{p.name}@{p.version}" for p in closure)
+                   + " staged beneath the package's own semantics")
+        stage = library.effective(stage)
     stage.root.children = [n.model_copy(deep=True) for n in package.examples]
     results = run_rules(stage)
     exercised = {r.rule for r in results}
