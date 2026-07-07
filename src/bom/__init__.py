@@ -23,6 +23,7 @@ from .provenance import (
     measured,
 )
 from .solver import (
+    ArtifactDef,
     SolverDef,
     SolverError,
     load_blob,
@@ -72,7 +73,8 @@ __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
     "KindDef", "Library", "Node", "Occurrence", "OperationDef", "Package",
     "PackageRef", "Rule",
-    "RuleResult", "Bom", "SolverDef", "SolverError", "SqliteStore", "TreeStore",
+    "RuleResult", "Bom", "ArtifactDef", "SolverDef", "SolverError", "SqliteStore",
+    "TreeStore",
     "DERIVED_FROM", "SUPERSEDES", "USES",
     "solver_blob", "validate_package",
     "definition", "delete_node", "explode", "find_nodes", "get_node",

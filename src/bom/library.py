@@ -209,9 +209,13 @@ def validate_package(package: Package, blob_dir: Path,
             log.append(f"solver '{s.name}' is a native contract — trusted server "
                        "code, outside the sandbox gate")
             continue
-        wasm = load_blob(blob_dir, s.blob)  # exists + hashes true
-        _check_abi(wasm, s.name)
-        log.append(f"solver '{s.name}' @ {s.blob[:12]}… meets the ABI")
+        blob = load_blob(blob_dir, s.blob)  # exists + hashes true
+        if s.medium == "wasm":
+            _check_abi(blob, s.name)
+            log.append(f"solver '{s.name}' @ {s.blob[:12]}… meets the ABI")
+        else:  # presentation or instructions: content-addressed, never executed here
+            log.append(f"artifact '{s.name}' ({s.medium}) @ {s.blob[:12]}… stored — "
+                       "serves experience/guidance, never derived values")
     return log
 
 
