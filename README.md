@@ -53,10 +53,14 @@ safety only; everything that *means* something is content:
   clock/net) that *propose* — outputs stamped `derived` with the code hash —
   and never write the tree. Content-addressed blobs; clients may fetch and run
   them locally (same artefact, same ABI).
-- **Library**: versioned, immutable packages `{vocabulary, rules, solvers,
-  examples}` — publication is proof-gated (rules must be exercised by the
-  package's own examples and pass; modules must meet the ABI). A `Bom` pins
-  `name@version`; local content always wins over packages.
+- **Library**: versioned, immutable packages `{requires, vocabulary, rules,
+  solvers, examples}` — publication is proof-gated (rules must be exercised by
+  the package's own examples and pass, with the `requires` closure staged
+  beneath; modules must meet the ABI). A package extends others by requiring
+  them — exact versions only, no ranges, fork-or-republish over resolver
+  algebra — and a `Bom` pin pulls the whole closure, nearer layers winning;
+  local content always wins over packages. Two versions of one name in a
+  closure is a diamond conflict, refused at pin time.
 - **Standard contracts**: `geometry@1` documents shape conventions and solver
   contracts (`geometry/volume`, `bbox_*`, `clearance`, …); the Python here is
   its first-class native implementation, registered behind the same names

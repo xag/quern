@@ -333,12 +333,17 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                      publish: dict[str, Any] | None = None) -> str:
         """The semantic package library — capitalized vocabulary, rules and solvers,
         shared across every account on this server. No arguments: list the library
-        and this workspace's pins. install='name@version' pins a package (its
-        semantics apply, your own entries always winning); uninstall removes the pin.
-        publish submits {name, version, description, vocabulary, rules, solvers:
-        [{name, description, reads, wasm_b64}], examples}. Publishing is proof-gated:
-        every rule must be exercised by the package's own examples and pass; every
-        solver must meet the ABI. Versions are immutable — ship a new one to evolve."""
+        and this workspace's pins. install='name@version' pins a package — its whole
+        dependency closure applies (its requires, transitively), your own entries
+        always winning; a broken closure (missing dep, two versions of one name) is
+        refused at pin time. uninstall removes the pin. publish submits {name,
+        version, description, requires: [{name, version}], vocabulary, rules,
+        solvers: [{name, description, reads, wasm_b64}], examples}. Publishing is
+        proof-gated: every rule must be exercised by the package's own examples and
+        pass — examples run with the requires closure staged beneath, so extending
+        packages prove themselves in the semantics they will live in; every solver
+        must meet the ABI. requires pin exact versions of already-published
+        packages. Versions are immutable — ship a new one to evolve."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
@@ -357,6 +362,8 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 pkg = librarymod.Package(
                     name=publish["name"], version=publish["version"],
                     description=publish.get("description", ""), publisher=ws.label,
+                    requires=[treemod.PackageRef.model_validate(r)
+                              for r in publish.get("requires", [])],
                     vocabulary=[KindDef.model_validate(k) for k in publish.get("vocabulary", [])],
                     rules=[treemod.Rule.model_validate(r) for r in publish.get("rules", [])],
                     solvers=defs,
@@ -373,10 +380,16 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             if lib.get(pname, version) is None:
                 return f"no {pname}@{version} in the library"
             pins = ws.bom.packages
-            pins[:] = [p for p in pins if p.name != pname]
-            pins.append(treemod.PackageRef(name=pname, version=version))
+            trial = [p for p in pins if p.name != pname]
+            trial.append(treemod.PackageRef(name=pname, version=version))
+            try:  # refuse a broken closure loudly at pin time, not on first read
+                lib.resolve(Bom(packages=trial))
+            except ValueError as e:
+                return f"not pinned: {e}"
+            pins[:] = trial
             ws.save()
-            return f"pinned {pname}@{version} — its semantics apply here now (yours win)"
+            return (f"pinned {pname}@{version} — its semantics (and its requires' "
+                    "closure) apply here now, yours winning")
         if uninstall is not None:
             pins = ws.bom.packages
             before = len(pins)
@@ -393,7 +406,10 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 f"{name}@{v} — {pkg.description or '(no description)'} "
                 f"[{len(pkg.vocabulary)} kinds, {len(pkg.rules)} rules, "
                 f"{len(pkg.solvers)} solvers, {len(pkg.examples)} examples] "
-                f"by {pkg.publisher or '?'}" for v, pkg in entries)
+                f"by {pkg.publisher or '?'}"
+                + (" requires: " + ", ".join(f"{r.name}@{r.version}"
+                                             for r in pkg.requires)
+                   if pkg.requires else "") for v, pkg in entries)
         listing = lib.list()
         pins = {p.name: p.version for p in ws.bom.packages}
         lines = []
@@ -406,6 +422,11 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             if pname not in dict(listing):
                 lines.append(f"[{pname}] PIN DANGLES: @{version} pinned but the "
                              "package is not in the library")
+        if not any("PIN DANGLES" in line for line in lines):
+            try:  # the transitive hole a per-pin check misses: requires + diamonds
+                lib.resolve(ws.bom)
+            except ValueError as e:
+                lines.append(f"CLOSURE BROKEN: {e}")
         return "\n".join(lines) if lines else \
             "the library is empty — publish the first package with publish={...}"
 
