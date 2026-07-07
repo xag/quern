@@ -490,6 +490,74 @@ def tally(tree: Bom | TreeStore, under: str, kind: str, mult: str,
     return total
 
 
+# --- traces as data: ordering over event subtrees --------------------------------
+#
+# A scenario is a subtree whose children are events, and rules quantify over it
+# like any other slice — so a behavioral claim ("after checkout, the confirmation
+# email precedes the charge") is a rule, its exercising scenario is an example,
+# and tree_check is the model checker. These are the ordering verbs that make
+# such predicates expressible: structural only — document order and sibling
+# order. What an 'event' or a 'scenario' *is* stays vocabulary; the grammar never
+# grows a domain noun.
+
+def is_before(tree: Bom | TreeStore, a: str, b: str) -> bool:
+    """True iff `a` precedes `b` in document order (pre-order walk) — the trace
+    predicate. Sibling events compare by child order; nested ones by the walk.
+    A path that names nothing raises: an ordering claim over a hole is a broken
+    rule, not a passing one."""
+    order = {p: n for n, (p, _) in enumerate(tree.walk(""))}
+    for p in (a, b):
+        if "/".join(_segs(p)) not in order:
+            raise ValueError(f"no node at '{p}'")
+    return order["/".join(_segs(a))] < order["/".join(_segs(b))]
+
+
+def _sibling_paths(tree: Bom | TreeStore, path: str) -> tuple[list[str], int]:
+    segs = _segs(path)
+    if not segs:
+        raise ValueError("the root has no siblings")
+    pp = "/".join(segs[:-1])
+    sibs = [f"{pp}/{cid}" if pp else cid for cid in tree.children(pp)]
+    norm = "/".join(segs)
+    if norm not in sibs:
+        raise ValueError(f"no node at '{path}'")
+    return sibs, sibs.index(norm)
+
+
+def preceding(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list[str]:
+    """The sibling paths before `path`, in order — what already happened when it
+    occurred, when the parent is a scenario. `kind` filters, read through
+    definitions like `tally` reads it."""
+    sibs, i = _sibling_paths(tree, path)
+    out = sibs[:i]
+    return out if kind is None else [s for s in out
+                                     if _resolved_kind(tree, s) == kind]
+
+
+def following(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list[str]:
+    """The sibling paths after `path`, in order — the symmetric of `preceding`."""
+    sibs, i = _sibling_paths(tree, path)
+    out = sibs[i + 1:]
+    return out if kind is None else [s for s in out
+                                     if _resolved_kind(tree, s) == kind]
+
+
+def child_index(tree: Bom | TreeStore, path: str) -> int:
+    """`path`'s position among its parent's children — sequence indexing."""
+    return _sibling_paths(tree, path)[1]
+
+
+def child_at(tree: Bom | TreeStore, parent: str, i: int) -> str:
+    """The path of the `i`-th child of `parent` — the inverse of `child_index`.
+    Out of range raises: indexing past the trace is a broken rule."""
+    ids = tree.children(parent)
+    i = int(i)
+    if not 0 <= i < len(ids):
+        raise ValueError(f"no child {i} at '{parent}' ({len(ids)} children)")
+    pp = "/".join(_segs(parent))
+    return f"{pp}/{ids[i]}" if pp else ids[i]
+
+
 def semantics_at(tree: Bom | TreeStore, path: str, depth: int | None = None) -> dict[str, Any]:
     """The meaning of a slice of the tree, discovered with the slice itself.
 
@@ -691,6 +759,13 @@ def _env(tree: Bom | TreeStore, context: dict[str, Any] | None = None,
         "where_used": lambda p: users(tree, p),          # ...and its symmetric
         "rollup": lambda under, mult, value: rollup(tree, under, mult, value),
         "tally": lambda under, kind, mult: tally(tree, under, kind, mult),
+        # the trace verbs: ordering over event subtrees, structural only
+        "before": lambda a, b: is_before(tree, a, b),
+        "preceding": lambda p, kind=None: preceding(tree, p, kind),
+        "following": lambda p, kind=None: following(tree, p, kind),
+        "index": lambda p: child_index(tree, p),
+        "at": lambda parent, i: child_at(tree, parent, i),
+        "parent": lambda p: "/".join(_segs(p)[:-1]),
         "ctx": ctx,                           # caller-supplied evaluation payload
         "abs": abs, "min": min, "max": max,
         "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),

@@ -52,8 +52,9 @@ safety only; everything that *means* something is content:
   surface stays closed, and the core never branches on an operation name.
 - **Rules**: a tiny safe expression language (no eval). Builtins are structural
   (`param`, `nodes`, `params_of`, `count`, `sum`, `len`, `ctx`, `superseded`,
-  `uses`, `where_used`, `rollup`, `tally`, arithmetic, comparisons, booleans)
-  plus **one bridge to meaning: `solve('contract', …)`**.
+  `uses`, `where_used`, `rollup`, `tally`, the trace verbs `before`,
+  `preceding`, `following`, `index`, `at`, `parent`, arithmetic, comparisons,
+  booleans) plus **one bridge to meaning: `solve('contract', …)`**.
 - **Solvers**: sandboxed WASM (wasmtime: fuel + memory caps, zero imports, no
   clock/net) that *propose* — outputs stamped `derived` with the code hash —
   and never write the tree. Content-addressed blobs; clients may fetch and run
@@ -114,6 +115,15 @@ stays consumer code: the substrate stores, it does not arbitrate.
 **Evaluation is pure**: rules and solvers see the tree slice and the
 caller-supplied `context`, nothing else — every evaluation is deterministic and
 replayable (what makes backtesting structural for time-series consumers).
+
+**Traces are data too.** A scenario is a subtree whose children are events, and
+rules quantify over it like any other slice — the trace verbs (`before`,
+`preceding`, `following`, `index`, `at`, `parent`) make ordering claims
+expressible in the same grammar, and `tree_check` is the model checker: a
+TLA+-lite whose specs ship as proof-gated packages. A behavioral claim becomes
+a rule, its exercising scenario the example that proves it at publish, and
+purity makes every old scenario a permanent regression proof against whatever
+implements the spec next.
 
 - **Host** (`bom.host`, extra `bom[host]`): registers the generic `tree_*` MCP
   tools once over a **`Workspace`** — the few seams a domain provides (its live
