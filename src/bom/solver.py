@@ -9,6 +9,16 @@ text) and *proposals* (param values), each proposal stamped `derived` with the
 solver's identity, and the caller decides what to apply with an ordinary tree_set.
 The server never learns what the solver means; it meters it and files its output.
 
+The blob store is medium-general: one content-addressed channel serves every
+capability an artifact can carry — `wasm` (universal compute, the ABI below),
+`web` (a self-contained HTML/JS bundle a host renders against a node slice, for
+a human), `prose` (instructions for an agent working with the generic verbs).
+The medium is data on the descriptor (`SolverDef.medium`); the store neither
+knows nor cares. One rule is code, because it is the purity boundary: only
+`wasm` output may enter the tree as `derived` — `web` and `prose` return
+experience and guidance, never values. Whatever a user does in a web bundle
+comes back through tree_set under the host's guard, stamped as user input.
+
 ABI (deliberately tiny, any guest language can meet it):
     (export "memory")  a linear memory
     (export "alloc")   (func (param $len i32) (result i32)) — guest allocator
@@ -34,17 +44,24 @@ MAX_OUTPUT_BYTES = 4 * 2**20
 
 
 class SolverDef(BaseModel):
-    """One solver's descriptor — the code itself lives in the blob store, or, for a
-    standard contract, in a first-class native implementation registered under the
-    same name (`native=True`, no blob)."""
+    """One artifact's descriptor — the content itself lives in the blob store, or,
+    for a standard contract, in a first-class native implementation registered
+    under the same name (`native=True`, no blob). `medium` names what the blob
+    carries — 'wasm' is the only medium the core executes (and the only one whose
+    output may enter the tree as `derived`); 'web' and 'prose' are served
+    verbatim for hosts and agents to interpret."""
 
     name: str
     description: str = ""
-    blob: str = ""  # sha256 of the wasm module; empty for native contracts
+    blob: str = ""  # sha256 of the content; empty for native contracts
+    medium: str = "wasm"
     native: bool = False
     reads: list[str] = Field(default_factory=list)  # branch prefixes it may see
     params_doc: dict[str, str] = Field(default_factory=dict)
     fuel: int = DEFAULT_FUEL
+
+
+ArtifactDef = SolverDef  # the descriptor generalized past compute; one store, one shape
 
 
 class SolverError(ValueError):
@@ -52,21 +69,33 @@ class SolverError(ValueError):
 
 
 # --- content-addressed blob store ----------------------------------------------
+#
+# Medium-agnostic: the hash is the identity whatever the content. New blobs are
+# stored bare (`{sha}`); `{sha}.wasm` is read too, so stores that predate the
+# generalization keep serving without migration.
+
+def _blob_path(blob_dir: Path, sha: str) -> Path | None:
+    # legacy name first: stores that predate the generalization keep their exact
+    # semantics, tamper-refusal on the .wasm copy included
+    for name in (f"{sha}.wasm", sha):
+        if (blob_dir / name).exists():
+            return blob_dir / name
+    return None
+
 
 def save_blob(blob_dir: Path, data: bytes) -> str:
     if len(data) > MAX_WASM_BYTES:
-        raise SolverError(f"module too large ({len(data)} bytes > {MAX_WASM_BYTES})")
+        raise SolverError(f"artifact too large ({len(data)} bytes > {MAX_WASM_BYTES})")
     sha = hashlib.sha256(data).hexdigest()
     blob_dir.mkdir(parents=True, exist_ok=True)
-    path = blob_dir / f"{sha}.wasm"
-    if not path.exists():
-        path.write_bytes(data)
+    if _blob_path(blob_dir, sha) is None:
+        (blob_dir / sha).write_bytes(data)
     return sha
 
 
 def load_blob(blob_dir: Path, sha: str) -> bytes:
-    path = blob_dir / f"{sha}.wasm"
-    if not path.exists():
+    path = _blob_path(blob_dir, sha)
+    if path is None:
         raise SolverError(f"no blob {sha[:12]}… in the store")
     data = path.read_bytes()
     if hashlib.sha256(data).hexdigest() != sha:

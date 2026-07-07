@@ -252,22 +252,32 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     @mcp.tool()
     def tree_solver(name: str | None = None, description: str = "",
                     wasm_b64: str | None = None, reads: list[str] | None = None,
-                    params_doc: dict[str, str] | None = None, remove: bool = False) -> str:
-        """The tree's solvers, as data — code you submit, run in a sandbox. No
-        arguments: list them. With name + wasm_b64 + reads: register one. Stored by
-        content hash; `reads` declares the only branch prefixes it may see. ABI:
-        export 'memory', 'alloc(len)->ptr', 'run(ptr,len)->(ptr<<32|len)'; input
-        JSON {path, slice, params}; output {diagnostics:[str], proposals:[{path,
-        param, value, note?}]}. A solver never writes the tree — it proposes; you
-        apply with tree_set. Fuel + memory only: no filesystem, network or imports."""
+                    params_doc: dict[str, str] | None = None,
+                    medium: str = "wasm", remove: bool = False) -> str:
+        """The tree's artifacts, as data — capabilities you submit, stored by
+        content hash and served from artifact://{sha}. No arguments: list them.
+        With name + wasm_b64 (base64 of the content, whatever the medium): register
+        one. `medium` says what the content is — 'wasm' (default): sandboxed
+        compute; ABI: export 'memory', 'alloc(len)->ptr',
+        'run(ptr,len)->(ptr<<32|len)'; input JSON {path, slice, params}; output
+        {diagnostics:[str], proposals:[{path, param, value, note?}]}; run it with
+        tree_solve (fuel + memory only: no filesystem, network or imports), and it
+        never writes the tree — it proposes, you apply with tree_set. 'web': a
+        self-contained HTML/JS bundle a host renders against a node slice, for the
+        user. 'prose': instructions an agent follows with the generic verbs. Only
+        wasm output may enter the tree as derived — the other media serve
+        experience and guidance, never values. `reads` declares the only branch
+        prefixes wasm may see."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
         solvers = ws.bom.solvers
         if name is None:
             if not solvers:
-                return "no solvers yet — register one with name + wasm_b64 + reads."
-            return "\n".join(f"[{s.name}] {s.blob[:12]}… reads: {', '.join(s.reads) or '(nothing)'}"
+                return "no artifacts yet — register one with name + wasm_b64."
+            return "\n".join(f"[{s.name}]"
+                             + (f" ({s.medium})" if s.medium != "wasm" else "")
+                             + f" {s.blob[:12]}… reads: {', '.join(s.reads) or '(nothing)'}"
                              + (f" — {s.description}" if s.description else "") for s in solvers)
         existing = next((s for s in solvers if s.name == name), None)
         if remove:
@@ -277,27 +287,32 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             ws.save()
             return f"removed solver '{name}' (its blob stays in the content store)"
         if wasm_b64 is None:
-            return (f"[{existing.name}] blob {existing.blob[:12]}… reads: {existing.reads} "
-                    f"params: {existing.params_doc} — {existing.description} "
-                    f"(module: solver://{existing.blob} — fetch it to run client-side)"
-                    if existing else f"no solver '{name}'")
+            return (f"[{existing.name}] ({existing.medium}) blob {existing.blob[:12]}… "
+                    f"reads: {existing.reads} params: {existing.params_doc} — "
+                    f"{existing.description} (content: artifact://{existing.blob})"
+                    if existing else f"no artifact '{name}'")
         try:
-            wasm = base64.b64decode(wasm_b64, validate=True)
+            content = base64.b64decode(wasm_b64, validate=True)
         except Exception:
             return "wasm_b64 is not valid base64"
         try:
-            sha = solvermod.save_blob(ws.blob_dir, wasm)
+            sha = solvermod.save_blob(ws.blob_dir, content)
         except solvermod.SolverError as e:
             return str(e)
         new = solvermod.SolverDef(name=name, description=description, blob=sha,
-                                  reads=reads or [], params_doc=params_doc or {})
+                                  medium=medium, reads=reads or [],
+                                  params_doc=params_doc or {})
         if existing is None:
             solvers.append(new)
         else:
             solvers[solvers.index(existing)] = new
         ws.save()
-        return (f"registered solver '{name}' @ {sha[:12]}… reading {reads or '(nothing)'} — "
-                f"invoke it with tree_solve, or fetch solver://{sha} to run it client-side")
+        if medium == "wasm":
+            return (f"registered solver '{name}' @ {sha[:12]}… reading "
+                    f"{reads or '(nothing)'} — invoke it with tree_solve, or fetch "
+                    f"artifact://{sha} to run it client-side")
+        return (f"registered {medium} artifact '{name}' @ {sha[:12]}… — serve it "
+                f"from artifact://{sha}; it proposes no values (only wasm does)")
 
     @mcp.resource("solver://{sha}", name="Solver module", mime_type="application/wasm")
     def solver_module(sha: str) -> bytes:
@@ -306,7 +321,23 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         (memory/alloc/run, JSON in and out), and apply the proposals you accept with
         tree_set, stamped provenance='derived', source 'solver <name>@<sha8>
         (client-run)'. The hash IS the identity: what you fetched is what everyone
-        else runs."""
+        else runs. (artifact://{sha} is the same store's general channel, media
+        beyond wasm included.)"""
+        ws = get_ws()
+        if isinstance(ws, str):
+            raise ValueError(ws)
+        return librarymod.solver_blob(ws.blob_dir, ws.library, sha)
+
+    @mcp.resource("artifact://{sha}", name="Artifact",
+                  mime_type="application/octet-stream")
+    def artifact_content(sha: str) -> bytes:
+        """Any stored artifact, by content hash — the one distribution channel
+        for every medium: wasm modules (run under the ABI), web bundles (render
+        against a node slice, for the user), prose skills (read and follow with
+        the generic verbs). The medium is data on the descriptor that names this
+        hash (tree_solver, or the package that ships it). Only wasm output may
+        enter the tree as derived; whatever a user does in a web bundle comes
+        back through tree_set, stamped as user input."""
         ws = get_ws()
         if isinstance(ws, str):
             raise ValueError(ws)
@@ -351,6 +382,10 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if solver is None:
             return {"error": f"no solver '{name}' — register it with tree_solver "
                              "or install a package that carries it"}
+        if solver.medium != "wasm":  # the purity boundary: only wasm proposes values
+            return {"error": f"'{name}' is a {solver.medium} artifact, not compute — "
+                             "only wasm output may enter the tree as derived. Fetch "
+                             f"artifact://{solver.blob} and interpret it host-side."}
         if not solvermod.path_allowed(solver.reads, path):
             return {"error": f"solver '{name}' declared reads {solver.reads} — "
                              f"'{path}' is outside them"}
@@ -379,11 +414,13 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         always winning; a broken closure (missing dep, two versions of one name) is
         refused at pin time. uninstall removes the pin. publish submits {name,
         version, description, requires: [{name, version}], vocabulary, rules,
-        solvers: [{name, description, reads, wasm_b64}], examples}. Publishing is
-        proof-gated: every rule must be exercised by the package's own examples and
-        pass — examples run with the requires closure staged beneath, so extending
-        packages prove themselves in the semantics they will live in; every solver
-        must meet the ABI. requires pin exact versions of already-published
+        solvers: [{name, description, reads, wasm_b64, medium: wasm|web|prose}],
+        examples}. Publishing is proof-gated: every rule must be exercised by the
+        package's own examples and pass — examples run with the requires closure
+        staged beneath, so extending packages prove themselves in the semantics
+        they will live in; every wasm solver must meet the ABI (web/prose
+        artifacts are stored content-addressed, served from artifact://{sha},
+        never executed). requires pin exact versions of already-published
         packages. Versions are immutable — ship a new one to evolve."""
         ws = get_ws()
         if isinstance(ws, str):
@@ -398,7 +435,8 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                         blobs[s["name"]] = base64.b64decode(s["wasm_b64"], validate=True)
                     defs.append(solvermod.SolverDef(
                         name=s["name"], description=s.get("description", ""),
-                        blob=s.get("blob", ""), reads=s.get("reads", []),
+                        blob=s.get("blob", ""), medium=s.get("medium", "wasm"),
+                        reads=s.get("reads", []),
                         params_doc=s.get("params_doc", {})))
                 pkg = librarymod.Package(
                     name=publish["name"], version=publish["version"],
