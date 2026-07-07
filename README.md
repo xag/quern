@@ -57,7 +57,13 @@ safety only; everything that *means* something is content:
 - **Solvers**: sandboxed WASM (wasmtime: fuel + memory caps, zero imports, no
   clock/net) that *propose* — outputs stamped `derived` with the code hash —
   and never write the tree. Content-addressed blobs; clients may fetch and run
-  them locally (same artefact, same ABI).
+  them locally (same artefact, same ABI). The store is medium-general: one
+  `artifact://{sha}` channel serves `wasm` (universal compute), `web` (a
+  self-contained bundle a host renders against a node slice, for the user) and
+  `prose` (a skill an agent follows with the generic verbs) — the medium is
+  data on the descriptor, and only `wasm` output may enter the tree as
+  `derived`. The purity boundary is the point: replayability survives exactly
+  because only the sandboxed, content-addressed medium can propose values.
 - **Library**: versioned, immutable packages `{requires, vocabulary, rules,
   solvers, examples}` — publication is proof-gated (rules must be exercised by
   the package's own examples and pass, with the `requires` closure staged
