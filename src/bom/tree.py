@@ -27,7 +27,7 @@ from typing import Any, Iterator, Protocol
 from pydantic import BaseModel, Field, model_validator
 
 from .provenance import Quantity
-from .solver import SolverDef
+from .solver import SolverDef, path_allowed
 
 # Payload keys that predate the generic `payload` field; folded in for back-compat,
 # exactly like Quantity.tolerance_mm. The core still assigns them no meaning.
@@ -73,18 +73,36 @@ class Node(BaseModel):
         return next((c for c in self.children if c.id == cid), None)
 
 
+class OperationDef(BaseModel):
+    """One capability a kind affords: a name bound to a solver contract that makes
+    sense on nodes of that kind. Pure data — the core stores, validates and serves
+    it; only hosts and agents interpret it (resolve `contract` against the
+    effective solvers and execute through the existing verbs, e.g. tree_solve).
+    `medium` names how the capability is carried — 'wasm' compute today; a free
+    label so richer media stay data too. The moment the core branches on an
+    operation name, a noun has leaked back in."""
+
+    contract: str                  # the solver name the operation resolves to
+    description: str = ""
+    params_doc: dict[str, str] = Field(default_factory=dict)
+    medium: str = "wasm"
+
+
 class KindDef(BaseModel):
     """One vocabulary entry: what a `kind` means, in prose the next client reads.
 
     This is where semantics live — registered at runtime, per tree, by whoever
     designs there. `params` and `links` document the names a node of this kind is
     expected to carry ("depth: how deep, in mm", "separates: the two it divides").
+    `operations` binds the kind to capabilities — what can be computed wherever a
+    node means this, discovered with the slice like the rest of the vocabulary.
     """
 
     kind: str
     description: str
     params: dict[str, str] = Field(default_factory=dict)
     links: dict[str, str] = Field(default_factory=dict)
+    operations: dict[str, OperationDef] = Field(default_factory=dict)
 
 
 class Rule(BaseModel):
@@ -476,7 +494,9 @@ def semantics_at(tree: Bom | TreeStore, path: str, depth: int | None = None) -> 
     """The meaning of a slice of the tree, discovered with the slice itself.
 
     Returns the vocabulary entries for every kind present at `path` (down to
-    `depth`) and the rules that apply there — so a client learns what it is
+    `depth`) — operations included, so every read answers "what is this, what
+    must hold, what can be computed here" — the rules that apply there, and the
+    solvers whose declared `reads` cover the slice. A client learns what it is
     looking at exactly as it navigates, the way an MCP tool carries its own
     description. Nothing global to fetch, nothing to know in advance.
     """
@@ -504,6 +524,11 @@ def semantics_at(tree: Bom | TreeStore, path: str, depth: int | None = None) -> 
         out["kinds"] = voc
     if rules:
         out["rules"] = rules
+    solvers = [{"name": s.name,
+                **({"description": s.description} if s.description else {})}
+               for s in tree.solvers if path_allowed(s.reads, path)]
+    if solvers:
+        out["solvers"] = solvers
     undefined = sorted(k for k in kinds if k not in voc)
     if undefined:
         out["undefined_kinds"] = undefined  # meaning nobody wrote down yet
