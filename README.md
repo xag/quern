@@ -131,6 +131,17 @@ implements the spec next.
   its library, its starter vocabulary). One endpoint hosts several domains by
   resolving a different Workspace per call — same code, separate stores.
 
+- **Navigator** (`bom.app_host`, same `bom[host]` extra): the BOM is the shared
+  context of codesign, so the human needs the same grip on it as the model.
+  `register_app(mcp, get_ws)` serves a semantic navigator as an **MCP App**
+  (SEP-1865): a `ui://bom/navigator.html` resource plus a `tree_app` entry tool;
+  in an Apps-capable client the tree renders in-conversation — outline, kind
+  prose, params with provenance and grounding, links, rules with pass/fail —
+  and every browse or edit in the UI goes through the **same generic `tree_*`
+  tools** the model uses. `serve_dev(get_ws)` serves the identical HTML on
+  localhost for a plain browser. Deliberately not geometric: this is the
+  meaning view; shapes stay a domain concern (`bom.geometry_host`).
+
 The substrate knows nothing of its consumers. A domain lives entirely outside this
 library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
 `bom` — and domain safety invariants stay in that consumer code: meaning is data,
