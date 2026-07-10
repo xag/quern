@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>bom navigator</title>
+<style>
+:root {
+  --bg: #ffffff; --bg2: #f5f4f1; --bg3: #ecebe7; --fg: #1d1c1a; --fg2: #6b6862;
+  --line: #dcdad4; --accent: #2f6fed; --ok: #178a4c; --bad: #c73030;
+  --measured: #178a4c; --inferred: #b07a1e; --design-target: #2f6fed;
+  --derived: #7a4fd0; --chip: #e8e6e1;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #16161a; --bg2: #1e1e24; --bg3: #26262e; --fg: #e8e6e1; --fg2: #98958d;
+    --line: #33333c; --accent: #6b9aff; --ok: #4cc38a; --bad: #ee6a6a;
+    --measured: #4cc38a; --inferred: #d9a44a; --design-target: #6b9aff;
+    --derived: #a88bea; --chip: #2c2c35;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg);
+  font: 13px/1.45 ui-sans-serif, system-ui, sans-serif; height: 100vh;
+  display: flex; flex-direction: column; overflow: hidden; }
+code, .mono { font-family: ui-monospace, Consolas, monospace; font-size: 12px; }
+header { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-bottom: 1px solid var(--line); background: var(--bg2); flex: none; }
+#wslabel { font-weight: 600; }
+.chip { background: var(--chip); border-radius: 10px; padding: 1px 8px;
+  font-size: 11px; white-space: nowrap; }
+.kind { color: var(--accent); font-weight: 600; }
+#crumbs { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap;
+  text-overflow: ellipsis; }
+#crumbs a { color: var(--fg2); text-decoration: none; cursor: pointer; }
+#crumbs a:hover { color: var(--accent); }
+#crumbs .sep { color: var(--line); margin: 0 3px; }
+#crumbs .here { color: var(--fg); font-weight: 600; }
+#searchbox { position: relative; }
+#search { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 8px; width: 230px; outline: none; }
+#search:focus { border-color: var(--accent); }
+#hits { position: absolute; right: 0; top: 30px; width: 340px; max-height: 320px;
+  overflow: auto; background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 8px; box-shadow: 0 6px 24px rgba(0,0,0,.18); display: none; z-index: 20; }
+#hits .hit { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--line); }
+#hits .hit:hover { background: var(--bg3); }
+main { flex: 1; display: flex; min-height: 0; }
+#tree { width: 270px; flex: none; overflow: auto; border-right: 1px solid var(--line);
+  padding: 8px 4px; }
+.tnode { user-select: none; }
+.trow { display: flex; align-items: center; gap: 4px; padding: 2px 6px;
+  border-radius: 6px; cursor: pointer; white-space: nowrap; }
+.trow:hover { background: var(--bg3); }
+.trow.sel { background: var(--bg3); outline: 1px solid var(--line); }
+.twist { width: 14px; flex: none; color: var(--fg2); font-size: 10px; text-align: center; }
+.tid { overflow: hidden; text-overflow: ellipsis; }
+.tkind { font-size: 10px; color: var(--accent); }
+.tkids { margin-left: 14px; }
+#node { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
+#side { width: 320px; flex: none; overflow: auto; border-left: 1px solid var(--line);
+  background: var(--bg2); display: flex; flex-direction: column; }
+.tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
+.tabs button { flex: 1; background: none; border: none; color: var(--fg2);
+  padding: 8px; cursor: pointer; font: inherit; border-bottom: 2px solid transparent; }
+.tabs button.on { color: var(--fg); border-bottom-color: var(--accent); }
+.tab { display: none; padding: 10px; overflow: auto; }
+.tab.on { display: block; }
+h1 { font-size: 17px; margin: 0 0 2px; }
+h1[contenteditable]:focus { outline: 1px solid var(--accent); border-radius: 4px; }
+.path { color: var(--fg2); margin-bottom: 10px; }
+.kinddesc { background: var(--bg2); border-left: 3px solid var(--accent);
+  padding: 8px 10px; border-radius: 0 6px 6px 0; color: var(--fg2);
+  font-style: italic; margin: 10px 0; }
+section.block { margin: 16px 0; }
+.blockhead { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+.blockhead h2 { font-size: 11px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--fg2); margin: 0; }
+.blockhead button { margin-left: auto; }
+table { border-collapse: collapse; width: 100%; }
+td, th { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line);
+  vertical-align: top; }
+th { font-size: 10px; text-transform: uppercase; letter-spacing: .06em;
+  color: var(--fg2); font-weight: 600; }
+tr.rowbtn { cursor: pointer; }
+tr.rowbtn:hover td { background: var(--bg3); }
+.prov { border-radius: 9px; padding: 0 7px; font-size: 10px; color: #fff;
+  background: var(--fg2); white-space: nowrap; }
+.prov.measured { background: var(--measured); }
+.prov.inferred { background: var(--inferred); }
+.prov.design-target { background: var(--design-target); }
+.prov.derived { background: var(--derived); }
+.gr { cursor: help; }
+.linkchip { display: inline-block; margin: 2px 4px 2px 0; cursor: pointer; }
+.linkchip:hover { color: var(--accent); }
+pre.payload { background: var(--bg2); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px; overflow: auto; margin: 0; max-height: 260px; }
+button { background: var(--bg3); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 3px 10px; cursor: pointer; font: inherit; font-size: 12px; }
+button:hover { border-color: var(--accent); }
+button.danger { color: var(--bad); }
+.kidrow { display: flex; gap: 8px; align-items: baseline; padding: 5px 8px;
+  border-radius: 6px; cursor: pointer; }
+.kidrow:hover { background: var(--bg3); }
+.muted { color: var(--fg2); }
+.kindcard { border-bottom: 1px solid var(--line); padding: 8px 2px; }
+.kindcard .kind { font-size: 13px; }
+.kindcard dl { margin: 6px 0 0; }
+.kindcard dt { font-weight: 600; font-size: 12px; }
+.kindcard dd { margin: 0 0 4px 10px; color: var(--fg2); }
+.rulecard { border-bottom: 1px solid var(--line); padding: 8px 2px; }
+.rulecard code { display: block; background: var(--bg3); border-radius: 6px;
+  padding: 6px 8px; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
+#checkout .line { padding: 2px 4px; border-radius: 4px; }
+#checkout .PASS { color: var(--ok); }
+#checkout .FAIL { color: var(--bad); font-weight: 600; }
+dialog { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 10px; padding: 16px; min-width: 380px; max-width: 90vw; }
+dialog::backdrop { background: rgba(0,0,0,.35); }
+dialog h3 { margin: 0 0 12px; font-size: 14px; }
+dialog label { display: block; margin: 8px 0 2px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--fg2); }
+dialog input, dialog select, dialog textarea { width: 100%; background: var(--bg2);
+  color: var(--fg); border: 1px solid var(--line); border-radius: 6px;
+  padding: 5px 8px; font: inherit; }
+dialog textarea { font-family: ui-monospace, Consolas, monospace; min-height: 160px; }
+dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+.err { color: var(--bad); margin-top: 8px; }
+#status { position: fixed; bottom: 10px; right: 10px; background: var(--bg3);
+  border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px;
+  font-size: 11px; color: var(--fg2); opacity: 0; transition: opacity .3s; }
+#status.show { opacity: 1; }
+</style>
+</head>
+<body>
+<header>
+  <span id="wslabel" class="chip">bom</span>
+  <nav id="crumbs"></nav>
+  <div id="searchbox">
+    <input id="search" placeholder="search id, kind, name, meta…" autocomplete="off">
+    <div id="hits"></div>
+  </div>
+</header>
+<main>
+  <aside id="tree"></aside>
+  <section id="node"><p class="muted">loading…</p></section>
+  <aside id="side">
+    <div class="tabs">
+      <button data-tab="kindstab" class="on">Kinds</button>
+      <button data-tab="rulestab">Rules</button>
+      <button data-tab="checktab">Check</button>
+    </div>
+    <div id="kindstab" class="tab on"></div>
+    <div id="rulestab" class="tab"></div>
+    <div id="checktab" class="tab">
+      <button id="runcheck">run rules on this branch</button>
+      <div id="checkout"></div>
+    </div>
+  </aside>
+</main>
+<dialog id="dlg"></dialog>
+<div id="status"></div>
+
+<script type="module">
+/* The bom semantic navigator.
+   Two transports behind one `call(tool, args)`:
+   - embedded as an MCP App (SEP-1865): @modelcontextprotocol/ext-apps bridge,
+     callServerTool against the same generic tree_* verbs the model uses;
+   - standalone in a browser: POST /rpc on the dev server (bom.app_host.serve_dev),
+     same verbs, same result envelope. One tree, two hands on it. */
+
+const $ = (s, el=document) => el.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,
+  c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+let mode = null, mcpApp = null;
+let current = { path: "", node: null, semantics: {} };
+const cache = new Map();     // path -> node slice (depth 2)
+const expanded = new Set([""]);
+
+function norm(r) {
+  if (!r) return null;
+  if (r.structuredContent) return r.structuredContent;
+  const t = r.content?.[0]?.text;
+  if (t !== undefined) { try { return JSON.parse(t); } catch { return { text: t }; } }
+  return r;
+}
+
+async function initBridge() {
+  if (window.parent !== window) {
+    try {
+      const m = await import("https://cdn.jsdelivr.net/npm/@modelcontextprotocol/ext-apps@1/dist/index.mjs");
+      mcpApp = new m.App({ name: "bom navigator", version: "1.0.0" });
+      mcpApp.ontoolresult = r => { const d = norm(r); if (d && d.id !== undefined) boot(d); };
+      await mcpApp.connect();
+      mode = "mcp";
+      return;
+    } catch (e) { console.warn("MCP bridge unavailable, falling back to HTTP", e); }
+  }
+  mode = "http";
+}
+
+async function call(name, args) {
+  if (mode === "mcp")
+    return norm(await mcpApp.callServerTool({ name, arguments: args }));
+  const res = await fetch("/rpc", { method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, arguments: args }) });
+  return norm(await res.json());
+}
+
+function flash(msg, bad=false) {
+  const el = $("#status");
+  el.textContent = msg; el.style.color = bad ? "var(--bad)" : "";
+  el.classList.add("show");
+  setTimeout(() => el.classList.remove("show"), 2200);
+}
+
+/* ---------- navigation ---------- */
+
+async function go(path) {
+  const d = await call("tree_get", { path, depth: 2 });
+  if (!d || d.error) { flash(d?.error || "load failed", true); return; }
+  cache.set(path, d);
+  current = { path, node: d, semantics: d.semantics || {} };
+  expanded.add(path);
+  renderAll();
+}
+
+function childPath(base, id) { return base ? base + "/" + id : id; }
+
+/* ---------- left pane: outline ---------- */
+
+function renderTree() {
+  const rootSlice = cache.get("") || (current.path === "" ? current.node : null);
+  const el = $("#tree"); el.innerHTML = "";
+  if (!rootSlice) return;
+  el.appendChild(outline(rootSlice, ""));
+}
+
+function outline(node, path) {
+  const wrap = document.createElement("div"); wrap.className = "tnode";
+  for (const c of node.children || []) {
+    const p = childPath(path, c.id);
+    const row = document.createElement("div");
+    row.className = "trow" + (p === current.path ? " sel" : "");
+    const hasKids = (c.children || []).length || cache.get(p)?.children?.length;
+    row.innerHTML = `<span class="twist">${hasKids ? (expanded.has(p) ? "▾" : "▸") : ""}</span>
+      <span class="tid mono">${esc(c.id)}</span>
+      ${c.kind ? `<span class="tkind">${esc(c.kind)}</span>` : ""}`;
+    row.onclick = async e => {
+      if (e.target.classList.contains("twist") && hasKids) {
+        expanded.has(p) ? expanded.delete(p) : expanded.add(p);
+        if (expanded.has(p) && !cache.get(p)) {
+          const d = await call("tree_get", { path: p, depth: 2 });
+          if (d && !d.error) cache.set(p, d);
+        }
+        renderTree();
+      } else go(p);
+    };
+    wrap.appendChild(row);
+    if (expanded.has(p)) {
+      const slice = cache.get(p) || c;
+      const kids = document.createElement("div"); kids.className = "tkids";
+      kids.appendChild(outline(slice, p));
+      wrap.appendChild(kids);
+    }
+  }
+  return wrap;
+}
+
+/* ---------- center: the node ---------- */
+
+function provBadge(q) {
+  const label = q.provenance || "";
+  const known = ["measured","inferred","design-target","derived"].includes(label);
+  const g = q.grounded
+    ? `<span class="gr" title="grounded: an observation you may act on">●</span>`
+    : `<span class="gr muted" title="not grounded">○</span>`;
+  return `<span class="prov ${known ? label : ""}">${esc(label || "?")}</span> ${g}`;
+}
+
+function renderNode() {
+  const n = current.node, path = current.path;
+  const kinds = current.semantics.kinds || {};
+  const kd = n.kind ? kinds[n.kind] : null;
+  const el = $("#node");
+
+  const params = Object.entries(n.params || {});
+  const links = Object.entries(n.links || {});
+  const payload = n.payload || {};
+  const meta = n.meta || {};
+  const kids = n.children || [];
+
+  el.innerHTML = `
+    <h1 id="nname" contenteditable="plaintext-only" spellcheck="false"
+        title="click to edit the name">${esc(n.name || n.id || "(root)")}</h1>
+    <div class="path mono">${esc(path || "/")}
+      ${n.kind ? `&nbsp;<span class="chip kind">${esc(n.kind)}</span>` : ""}</div>
+    ${kd ? `<div class="kinddesc">${esc(kd.description || "")}</div>` : ""}
+
+    <section class="block"><div class="blockhead"><h2>Params</h2>
+      <button id="addparam">+ param</button></div>
+      ${params.length ? `<table><tr><th>name</th><th>value</th><th>provenance</th><th>source</th></tr>
+        ${params.map(([k, q]) => `<tr class="rowbtn" data-param="${esc(k)}"
+            title="${esc(kd?.params?.[k] || "")}">
+          <td class="mono">${esc(k)}</td>
+          <td>${esc(q.value)}${q.unit ? " " + esc(q.unit) : ""}${q.tolerance != null ? ` <span class="muted">±${esc(q.tolerance)}</span>` : ""}</td>
+          <td>${provBadge(q)}</td>
+          <td class="muted">${esc(q.source || "")}</td></tr>`).join("")}
+      </table>` : `<span class="muted">none</span>`}
+    </section>
+
+    <section class="block"><div class="blockhead"><h2>Links</h2>
+      <button id="addlink">+ link</button></div>
+      ${links.length ? links.map(([name, targets]) => `<div>
+        <span class="muted">${esc(name)}${kd?.links?.[name] ? ` — ${esc(kd.links[name])}` : ""}:</span>
+        ${targets.map(t => `<span class="chip mono linkchip" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}
+      </div>`).join("") : `<span class="muted">none</span>`}
+    </section>
+
+    <section class="block"><div class="blockhead"><h2>Payload</h2>
+      <button id="editpayload">edit</button></div>
+      ${Object.keys(payload).length
+        ? `<pre class="payload mono">${esc(JSON.stringify(payload, null, 1))}</pre>`
+        : `<span class="muted">empty</span>`}
+    </section>
+
+    <section class="block"><div class="blockhead"><h2>Meta</h2>
+      <button id="editmeta">edit</button></div>
+      ${Object.keys(meta).length
+        ? Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)} = ${esc(v)}</span> `).join("")
+        : `<span class="muted">empty</span>`}
+    </section>
+
+    <section class="block"><div class="blockhead"><h2>Children (${kids.length})</h2>
+      <button id="addchild">+ child</button></div>
+      ${kids.map(c => `<div class="kidrow" data-go="${esc(childPath(path, c.id))}">
+        <span class="mono">${esc(c.id)}</span>
+        ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}
+        <span class="muted">${esc(c.name || "")}</span></div>`).join("")}
+    </section>
+
+    <section class="block">
+      ${path ? `<button id="delnode" class="danger">delete this node</button>` : ""}
+    </section>`;
+
+  el.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
+  $("#nname").onblur = async () => {
+    const name = $("#nname").textContent.trim();
+    if (path && name !== (n.name || "")) {
+      await call("tree_set", { path, node: { name } }); flash("name saved"); refresh();
+    }
+  };
+  el.querySelectorAll("tr[data-param]").forEach(tr =>
+    tr.onclick = () => paramDialog(tr.dataset.param, (n.params || {})[tr.dataset.param]));
+  $("#addparam").onclick = () => paramDialog("", null);
+  $("#addlink").onclick = () => linkDialog();
+  $("#editpayload").onclick = () => jsonDialog("payload", payload);
+  $("#editmeta").onclick = () => jsonDialog("meta", meta);
+  $("#addchild").onclick = () => childDialog();
+  const del = $("#delnode");
+  if (del) del.onclick = async () => {
+    if (!confirm(`Delete '${path}' and its whole branch?`)) return;
+    const r = await call("tree_delete", { path });
+    flash(r?.text || "deleted");
+    cache.clear(); go(path.split("/").slice(0, -1).join("/"));
+  };
+}
+
+async function refresh() { cache.delete(current.path); await go(current.path); }
+
+/* ---------- dialogs ---------- */
+
+function openDialog(html, onsubmit) {
+  const dlg = $("#dlg");
+  dlg.innerHTML = html + `<div class="actions">
+    <button value="cancel">cancel</button><button id="dlgok">save</button></div>
+    <div class="err" id="dlgerr"></div>`;
+  dlg.showModal();
+  $("#dlgok").onclick = async () => {
+    try { await onsubmit(dlg); dlg.close(); }
+    catch (e) { $("#dlgerr").textContent = String(e.message || e); }
+  };
+  dlg.querySelector("[value=cancel]").onclick = () => dlg.close();
+}
+
+function paramDialog(name, q) {
+  openDialog(`<h3>${name ? "edit param" : "new param"}</h3>
+    <label>name</label><input id="f_name" value="${esc(name)}" ${name ? "disabled" : ""}>
+    <label>value</label><input id="f_value" type="number" step="any" value="${esc(q?.value ?? "")}">
+    <label>unit</label><input id="f_unit" value="${esc(q?.unit ?? "")}">
+    <label>provenance</label><input id="f_prov" list="provs" value="${esc(q?.provenance ?? "measured")}">
+    <datalist id="provs"><option>measured</option><option>inferred</option>
+      <option>design-target</option><option>derived</option></datalist>
+    <label>tolerance (optional)</label><input id="f_tol" type="number" step="any" value="${esc(q?.tolerance ?? "")}">
+    <label>source (optional)</label><input id="f_src" value="${esc(q?.source ?? "")}">`,
+    async () => {
+      const pname = $("#f_name").value.trim();
+      if (!pname) throw new Error("name required");
+      const quantity = {
+        value: parseFloat($("#f_value").value),
+        unit: $("#f_unit").value, provenance: $("#f_prov").value };
+      if (Number.isNaN(quantity.value)) throw new Error("value must be a number");
+      if ($("#f_tol").value) quantity.tolerance = parseFloat($("#f_tol").value);
+      if ($("#f_src").value) quantity.source = $("#f_src").value;
+      const r = await call("tree_set", { path: current.path,
+        node: { params: { ...(current.node.params || {}), [pname]: quantity } } });
+      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
+      flash("param saved"); refresh();
+    });
+}
+
+function linkDialog() {
+  openDialog(`<h3>add link</h3>
+    <label>link name</label><input id="f_lname" placeholder="preuve, cause, uses…">
+    <label>target path</label><input id="f_ltarget" class="mono" placeholder="a/b/c">`,
+    async () => {
+      const lname = $("#f_lname").value.trim(), t = $("#f_ltarget").value.trim();
+      if (!lname || !t) throw new Error("both fields required");
+      const links = { ...(current.node.links || {}) };
+      links[lname] = [...(links[lname] || []), t];
+      const r = await call("tree_set", { path: current.path, node: { links } });
+      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
+      flash("link added"); refresh();
+    });
+}
+
+function jsonDialog(field, obj) {
+  openDialog(`<h3>edit ${field}</h3>
+    <textarea id="f_json" spellcheck="false">${esc(JSON.stringify(obj, null, 2))}</textarea>`,
+    async () => {
+      const parsed = JSON.parse($("#f_json").value);
+      const r = await call("tree_set", { path: current.path, node: { [field]: parsed } });
+      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
+      flash(field + " saved"); refresh();
+    });
+}
+
+function childDialog() {
+  const kinds = Object.keys(current.semantics.kinds || {});
+  openDialog(`<h3>new child of <span class="mono">${esc(current.path || "/")}</span></h3>
+    <label>id (path segment)</label><input id="f_id" class="mono" placeholder="my-node">
+    <label>kind</label><input id="f_kind" list="kindlist" placeholder="free text — meaning is data">
+    <datalist id="kindlist">${kinds.map(k => `<option>${esc(k)}</option>`).join("")}</datalist>
+    <label>name</label><input id="f_cname">`,
+    async () => {
+      const id = $("#f_id").value.trim();
+      if (!id) throw new Error("id required");
+      const node = {};
+      if ($("#f_kind").value.trim()) node.kind = $("#f_kind").value.trim();
+      if ($("#f_cname").value.trim()) node.name = $("#f_cname").value.trim();
+      const r = await call("tree_set", { path: childPath(current.path, id), node });
+      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
+      flash("node created"); refresh();
+    });
+}
+
+/* ---------- right pane: semantics ---------- */
+
+function renderSide() {
+  const { kinds = {}, rules = [], undefined_kinds = [] } = current.semantics;
+  $("#kindstab").innerHTML =
+    (undefined_kinds.length ? `<div class="err">no meaning written yet for:
+       ${undefined_kinds.map(esc).join(", ")} — declare with tree_vocabulary</div>` : "") +
+    (Object.keys(kinds).length ? Object.values(kinds).map(k => `
+      <div class="kindcard">
+        <span class="kind">${esc(k.kind)}</span>
+        <div class="muted">${esc(k.description || "")}</div>
+        ${k.params ? `<dl>${Object.entries(k.params).map(([p, d]) =>
+          `<dt class="mono">${esc(p)}</dt><dd>${esc(d)}</dd>`).join("")}</dl>` : ""}
+        ${k.links ? `<dl>${Object.entries(k.links).map(([l, d]) =>
+          `<dt class="mono">→ ${esc(l)}</dt><dd>${esc(d)}</dd>`).join("")}</dl>` : ""}
+      </div>`).join("")
+     : `<p class="muted">no kinds in this slice</p>`);
+
+  $("#rulestab").innerHTML = rules.length ? rules.map(r => `
+    <div class="rulecard">
+      <b>${esc(r.name)}</b> ${r.kind ? `<span class="chip kind">${esc(r.kind)}</span>` : ""}
+      <div class="muted">${esc(r.description || "")}</div>
+      <code>${esc(r.expr)}</code>
+    </div>`).join("") : `<p class="muted">no rules apply here</p>`;
+}
+
+$("#runcheck").onclick = async () => {
+  const r = await call("tree_check", { path: current.path });
+  const text = r?.text || JSON.stringify(r);
+  $("#checkout").innerHTML = text.split("\n").map(l => {
+    const cls = l.startsWith("PASS") ? "PASS" : l.startsWith("FAIL") ? "FAIL" : "";
+    return `<div class="line ${cls} mono">${esc(l)}</div>`;
+  }).join("");
+};
+
+/* ---------- header: crumbs + search ---------- */
+
+function renderCrumbs() {
+  const segs = current.path ? current.path.split("/") : [];
+  let acc = "";
+  $("#crumbs").innerHTML = `<a data-p="">${esc(wsLabel)}</a>` + segs.map((s, i) => {
+    acc += (i ? "/" : "") + s;
+    const last = i === segs.length - 1;
+    return `<span class="sep">/</span>` +
+      (last ? `<span class="here">${esc(s)}</span>` : `<a data-p="${esc(acc)}">${esc(s)}</a>`);
+  }).join("");
+  $("#crumbs").querySelectorAll("a").forEach(a => a.onclick = () => go(a.dataset.p));
+}
+
+let wsLabel = "bom", searchTimer = null;
+$("#search").oninput = () => {
+  clearTimeout(searchTimer);
+  const q = $("#search").value.trim();
+  if (!q) { $("#hits").style.display = "none"; return; }
+  searchTimer = setTimeout(async () => {
+    const r = await call("tree_find", { query: q, limit: 15 });
+    const hits = r?.matches || [];
+    $("#hits").innerHTML = hits.map(h => `<div class="hit" data-p="${esc(h.path)}">
+        <span class="mono">${esc(h.path)}</span>
+        ${h.kind ? `<span class="chip kind">${esc(h.kind)}</span>` : ""}
+        <div class="muted">${esc(h.name || "")}</div></div>`).join("")
+      || `<div class="hit muted">no match</div>`;
+    $("#hits").style.display = "block";
+    $("#hits").querySelectorAll("[data-p]").forEach(x =>
+      x.onclick = () => { $("#hits").style.display = "none"; $("#search").value = ""; go(x.dataset.p); });
+  }, 250);
+};
+document.addEventListener("click", e => {
+  if (!$("#searchbox").contains(e.target)) $("#hits").style.display = "none";
+});
+
+/* ---------- tabs ---------- */
+document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
+  document.querySelectorAll(".tabs button").forEach(x => x.classList.toggle("on", x === b));
+  document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === b.dataset.tab));
+});
+
+/* ---------- boot ---------- */
+
+function renderAll() { renderCrumbs(); renderTree(); renderNode(); renderSide(); }
+
+function boot(rootSlice) {
+  if (rootSlice.label) wsLabel = rootSlice.label;
+  $("#wslabel").textContent = wsLabel;
+  cache.set("", rootSlice);
+  current = { path: "", node: rootSlice, semantics: rootSlice.semantics || {} };
+  renderAll();
+}
+
+await initBridge();
+let d = null;
+try { d = await call("tree_app", {}); } catch {}
+if (!d || d.error) d = await call("tree_get", { path: "", depth: 2 });
+if (d && !d.error) boot(d);
+else $("#node").innerHTML = `<p class="err">${esc(d?.error || "cannot reach the workspace")}</p>`;
+</script>
+</body>
+</html>
