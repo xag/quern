@@ -491,5 +491,5 @@ GEOMETRY_PACKAGE = Package(
 
 # Importing the geometry package installs its geometry/* natives — the cost falls on
 # consumers that actually reach for shapes, not on every `import bom`. Idempotent, so
-# a consumer may also call register_standard() explicitly (as invest does for its own).
+# a consumer may also call register_standard() explicitly.
 register_standard()
