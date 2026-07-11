@@ -28,6 +28,26 @@ from .tree import KindDef, Node, PackageRef, Rule, Bom, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
 
 
+class CounterExample(BaseModel):
+    """A node a rule MUST reject: the evidence that a guard guards.
+
+    An example proves a rule does not fire on sound data. It says nothing about
+    whether the rule fires on unsound data — so a rule rotted into vacuity ('1 ==
+    1', a renamed param, a contract quietly returning 0) publishes exactly like a
+    real one, and every consumer that pins it keeps trusting it. The failure is
+    silent and open, which for a package whose whole purpose is to *reject* is the
+    only failure that matters.
+
+    `because` names the defect this node embodies. It is not decoration: it is
+    what the proof log reports, and the sentence a later reader checks the rule
+    against when they wonder what it was ever for.
+    """
+
+    rule: str        # the rule this node must trip
+    node: Node       # the defect, embodied
+    because: str = ""
+
+
 class Package(BaseModel):
     """One versioned bundle of semantics, self-demonstrating via its examples.
 
@@ -36,7 +56,11 @@ class Package(BaseModel):
     resolver algebra: organic innovation favors fork-or-republish over dependency
     SAT solving. Extension needs no machinery beyond precedence: redefining a
     dependency's kind or re-implementing a contract name already wins for whoever
-    sits nearer in the closure."""
+    sits nearer in the closure.
+
+    `examples` prove the rules pass on sound data; `counter_examples` prove they
+    fire on unsound data. A guard must ship the evidence that it guards.
+    """
 
     name: str
     version: str
@@ -47,6 +71,7 @@ class Package(BaseModel):
     rules: list[Rule] = Field(default_factory=list)
     solvers: list[SolverDef] = Field(default_factory=list)
     examples: list[Node] = Field(default_factory=list)
+    counter_examples: list[CounterExample] = Field(default_factory=list)
 
 
 class Library:
@@ -171,12 +196,25 @@ def validate_package(package: Package, blob_dir: Path,
     the chain's vocabulary, rules and solvers in scope, the package's own on top —
     so a package that extends another proves itself in the semantics it will
     actually live in, and its examples must satisfy the layers beneath too.
+
+    Examples alone prove only that a rule does not fire on sound data. A rule that
+    guards nothing passes them identically to one that guards everything, so a
+    `counter_examples` entry — a node the named rule MUST reject — is the evidence
+    that the guard guards. Each is staged alone, so the rule has to fail *on that
+    node*: a defect elsewhere in the package cannot stand in for the proof.
+
     Raises ValueError with the first failure; returns the proof log when
     everything holds.
     """
     log: list[str] = []
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
+
+    named = {r.name for r in package.rules}
+    for ce in package.counter_examples:
+        if ce.rule not in named:
+            raise ValueError(f"counter-example names rule '{ce.rule}', which this "
+                             "package does not define")
 
     stage = Bom(vocabulary=package.vocabulary, rules=package.rules,
                 solvers=package.solvers, packages=package.requires)
@@ -203,6 +241,30 @@ def validate_package(package: Package, blob_dir: Path,
     if package.rules:
         log.append(f"{len(package.rules)} rule(s) exercised by "
                    f"{len(package.examples)} example(s), all pass")
+
+    # The other half of the proof: each counter-example is staged ALONE, so the rule
+    # it names must reject THAT node. A rule that fires on something else in the
+    # package cannot borrow the credit.
+    refuted: list[str] = []
+    for ce in package.counter_examples:
+        stage.root.children = [ce.node.model_copy(deep=True)]
+        outcomes = run_rules(stage)
+        caught = [r for r in outcomes if r.rule == ce.rule and not r.ok]
+        if not caught:
+            why = ("it passes there" if any(r.rule == ce.rule for r in outcomes)
+                   else "the rule does not even bind to that node")
+            defect = ce.because or "its own counter-example"
+            raise ValueError(f"counter-example for rule '{ce.rule}' is not refuted — "
+                             f"{why}. A rule that cannot reject {defect} guards nothing")
+        refuted.append(f"{ce.rule} @ {caught[0].node}"
+                       + (f" ({ce.because})" if ce.because else ""))
+    if refuted:
+        log.append(f"{len(refuted)} rule(s) refuted by their counter-example(s): "
+                   + ", ".join(refuted))
+    unproven = sorted(named - {ce.rule for ce in package.counter_examples})
+    if unproven:
+        log.append(f"{len(unproven)} rule(s) carry no counter-example, so nothing "
+                   f"shows they reject anything: {', '.join(unproven)}")
 
     for s in package.solvers:
         if s.native:

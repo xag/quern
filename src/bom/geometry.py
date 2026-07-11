@@ -222,6 +222,76 @@ def clearance(a: list[SolidView], b: list[SolidView]) -> float:
     return math.hypot(math.hypot(gaps[0], gaps[1]), gaps[2])
 
 
+def contains(outer: list[SolidView], inner: list[SolidView], tol: float = 0.0) -> bool:
+    """Is `inner`'s bounding box within `outer`'s, allowing `tol` of overhang?
+
+    Bounding boxes, so this is an enclosure *screen*, not a proof — it catches the
+    thing that is somewhere else entirely, which is the mistake worth catching. The
+    tolerance is what lets a feature sit ON a face (straddling it) and still count
+    as belonging to the body.
+    """
+    bo, bi = bbox(outer), bbox(inner)
+    if bo is None or bi is None:
+        raise ValueError("empty branch")
+    return all(bi["min"][i] >= bo["min"][i] - tol and bi["max"][i] <= bo["max"][i] + tol
+               for i in range(3))
+
+
+def overlap(a: list[SolidView], b: list[SolidView]) -> float:
+    """Volume of the bounding-box intersection (0 = disjoint). Two bodies that must
+    not occupy the same space — rooms, parts — are wrong the moment this is > 0."""
+    ba, bb = bbox(a), bbox(b)
+    if ba is None or bb is None:
+        raise ValueError("empty branch")
+    dims = [max(0.0, min(ba["max"][i], bb["max"][i]) - max(ba["min"][i], bb["min"][i]))
+            for i in range(3)]
+    return dims[0] * dims[1] * dims[2]
+
+
+def shared_edge(a: list[SolidView], b: list[SolidView], tol: float = 1.0) -> float:
+    """Length of boundary the two branches actually share, in plan.
+
+    NOT bbox distance. Two bodies stacked apart can have a bbox clearance of zero
+    while sharing no boundary at all — so `clearance(a, b) == 0` is no evidence that
+    they adjoin, and a survey that claims they do can be wrong in exactly that way.
+    This walks the footprint edges and sums the length over which an edge of `a` is
+    collinear with an edge of `b` (within `tol`) and overlaps it. Solids whose
+    z-ranges do not overlap share nothing.
+    """
+    total = 0.0
+    for sa in (s for s in a if s.role == "add"):
+        for sb in (s for s in b if s.role == "add"):
+            if min(sa.z1, sb.z1) - max(sa.z0, sb.z0) <= 0:
+                continue  # different storeys: no shared wall
+            for ea in _edges(sa.footprint):
+                for eb in _edges(sb.footprint):
+                    total += _collinear_overlap(ea, eb, tol)
+    return total
+
+
+def _edges(pts: list[list[float]]) -> list[tuple[list[float], list[float]]]:
+    n = len(pts)
+    return [(pts[i], pts[(i + 1) % n]) for i in range(n)]
+
+
+def _collinear_overlap(ea, eb, tol: float) -> float:
+    """Length over which two segments lie on the same line (within tol) and overlap."""
+    (a0, a1), (b0, b1) = ea, eb
+    dx, dy = a1[0] - a0[0], a1[1] - a0[1]
+    length = math.hypot(dx, dy)
+    if length < tol:
+        return 0.0
+    ux, uy = dx / length, dy / length
+    # both of b's endpoints must sit on a's line (perpendicular distance within tol)
+    for p in (b0, b1):
+        if abs(-uy * (p[0] - a0[0]) + ux * (p[1] - a0[1])) > tol:
+            return 0.0
+    # project onto a's direction and intersect the two intervals
+    tb = sorted(ux * (p[0] - a0[0]) + uy * (p[1] - a0[1]) for p in (b0, b1))
+    lo, hi = max(0.0, tb[0]), min(length, tb[1])
+    return max(0.0, hi - lo)
+
+
 def _shoelace(pts: list[list[float]]) -> float:
     n = len(pts)
     return sum(pts[i][0] * pts[(i + 1) % n][1] - pts[(i + 1) % n][0] * pts[i][1]
@@ -444,6 +514,25 @@ def _bb(tree: Bom, p: str) -> dict:
     return b
 
 
+def _sorted_dims(tree: Bom, p: str) -> list[float]:
+    b = _bb(tree, p)
+    return sorted(b["max"][i] - b["min"][i] for i in range(3))
+
+
+def _pair(tree: Bom, a: str, b: str) -> tuple[list[SolidView], list[SolidView]]:
+    """Realize two branches for comparison, with `b`'s own solids removed from `a`.
+
+    `realize` flattens a whole subtree, so a feature that hangs UNDER the body it is
+    being compared against would otherwise be part of it — and every question
+    ("is the window inside the room?", "do they overlap?") would answer itself. A
+    body is compared against everything it contains except the thing in question.
+    """
+    inner = realize(tree, b)
+    outer = [s for s in realize(tree, a)
+             if not (s.path == b or s.path.startswith(f"{b}/"))]
+    return outer, inner
+
+
 GEOMETRY_NATIVES = {
     "geometry/volume": lambda tree, p: volume(realize(tree, p)),
     "geometry/bbox_w": lambda tree, p: _bb(tree, p)["max"][0] - _bb(tree, p)["min"][0],
@@ -453,6 +542,20 @@ GEOMETRY_NATIVES = {
     "geometry/z_max": lambda tree, p: _bb(tree, p)["max"][2],
     "geometry/clearance": lambda tree, a, b: clearance(realize(tree, a),
                                                         realize(tree, b)),
+    # Does this branch produce a solid at all? The predicate behind "it has a shape".
+    "geometry/realizes": lambda tree, p: float(
+        bool([s for s in realize(tree, p) if s.role == "add"])),
+    "geometry/solids": lambda tree, p: float(
+        len([s for s in realize(tree, p) if s.role == "add"])),
+    # Adjacency, told truthfully: shared boundary, not bbox proximity.
+    "geometry/shared_edge": lambda tree, a, b, tol=1.0: shared_edge(
+        *_pair(tree, a, b), tol),
+    "geometry/contains": lambda tree, a, b, tol=0.0: float(
+        contains(*_pair(tree, a, b), tol)),
+    "geometry/overlap": lambda tree, a, b: overlap(*_pair(tree, a, b)),
+    # The two smallest bbox dimensions: what has to fit through an aperture.
+    "geometry/bbox_min": lambda tree, p: _sorted_dims(tree, p)[0],
+    "geometry/bbox_mid": lambda tree, p: _sorted_dims(tree, p)[1],
 }
 
 
@@ -465,13 +568,18 @@ from .tree import KindDef  # noqa: E402  (kept below the natives for readability
 
 GEOMETRY_PACKAGE = Package(
     name="geometry",
-    version="1.0.0",
+    version="1.1.0",
     description="Shape conventions (box/prism/cylinder/mesh + booleans over "
                 "children, mm, z-up) carried in a node's payload, and the solver "
                 "contracts the rule language reaches with solve('geometry/…', path): "
-                "volume, bbox_w/d/h, z_min/z_max, clearance(a, b). Implemented "
-                "natively here; any module honouring the same contracts may replace "
-                "it.",
+                "volume, bbox_w/d/h, bbox_min/mid, z_min/z_max, clearance(a, b), "
+                "realizes(p) and solids(p) (does this branch produce a solid at all), "
+                "contains(a, b, tol) and overlap(a, b) (enclosure and collision, by "
+                "bounding box), and shared_edge(a, b, tol) — the length of boundary "
+                "two bodies actually share in plan. Note shared_edge is not clearance: "
+                "two bodies can have zero clearance and share no boundary, so only "
+                "shared_edge answers 'do these adjoin'. Implemented natively here; any "
+                "module honouring the same contracts may replace it.",
     publisher="standard library",
     vocabulary=[
         KindDef(kind="geometry", description="Convention pack, not a node kind: a "
