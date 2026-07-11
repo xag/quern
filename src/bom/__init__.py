@@ -73,6 +73,12 @@ from .store import SqliteStore
 # geometry is NOT re-exported here: it is a domain package, reached as `bom.geometry`,
 # not a citizen of the substrate's surface. Importing that submodule installs its
 # geometry/* natives; `import bom` alone pulls in no domain, no Pillow, no registration.
+#
+# `bom.grounding` follows the same discipline. Its subject *is* the substrate — the
+# grounded/tolerance/derived_from fields every Quantity already carries — but the
+# contracts that read them (grounding/untrusted, untrusted_via, depends_untrusted) are
+# still a capability a consumer opts into, and still register natives on import. The
+# atom is core; asking questions of it is a package.
 
 __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
