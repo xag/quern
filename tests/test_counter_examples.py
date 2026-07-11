@@ -82,6 +82,37 @@ def test_counter_example_must_name_a_rule_the_package_defines(tmp_path):
         validate_package(pkg("mass > 0", counter=[stray]), tmp_path, Library(tmp_path))
 
 
+def test_a_relational_defect_can_stage_the_world_it_needs(tmp_path):
+    """A defect is often relational: a design fitted against an unmeasured wall needs
+    BOTH to exist. Stage only the design and the rule still trips — but on a dangling
+    link, not an unmeasured one, and the proof would be a lie that reads like a proof.
+    """
+    import bom.grounding  # noqa: F401 -- registers grounding/*
+
+    guessed = {"value": 2500, "unit": "mm", "provenance": "inferred"}
+    measured = {"value": 2500, "unit": "mm", "provenance": "measured", "tolerance": 2}
+
+    def world(wall_param) -> Node:
+        return Node(id="wall", kind="boundary", params={"height": wall_param})
+
+    def design() -> Node:
+        return Node(id="shelf", kind="piece", links={"fits_against": ["wall"]})
+
+    p = Package(
+        name="fit", version="1", vocabulary=[KindDef(kind="piece", description="a design")],
+        rules=[Rule(name="not-cut-against-guesses", kind="piece",
+                    expr="solve('grounding/untrusted_via', self, 'fits_against') == 0",
+                    description="never cut against a dimension nobody measured")],
+        examples=[world(measured), design()],
+        counter_examples=[CounterExample(
+            rule="not-cut-against-guesses",
+            nodes=[world(guessed), design()],   # the wall EXISTS; its height is a guess
+            because="a piece scribed to a wall whose height was estimated from a photo")],
+    )
+    log = validate_package(p, tmp_path, Library(tmp_path))
+    assert any("estimated from a photo" in line for line in log)
+
+
 def test_packages_without_rules_are_unaffected(tmp_path):
     """geometry@1.0.0 ships kinds and solvers, no rules. It must still publish."""
     log = validate_package(
