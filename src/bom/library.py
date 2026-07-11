@@ -22,7 +22,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .tree import KindDef, Node, PackageRef, Rule, Bom, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
@@ -38,14 +38,29 @@ class CounterExample(BaseModel):
     silent and open, which for a package whose whole purpose is to *reject* is the
     only failure that matters.
 
-    `because` names the defect this node embodies. It is not decoration: it is
-    what the proof log reports, and the sentence a later reader checks the rule
-    against when they wonder what it was ever for.
+    `because` names the defect this embodies. It is not decoration: it is what the
+    proof log reports, and the sentence a later reader checks the rule against when
+    they wonder what it was ever for.
+
+    `nodes` is a tree state, not a single node — the same shape as `examples` — because
+    a defect is often relational: a design fitted against an unmeasured wall needs both
+    the design and the wall to exist. Staging only the design would trip the rule for
+    the wrong reason (a dangling link, not an unmeasured one) and the proof would be a
+    lie that reads like a proof.
     """
 
-    rule: str        # the rule this node must trip
-    node: Node       # the defect, embodied
+    rule: str                # the rule this state must trip
+    nodes: list[Node] = Field(default_factory=list)  # the defect, embodied
     because: str = ""
+
+    @model_validator(mode="before")
+    @classmethod
+    def _accept_single_node(cls, data: Any) -> Any:
+        """`node: {...}` is the common case — one node is one defect."""
+        if isinstance(data, dict) and "node" in data and "nodes" not in data:
+            data = dict(data)
+            data["nodes"] = [data.pop("node")]
+        return data
 
 
 class Package(BaseModel):
@@ -247,7 +262,7 @@ def validate_package(package: Package, blob_dir: Path,
     # package cannot borrow the credit.
     refuted: list[str] = []
     for ce in package.counter_examples:
-        stage.root.children = [ce.node.model_copy(deep=True)]
+        stage.root.children = [n.model_copy(deep=True) for n in ce.nodes]
         outcomes = run_rules(stage)
         caught = [r for r in outcomes if r.rule == ce.rule and not r.ok]
         if not caught:
