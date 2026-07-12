@@ -51,6 +51,44 @@ class Workspace(Protocol):
 
 Resolver = Callable[[], "Workspace | str"]
 
+_MAX_REPORTED = 8
+
+
+def _relevant(node: str, path: str) -> bool:
+    """Does a rule that ran at `node` speak about a write to `path`?
+
+    Two ways it can. It ran on the written branch itself (or something under it), or it
+    ran on a branch that CONTAINS the write — a survey-wide rule about how rooms fit
+    together has plenty to say about the room you just moved. A rule that ran somewhere
+    else entirely is somebody else's business.
+    """
+    return (node == path or node.startswith(f"{path}/")
+            or path.startswith(f"{node}/") or node == "")
+
+
+def _broke(ws: "Workspace", path: str) -> str:
+    """What the write just broke, said at the moment it breaks.
+
+    A tree whose semantics are data is exactly the kind of tree where a write should
+    tell you what it violated. Without this the rules are a thing you must remember to
+    ask about — and "must remember" is how a survey ends up with nine dimensionless
+    openings and nothing in the loop to contradict it. A workspace with no rules sees no
+    change: this says nothing when there is nothing to say.
+    """
+    try:
+        results = treemod.run_rules(ws.effective(), "")
+    except Exception:  # a broken rule must never make a write look like it failed
+        return " Render it with tree_render to see the result."
+    failed = [r for r in results if not r.ok and _relevant(r.node, path)]
+    if not failed:
+        return " Render it with tree_render to see the result."
+    lines = [f"  FAIL {r.rule}" + (f" @ {r.node}" if r.node else "")
+             + (f" ({r.detail})" if r.detail else "")
+             for r in failed[:_MAX_REPORTED]]
+    if len(failed) > _MAX_REPORTED:
+        lines.append(f"  …and {len(failed) - _MAX_REPORTED} more — tree_check for all.")
+    return "\n" + "\n".join(lines)
+
 
 def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     """Register the tree_* tools and the solver:// resource on `mcp`, each acting
@@ -65,15 +103,20 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         {shape: box {size:[w,d,h]} | prism {polygon, height} | cylinder {diameter,
         height} | mesh {uri} | union|difference|intersection over children,
         transform: {translate:[x,y,z] mm, rotate_z_deg}}. Numeric shape args may
-        name a param from any ancestor. Declare what a kind MEANS with
-        tree_vocabulary."""
+        name a param from any ancestor — so a shape written in terms of its params
+        follows them when they are corrected, and cannot disagree with them.
+        Declare what a kind MEANS with tree_vocabulary.
+
+        The write answers with any rule it broke — on the branch itself or on one
+        that contains it. Treat that as the verdict: it is the same thing tree_check
+        would tell you, said at the moment you caused it."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
         ws.assert_editable(path)
         treemod.set_node(ws.bom, path, node)
         ws.save()
-        return f"set '{path}'. Render it with tree_render to see the result."
+        return f"set '{path}'." + _broke(ws, path)
 
     @mcp.tool(structured_output=True)
     def tree_get(path: str = "", depth: int | None = None) -> dict[str, Any]:
@@ -133,7 +176,11 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws.assert_editable(path)
         node = treemod.delete_node(ws.bom, path)
         ws.save()
-        return f"deleted '{path}' ({len(node.children)} children went with it)"
+        out = f"deleted '{path}' ({len(node.children)} children went with it)"
+        # What you delete can break what remains — a room that other rooms still claim to
+        # adjoin, a boundary a design is still scribed to. The parent hears about it.
+        broke = _broke(ws, "/".join(treemod._segs(path)[:-1]))
+        return out + (broke if broke.startswith("\n") else "")
 
     @mcp.tool()
     def tree_vocabulary(kind: str | None = None, description: str | None = None,
