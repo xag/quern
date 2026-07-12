@@ -222,6 +222,70 @@ def clearance(a: list[SolidView], b: list[SolidView]) -> float:
     return math.hypot(math.hypot(gaps[0], gaps[1]), gaps[2])
 
 
+def _parent(path: str) -> str:
+    return path.rsplit("/", 1)[0] if "/" in path else ""
+
+
+def _ccw(pts: list[list[float]]) -> list[list[float]]:
+    return pts if _shoelace(pts) > 0 else list(reversed(pts))
+
+
+def evaluate(solids: list[SolidView]) -> list[SolidView]:
+    """Resolve the cuts: turn stock-and-holes into the solid that is actually there.
+
+    `realize` flattens a boolean into its operands — one `add` and its `cut`s, side by
+    side — because that is enough to measure with and to draw as a wireframe. It is not
+    enough to *see*: a door drawn as a dashed box is not a doorway, and a wall you cannot
+    see through is not a wall with a door in it.
+
+    Everything here is a vertical extrusion, which makes the boolean exact and cheap: cut
+    the z-range into slabs at every operand's floor and ceiling, and inside a slab the
+    problem is two-dimensional. Subtract the polygons, re-extrude, done. No B-rep kernel,
+    no approximation.
+
+    A cut only bites its own siblings — the operands of one `difference` node — so a hole
+    in one wall cannot punch through another that happens to stand in the same place.
+    """
+    from shapely.geometry import Polygon
+    from shapely.ops import unary_union
+
+    adds = [s for s in solids if s.role == "add"]
+    cuts = [s for s in solids if s.role == "cut"]
+    if not cuts:
+        return adds
+
+    out: list[SolidView] = []
+    for a in adds:
+        mine = [c for c in cuts if _parent(c.path) == _parent(a.path)]
+        if not mine:
+            out.append(a)
+            continue
+        breaks = sorted({a.z0, a.z1} | {z for c in mine for z in (c.z0, c.z1)
+                                        if a.z0 < z < a.z1})
+        stock = Polygon(a.footprint)
+        if not stock.is_valid:
+            stock = stock.buffer(0)
+        for lo, hi in zip(breaks, breaks[1:]):
+            here = [c for c in mine if c.z0 < hi and c.z1 > lo]  # active in this slab
+            shape = stock
+            if here:
+                holes = unary_union([Polygon(c.footprint).buffer(0) for c in here])
+                shape = stock.difference(holes)
+            if shape.is_empty:
+                continue
+            pieces = getattr(shape, "geoms", [shape])
+            for piece in pieces:
+                if piece.is_empty or piece.area <= 0:
+                    continue
+                ring = [[float(x), float(y)] for x, y in piece.exterior.coords[:-1]]
+                if len(ring) < 3:
+                    continue
+                out.append(SolidView(path=a.path, kind=a.kind, footprint=_ccw(ring),
+                                     z0=lo, z1=hi, dims=a.dims, role="add",
+                                     mesh=a.mesh))
+    return out
+
+
 def contains(outer: list[SolidView], inner: list[SolidView], tol: float = 0.0) -> bool:
     """Is `inner`'s bounding box within `outer`'s, allowing `tol` of overhang?
 
@@ -366,6 +430,29 @@ def _project(s: SolidView, view: str) -> list[list[float]]:
     return [[lo, s.z0], [hi, s.z0], [hi, s.z1], [lo, s.z1]]
 
 
+_SURFACE = (214, 219, 226)   # a neutral material: the shape is the subject, not the paint
+_EDGE = (108, 118, 132)
+_L = math.sqrt(0.4 ** 2 + 0.7 ** 2 + 0.9 ** 2)
+_LIGHT = [-0.4 / _L, -0.7 / _L, 0.9 / _L]   # a key light over the viewer's left shoulder
+
+
+def _faces(s: SolidView) -> list[tuple[list[list[float]], list[float]]]:
+    """An extrusion's faces, each with its outward normal."""
+    pts = _ccw(s.footprint)
+    n = len(pts)
+    out = [([[p[0], p[1], s.z1] for p in pts], [0.0, 0.0, 1.0]),
+           ([[p[0], p[1], s.z0] for p in reversed(pts)], [0.0, 0.0, -1.0])]
+    for i in range(n):
+        a, b = pts[i], pts[(i + 1) % n]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        normal = _norm3([dy, -dx, 0.0])  # CCW ring: outward is to the right of the edge
+        if normal is None:
+            continue
+        out.append(([[a[0], a[1], s.z0], [b[0], b[1], s.z0],
+                     [b[0], b[1], s.z1], [a[0], a[1], s.z1]], normal))
+    return out
+
+
 def render_perspective(
     solids: list[SolidView],
     eye: list[float] | None = None,
@@ -373,17 +460,33 @@ def render_perspective(
     fov_deg: float = 50.0,
     px: int = 640,
     fmt: str = "png",
+    style: str = "wire",
 ) -> bytes:
-    """A pinhole-camera wireframe of the solids, seen from where the caller says.
+    """A pinhole camera on the solids, seen from where the caller says.
 
-    `eye` and `look_at` are [x, y, z] mm in the tree frame; when omitted, the
-    camera backs away from the bounding box along a corner direction. Solids draw
-    as their extrusion edges; cuts dashed; geometry behind the camera is clipped.
-    `fmt` is the encoding (data, not a name): "png" today, the seam for others.
+    `eye` and `look_at` are [x, y, z] mm in the tree frame; when omitted, the camera
+    backs away from the bounding box along a corner direction. Geometry behind the
+    camera is clipped. `fmt` is the encoding (data, not a name): "png" today.
+
+    `style` is 'wire' — extrusion edges, cuts dashed, everything visible through
+    everything — or 'solid': filled faces, back faces culled, drawn far-to-near so
+    surfaces occlude, and the booleans EVALUATED so a hole is an absence rather than a
+    dashed box.
+
+    'solid' is what makes an interior view possible, and it needs no special case to do
+    it. A body's back faces are the ones pointing away from the eye, so standing inside a
+    closed box culls every one of its faces and the box disappears — which is precisely
+    what should happen to a room's air when you stand in the room. What is left is what
+    you would actually see: the walls, from the inside, and whatever is in the room.
     """
     if fmt != "png":
         raise ValueError(f"unsupported render format '{fmt}' — only 'png' so far")
+    if style not in ("wire", "solid"):
+        raise ValueError(f"unknown style '{style}' — 'wire' or 'solid'")
     from PIL import Image, ImageDraw
+
+    if style == "solid":
+        solids = evaluate(solids)
 
     centre, radius = _scene_sphere(solids)
     if look_at is None:
@@ -406,6 +509,36 @@ def render_perspective(
         return (sum(d[i] * right[i] for i in range(3)),
                 sum(d[i] * up2[i] for i in range(3)),
                 sum(d[i] * fwd[i] for i in range(3)))
+
+    if style == "solid":
+        painted = []
+        for s in solids:
+            for poly, normal in _faces(s):
+                centre3 = [sum(p[i] for p in poly) / len(poly) for i in range(3)]
+                towards = [centre3[i] - eye[i] for i in range(3)]
+                if sum(normal[i] * towards[i] for i in range(3)) >= 0:
+                    continue  # a back face: we are looking at its far side
+                cam = [to_cam(p) for p in poly]
+                cam = _clip_polygon_near(cam, near)
+                if len(cam) < 3:
+                    continue
+                depth = sum(c[2] for c in cam) / len(cam)
+                lit = abs(sum(normal[i] * _LIGHT[i] for i in range(3)))
+                shade = 0.45 + 0.55 * lit  # ambient, so nothing is pure black
+                fill = tuple(int(c * shade) for c in _SURFACE)
+                painted.append((depth, [(c[0] / c[2] * focal, c[1] / c[2] * focal)
+                                        for c in cam], fill))
+
+        img = Image.new("RGB", (px, px), _BG)
+        if not painted:
+            ImageDraw.Draw(img).text((10, 10), "nothing in view", fill=_TEXT)
+            return _encode(img)
+        draw = ImageDraw.Draw(img)
+        half = px / 2
+        for _, poly, fill in sorted(painted, key=lambda f: -f[0]):  # far to near
+            xy = [(half + x * half, half - y * half) for x, y in poly]
+            draw.polygon(xy, fill=fill, outline=_EDGE)
+        return _encode(img)
 
     segments: list[tuple[tuple, tuple, str]] = []
     for s in solids:
@@ -472,6 +605,29 @@ def _norm3(v: list[float]) -> list[float] | None:
 def _cross(a: list[float], b: list[float]) -> list[float]:
     return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2],
             a[0] * b[1] - a[1] * b[0]]
+
+
+def _encode(img) -> bytes:
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _clip_polygon_near(poly: list[tuple], near: float) -> list[tuple]:
+    """Sutherland–Hodgman against the near plane. A face that straddles the camera has to
+    be cut, not dropped: standing in a room, the wall behind you straddles it, and so does
+    the floor under your feet."""
+    out: list[tuple] = []
+    n = len(poly)
+    for i in range(n):
+        cur, nxt = poly[i], poly[(i + 1) % n]
+        cur_in, nxt_in = cur[2] >= near, nxt[2] >= near
+        if cur_in:
+            out.append(cur)
+        if cur_in != nxt_in:
+            t = (near - cur[2]) / (nxt[2] - cur[2])
+            out.append(tuple(cur[j] + (nxt[j] - cur[j]) * t for j in range(3)))
+    return out
 
 
 def _clip_near(a: tuple, b: tuple, near: float):
