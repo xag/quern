@@ -14,6 +14,8 @@ the substrate.
 
 from __future__ import annotations
 
+import colorsys
+import hashlib
 import io
 import math
 from typing import Any
@@ -430,10 +432,24 @@ def _project(s: SolidView, view: str) -> list[list[float]]:
     return [[lo, s.z0], [hi, s.z0], [hi, s.z1], [lo, s.z1]]
 
 
-_SURFACE = (214, 219, 226)   # a neutral material: the shape is the subject, not the paint
+_SURFACE = (214, 219, 226)   # what a kindless solid is made of
 _EDGE = (108, 118, 132)
 _L = math.sqrt(0.4 ** 2 + 0.7 ** 2 + 0.9 ** 2)
 _LIGHT = [-0.4 / _L, -0.7 / _L, 0.9 / _L]   # a key light over the viewer's left shoulder
+
+
+def _kind_colour(kind: str) -> tuple[int, int, int]:
+    """A muted, stable colour per kind — so a shelf does not look like the wall behind it.
+
+    Derived from the kind's own name, not from a table: the substrate has no list of kinds
+    to consult, and a domain that invents one at runtime gets a colour for it immediately.
+    Same name, same colour, every render.
+    """
+    if not kind:
+        return _SURFACE
+    hue = (int(hashlib.sha1(kind.encode()).hexdigest()[:8], 16) % 360) / 360.0
+    r, g, b = colorsys.hls_to_rgb(hue, 0.74, 0.34)   # light and unsaturated: it is a hint
+    return (int(r * 255), int(g * 255), int(b * 255))
 
 
 def _faces(s: SolidView) -> list[tuple[list[list[float]], list[float]]]:
@@ -525,7 +541,7 @@ def render_perspective(
                 depth = sum(c[2] for c in cam) / len(cam)
                 lit = abs(sum(normal[i] * _LIGHT[i] for i in range(3)))
                 shade = 0.45 + 0.55 * lit  # ambient, so nothing is pure black
-                fill = tuple(int(c * shade) for c in _SURFACE)
+                fill = tuple(int(c * shade) for c in _kind_colour(s.kind))
                 painted.append((depth, [(c[0] / c[2] * focal, c[1] / c[2] * focal)
                                         for c in cam], fill))
 
