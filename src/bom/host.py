@@ -419,12 +419,14 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
 
     @mcp.tool(structured_output=True)
     def tree_solve(name: str, path: str = "", params: dict[str, Any] | None = None) -> dict[str, Any]:
-        """Run a registered solver on a branch it may read, in the SERVER's sandbox.
-        Returns diagnostics and proposals — each proposal carries a ready-to-apply
-        Quantity stamped provenance='derived' with the solver's identity, so a
-        computed number is distinguishable from a measured one. Nothing is written:
-        apply the proposals you accept with tree_set. Clients may instead fetch the
-        module at solver://<sha> and run the same ABI locally."""
+        """Run a registered solver on a branch it may read — sandboxed wasm, or a
+        native contract a package ships (native contracts see the effective tree;
+        wasm sees only the slice at `path`). Returns diagnostics and proposals —
+        each proposal carries a ready-to-apply Quantity stamped provenance='derived'
+        with the solver's identity, so a computed number is distinguishable from a
+        measured one. Nothing is written: apply the proposals you accept with
+        tree_set. Clients may instead fetch a wasm module at solver://<sha> and run
+        the same ABI locally."""
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
@@ -433,16 +435,35 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if solver is None:
             return {"error": f"no solver '{name}' — register it with tree_solver "
                              "or install a package that carries it"}
-        if solver.medium != "wasm":  # the purity boundary: only wasm proposes values
-            return {"error": f"'{name}' is a {solver.medium} artifact, not compute — "
-                             "only wasm output may enter the tree as derived. Fetch "
-                             f"artifact://{solver.blob} and interpret it host-side."}
         if not solvermod.path_allowed(solver.reads, path):
             return {"error": f"solver '{name}' declared reads {solver.reads} — "
                              f"'{path}' is outside them"}
         node = treemod.get_node(effective, path)
         if node is None:
             return {"error": f"no node at '{path}'"}
+        if solver.native:
+            # A first-class implementation of the contract (register_native),
+            # declared by a package with native=True. Until now these were
+            # reachable only from inside rule expressions — an agent could be
+            # judged by a contract it could never ask. Same output validation and
+            # the same stamp as wasm: trusted server code is still compute, and
+            # its output is still only as good as its inputs.
+            fn = treemod.NATIVE.get(solver.name)
+            if fn is None:
+                return {"error": f"'{name}' is a native contract this server does "
+                                 "not implement — nothing registered under that name"}
+            try:
+                out = solvermod.run_native(fn, effective, path, params)
+            except solvermod.SolverError as e:
+                return {"error": str(e)}
+            return {"solver": name, "blob": "native",
+                    "diagnostics": out["diagnostics"],
+                    **({"value": out["value"]} if "value" in out else {}),
+                    "proposals": solvermod.stamp(out["proposals"], name, "native", path)}
+        if solver.medium != "wasm":  # the purity boundary: only compute proposes values
+            return {"error": f"'{name}' is a {solver.medium} artifact, not compute — "
+                             "only wasm output may enter the tree as derived. Fetch "
+                             f"artifact://{solver.blob} and interpret it host-side."}
         try:
             wasm = librarymod.solver_blob(ws.blob_dir, ws.library, solver.blob)
             out = solvermod.run_solver(
