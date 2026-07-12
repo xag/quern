@@ -180,9 +180,14 @@ def _validate_output(out: Any) -> dict[str, Any]:
                 or not isinstance(p.get("param"), str)
                 or not isinstance(p.get("value"), (int, float))):
             raise SolverError(f"bad proposal (need path/param/value): {p}")
+        lineage = p.get("derived_from")
+        if lineage is not None and (not isinstance(lineage, list) or
+                                    not all(isinstance(d, str) for d in lineage)):
+            raise SolverError(f"derived_from must be a list of node paths: {p}")
         clean.append({"path": p["path"], "param": p["param"],
                       "value": float(p["value"]),
-                      **({"note": p["note"]} if isinstance(p.get("note"), str) else {})})
+                      **({"note": p["note"]} if isinstance(p.get("note"), str) else {}),
+                      **({"derived_from": list(lineage)} if lineage else {})})
     return {"diagnostics": list(diagnostics), "proposals": clean}
 
 
@@ -190,11 +195,33 @@ def stamp(proposals: list[dict[str, Any]], solver_name: str, blob_sha: str,
           path: str) -> list[dict[str, Any]]:
     """Attach the ready-to-apply Quantity to each proposal: provenance 'derived'
     (never grounded — only as good as its inputs), source naming the exact code and
-    slice that produced it, and `derived_from` carrying the input slice as
-    machine-usable lineage — auditable, and invalidatable the day the inputs change."""
+    slice that produced it, and `derived_from` carrying the lineage as machine-usable
+    data — auditable, and invalidatable the day the inputs change. A solver that
+    names the exact nodes a value was computed from (per-proposal `derived_from`)
+    gets that finer lineage kept; one that says nothing gets the input slice."""
     src = f"solver {solver_name}@{blob_sha[:8]} on '{path}'"
     return [{**p, "quantity": {"value": p["value"], "provenance": "derived",
                                "grounded": False, "source": src,
-                               "derived_from": [path],
+                               "derived_from": p.get("derived_from") or [path],
                                **({"note": p["note"]} if "note" in p else {})}}
             for p in proposals]
+
+
+def run_native(fn, tree, path: str, params: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Execute a native contract the way `run_solver` executes wasm: same output
+    validation, so a native answering in {diagnostics, proposals} is
+    indistinguishable from a module — and a scalar contract (the common rule
+    predicate, `f(tree, path) -> float`) is wrapped as one diagnostic plus a
+    `value`, so the same channel serves both shapes. Raises SolverError."""
+    try:
+        out = fn(tree, path, **(params or {}))
+    except SolverError:
+        raise
+    except Exception as e:
+        raise SolverError(f"native contract failed: {e}") from e
+    if isinstance(out, dict):
+        return _validate_output(out)
+    if isinstance(out, (int, float, bool)):
+        return {"diagnostics": [f"{path or '(root)'}: {float(out):g}"],
+                "proposals": [], "value": float(out)}
+    raise SolverError("native output must be {diagnostics, proposals} or a number")
