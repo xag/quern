@@ -73,58 +73,15 @@ safety only; everything that *means* something is content:
   algebra — and a `Bom` pin pulls the whole closure, nearer layers winning;
   local content always wins over packages. Two versions of one name in a
   closure is a diamond conflict, refused at pin time.
-- **Standard contracts**: `geometry@1` documents shape conventions and solver
-  contracts (`geometry/volume`, `bbox_*`, `clearance`, …); the Python here is
-  its first-class native implementation, registered behind the same names
-  (`register_native`). A native is an optimisation of content, never a
-  semantics of its own. It is reached as the `bom.geometry` package, **not** the
-  substrate's top-level namespace — importing it installs its natives, so a plain
-  `import bom` pulls in no domain. Rendering (`render`, `render_perspective`, with
-  the encoding `fmt` a data argument, not a name) is the package's own presentation,
-  deliberately not a contract: it returns bytes for a human, never a value into the
-  tree.
-
-**The core fixes verbs a consumer branches on, never nouns a domain names.** What a
-kind *is* stays vocabulary (data); the only meanings frozen into the substrate are
-the handful of relations every consumer would otherwise re-implement and get wrong —
-`grounded` (may I act on this value?), `supersedes` (which node do we currently
-hold?), `derived_from` (what does this rest on, and what must fall when it
-changes?), and `uses` (what is this an instance of?). Provenance was once a fixed
-four-word epistemics; it is now a free label plus that one `grounded` predicate —
-the label is the domain's to name, the verb is the core's to enforce.
-
-**Reuse reads through `uses`.** A node that links `uses -> [definition]` is a
-*usage*: params it does not carry resolve through the definition (usage always
-wins), its kind inherits when empty, and `explode()` grafts the definition's
-children under the usage — cycle-refused, dangling-refused. One definition, many
-occurrences: what a bill of materials calls part reuse, kept a verb. The folds a
-BOM lives on take their nouns as data — `rollup(under, 'qty', 'cost')` is a costed
-bill, `tally(under, 'fastener', 'qty')` a where-used count — so the core multiplies
-and sums without ever learning the word "qty". `where_used` is one indexed query,
-like `superseded`.
-
-**Scale is a choice of store, never a change of model.** Every verb runs against
-the `TreeStore` protocol: `Bom` satisfies it in memory (the default, right for
-design-sized trees), `bom.store.SqliteStore` satisfies it on disk with real
-indexes — path ranges for walks, a kind column, a link table behind
-supersession/where-used — plus WAL snapshot reads. The same call sites serve a
-hundred-node design and a hundred-thousand-line bill; a consumer opens a store
-instead of loading a Bom and changes nothing else. Multi-user change workflow
-stays consumer code: the substrate stores, it does not arbitrate.
-
-**Evaluation is pure**: rules and solvers see the tree slice and the
-caller-supplied `context`, nothing else — every evaluation is deterministic and
-replayable (what makes backtesting structural for time-series consumers).
-
-**Traces are data too.** A scenario is a subtree whose children are events, and
-rules quantify over it like any other slice — the trace verbs (`before`,
-`preceding`, `following`, `index`, `at`, `parent`) make ordering claims
-expressible in the same grammar, and `tree_check` is the model checker: a
-TLA+-lite whose specs ship as proof-gated packages. A behavioral claim becomes
-a rule, its exercising scenario the example that proves it at publish, and
-purity makes every old scenario a permanent regression proof against whatever
-implements the spec next.
-
+- **Standard contracts**: domains are authored in their own repos and travel the
+  registry as data (xag/bom#19): `geometry@` (xag/geometry) documents shape
+  conventions and solver contracts and ships its own native implementations —
+  installing that Python registers them; `ledger@` (xag/ledger) is pure
+  vocabulary and rules; `grounding@` (xag/grounding) authors the meaning whose
+  implementations stay HERE in `bom.grounding`, because every gate leans on
+  them: meaning is data, safety is code. A native is an optimisation of
+  content, never a semantics of its own, and a plain `import bom` pulls in no
+  domain.
 - **Host** (`bom.host`, extra `bom[host]`): registers the generic `tree_*` MCP
   tools once over a **`Workspace`** — the few seams a domain provides (its live
   bom, its effective read view, the write guard, persistence, its blob store,
@@ -140,7 +97,7 @@ implements the spec next.
   and every browse or edit in the UI goes through the **same generic `tree_*`
   tools** the model uses. `serve_dev(get_ws)` serves the identical HTML on
   localhost for a plain browser. Deliberately not geometric: this is the
-  meaning view; shapes stay a domain concern (`bom.geometry_host`).
+  meaning view; shapes stay a domain concern (`geometry.host`, in xag/geometry).
 
 The substrate knows nothing of its consumers. A domain lives entirely outside this
 library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
