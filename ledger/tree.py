@@ -35,8 +35,8 @@ import os
 from pathlib import Path
 
 import bom.grounding  # noqa: F401 — the natives; the package itself arrives by pin
-from bom import Bom, Library, Node, Quantity
-from bom.library import read_lock, sync
+from bom import Bom, Node, Quantity
+from bom.library import consume
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,26 +48,14 @@ def _unsound(value: float, unit: str, note: str) -> Quantity:
                     source=note)
 
 
-def _library() -> tuple[Library, list]:
-    """The lock decides what applies; a registry only delivers it. When one is
-    reachable ($BOM_REGISTRY, or the sibling checkout by fleet convention) the
-    cache is synced from it, proof re-run; when none is, the last synced cache
-    serves, and either way `effective` verifies the pin's digest against what
-    is actually there — offline never means unverified."""
-    refs = read_lock(_ROOT / "bom.lock")
-    cache = Library(_ROOT / ".bom" / "library")
-    registry = Path(os.environ.get("BOM_REGISTRY", _ROOT.parent / "bom-registry"))
-    if registry.exists():
-        sync(Library(registry), cache, refs)
-    return cache, refs
-
-
 def build() -> Bom:
     """bom's ledger, with ledger@0.1.0's semantics staged beneath it."""
     # The channel of #19 exists now, and the substrate is its own consumer: the ledger
     # arrives by pin — bom.lock, digest and all — never published from source. This is
-    # the line the tempdir pattern occupied in every other project, discharged.
-    lib, refs = _library()
+    # the line the tempdir pattern occupied in every other project, discharged. The
+    # sibling checkout is the fleet's registry convention; $BOM_REGISTRY overrides.
+    lib, refs = consume(_ROOT, os.environ.get("BOM_REGISTRY",
+                                              _ROOT.parent / "bom-registry"))
     bom = Bom(packages=[next(r for r in refs if r.name == "ledger")])
     bom = lib.effective(bom)
 
