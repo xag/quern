@@ -31,12 +31,14 @@ hypothesis at the end is the load-bearing claim about how to fix it.
 
 from __future__ import annotations
 
-import tempfile
+import os
 from pathlib import Path
 
+import bom.grounding  # noqa: F401 — the natives; the package itself arrives by pin
 from bom import Bom, Library, Node, Quantity
-from bom.grounding import GROUNDING_PACKAGE
-from bom.ledger import LEDGER_PACKAGE
+from bom.library import read_lock, sync
+
+_ROOT = Path(__file__).resolve().parents[1]
 
 
 def _unsound(value: float, unit: str, note: str) -> Quantity:
@@ -46,15 +48,27 @@ def _unsound(value: float, unit: str, note: str) -> Quantity:
                     source=note)
 
 
+def _library() -> tuple[Library, list]:
+    """The lock decides what applies; a registry only delivers it. When one is
+    reachable ($BOM_REGISTRY, or the sibling checkout by fleet convention) the
+    cache is synced from it, proof re-run; when none is, the last synced cache
+    serves, and either way `effective` verifies the pin's digest against what
+    is actually there — offline never means unverified."""
+    refs = read_lock(_ROOT / "bom.lock")
+    cache = Library(_ROOT / ".bom" / "library")
+    registry = Path(os.environ.get("BOM_REGISTRY", _ROOT.parent / "bom-registry"))
+    if registry.exists():
+        sync(Library(registry), cache, refs)
+    return cache, refs
+
+
 def build() -> Bom:
     """bom's ledger, with ledger@0.1.0's semantics staged beneath it."""
-    # No package channel exists yet (#19), so the only way to reach ledger@0.1.0 is to
-    # publish it from source into a library at load. When #19 lands this becomes a pin.
-    lib = Library(Path(tempfile.mkdtemp(prefix="bom-lib-")))
-    lib.publish(GROUNDING_PACKAGE, {})
-    lib.publish(LEDGER_PACKAGE, {})
-
-    bom = Bom(packages=[{"name": "ledger", "version": LEDGER_PACKAGE.version}])
+    # The channel of #19 exists now, and the substrate is its own consumer: the ledger
+    # arrives by pin — bom.lock, digest and all — never published from source. This is
+    # the line the tempdir pattern occupied in every other project, discharged.
+    lib, refs = _library()
+    bom = Bom(packages=[next(r for r in refs if r.name == "ledger")])
     bom = lib.effective(bom)
 
     bom.root.children = [
