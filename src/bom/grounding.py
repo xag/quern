@@ -13,14 +13,18 @@ publishes a claim — all three ask exactly this, and none of them should have t
 write it themselves.
 
 Counts, not booleans: a rule wants `== 0`, and a diagnostic wants to know how many.
+
+Only the IMPLEMENTATIONS live here — host safety code, registered by importing this
+module, on the substrate's clock. Their meaning (the vocabulary entry and the solver
+descriptors a tree pins) is grounding@, authored in xag/grounding and pinned by digest
+from the registry like any package. Meaning is data, safety is code; this module is
+the code half, and the substrate otherwise knows no domain (xag/bom#19).
 """
 
 from __future__ import annotations
 
-from .library import Package
 from .provenance import Quantity
-from .solver import SolverDef
-from .tree import Bom, KindDef, Node, get_node, register_native
+from .tree import Bom, Node, get_node, register_native
 
 
 def _params_under(node: Node, path: str) -> list[tuple[str, str, Quantity]]:
@@ -114,33 +118,6 @@ GROUNDING_NATIVES = {
 def register_standard() -> None:
     for name, fn in GROUNDING_NATIVES.items():
         register_native(name, fn)
-
-
-GROUNDING_PACKAGE = Package(
-    name="grounding",
-    version="1.0.0",
-    description="Contracts over the provenance atom, so a rule can ask whether a "
-                "number is safe to act on: untrusted(path, tol) counts the params "
-                "that are not grounded (or grounded too loosely); untrusted_via("
-                "path, rel, tol) asks it of whatever a node links to — the reality a "
-                "design is fitted against; depends_untrusted(path, tol) follows "
-                "derived_from lineage, because a computed value is only as good as "
-                "its inputs. Grounding is the substrate's one fixed epistemic verb; "
-                "the provenance *label* stays a domain's own word.",
-    publisher="standard library",
-    vocabulary=[
-        KindDef(kind="grounding", description="Convention pack, not a node kind: "
-                "every Quantity already carries `grounded` and `tolerance`. These "
-                "contracts only read them — count what a branch, its links, or its "
-                "lineage rests on that is not an observation."),
-    ],
-    solvers=[
-        SolverDef(name=name, native=True,
-                  description="standard grounding contract; see the package description",
-                  reads=[""])
-        for name in GROUNDING_NATIVES
-    ],
-)
 
 
 register_standard()

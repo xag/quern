@@ -9,15 +9,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# The geometry package (bom.geometry) is the only part that renders; a consumer
-# that never touches shapes never needs Pillow. Shapely evaluates the booleans: a
-# `difference` is only a real hole once somebody subtracts the polygons, and a
-# hand-rolled polygon clipper is a bug farm — this is exactly the wheel not to reinvent.
-geometry = [
-    "pillow>=10",
-    "shapely>=2",
-]
 # bom.host registers the tree_* MCP tools over a Workspace; only a server needs it.
+# (The geometry extra is gone with the geometry module: shapes live in xag/geometry now,
+# and a shape-carrying host installs that package instead — xag/bom#19.)
 host = ["mcp[cli]>=1.2"]
 
 [project.scripts]
