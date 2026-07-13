@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -242,6 +243,29 @@ def lock_refs(library: Library, pins: list[PackageRef]) -> list[PackageRef]:
     closure = library.resolve(Bom(packages=pins))
     return [PackageRef(name=p.name, version=p.version, sha256=package_digest(p))
             for p in closure]
+
+
+def consume(root: Path, registry: Path | str | None = None,
+            ) -> tuple[Library, list[PackageRef]]:
+    """Everything a consumer does at load, in one call: read `root/bom.lock`,
+    sync `root/.bom/library` from the first reachable registry (the explicit
+    argument, else $BOM_REGISTRY) with the proof re-run, and hand back the
+    cache with the locked refs — ready for `Bom(packages=...)` + `effective`.
+
+    No registry reachable is not an error: the last synced cache serves, and
+    `effective` verifies the digests against it either way — offline never
+    means unverified. An empty lock IS an error; consuming nothing is a
+    mistake, not a state.
+    """
+    refs = read_lock(root / "bom.lock")
+    if not refs:
+        raise ValueError(f"nothing locked in {root} — `bom pin name@version` "
+                         "against a registry first")
+    cache = Library(root / ".bom" / "library")
+    reg = registry or os.environ.get("BOM_REGISTRY")
+    if reg and Path(reg).exists():
+        sync(Library(Path(reg)), cache, refs)
+    return cache, refs
 
 
 def read_lock(path: Path) -> list[PackageRef]:
