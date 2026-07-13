@@ -3,7 +3,7 @@
 A project's reasoning is normally written where nothing can read it — a README caveat,
 a commit message, a comment above the function. That record is not worthless, but it is
 inert: it states a condition and then cannot notice when the condition is violated. The
-caveat "have a native speaker check this before launch" sits there being true while the
+caveat "someone had better check this before launch" sits there being true while the
 thing launches. Prose does not fire.
 
 This package makes the ledger the same kind of thing as the rest of the tree: nodes with
@@ -18,7 +18,9 @@ you write are the three every project makes and then loses:
 - a **debt** — something known-unsound that is being carried on purpose, with the condition
   that discharges it. This is the one the substrate was already equipped for: `Quantity`
   carries `grounded` ("is this an observation I may act on?"), so a debt is simply a node
-  whose params are not yet grounded, and discharging it means a human made them so.
+  whose params are not yet grounded, and discharging it means a competent reader checked
+  them and vouched. WHO is competent is the domain's business and never the substrate's:
+  grounding asks whether the thing was checked, not what kind of thing did the checking.
 
 The load-bearing rule is `nothing-unsound-passes-a-gate`. A **gate** is any point past
 which unsound things must not travel — a release, a publication, a cut, a trade. It links
@@ -91,8 +93,9 @@ VOCABULARY = [
         description="Something known-unsound, carried deliberately, with its cost stated "
         "rather than forgotten. Its params hold the unsound values and are NOT grounded "
         "— that is what makes the debt legible to `grounding/*` and therefore to a gate. "
-        "Discharging a debt is not deleting the node: it is a human grounding those "
-        "params, which is exactly the act the debt was waiting for.",
+        "Discharging a debt is not deleting the node: it is someone competent checking "
+        "those params and grounding them, which is exactly the act the debt was waiting "
+        "for. The substrate does not care who that is — only that it happened.",
     ),
     KindDef(
         kind="discharge",
@@ -150,7 +153,7 @@ RULES = [
 # A domain names its own provenance labels; these are deliberately plain.
 
 def _verified(value: float, unit: str, source: str) -> Quantity:
-    """A value a human has actually checked — the discharged end of a debt."""
+    """A value someone competent has actually checked — the discharged end of a debt."""
     return Quantity(value=value, unit=unit, provenance="verified", grounded=True,
                     source=source)
 
@@ -189,7 +192,7 @@ EXAMPLES = [
         payload={"held_because": "spot checks in the two languages we can read looked fine"},
         children=[
             Node(id="a-reader-reports-nonsense", kind="falsification",
-                 name="A native reader reports the copy as wrong or unidiomatic",
+                 name="A reader of that language reports the copy as wrong or unidiomatic",
                  payload={"claim": "One credible report of broken copy in any generated "
                                    "bundle falsifies this and the bundles must be read.",
                           "cadence": "on-report"}),
@@ -198,14 +201,14 @@ EXAMPLES = [
     Node(
         id="reviewed-bundle",
         kind="debt",
-        name="A bundle that WAS machine-generated and has since been read by a human",
-        # Discharged: a human read it, so the value is grounded. The node stays — the
-        # debt is part of the record, not something to delete once paid.
-        params={"strings": _verified(47, "string", "native reader, 2026-07")},
+        name="A bundle that WAS generated unchecked, and has since been read",
+        # Discharged: someone who reads the language read it, so the value is grounded.
+        # The node stays — the debt is part of the record, not something to delete once paid.
+        params={"strings": _verified(47, "string", "checked by a reader of that language")},
         children=[
             Node(id="read-it", kind="discharge",
-                 name="A native reader checks every string",
-                 payload={"who": "a native speaker", "done": "2026-07"}),
+                 name="Someone who reads the language checks every string",
+                 payload={"who": "any competent reader of it", "done": "2026-07"}),
         ],
     ),
     Node(
@@ -241,7 +244,7 @@ COUNTER_EXAMPLES = [
     ),
     CounterExample(
         rule="nothing-unsound-passes-a-gate",
-        because="a release that publishes a value no human ever checked",
+        because="a release that publishes a value nobody ever checked",
         # Both nodes are needed: the gate AND what it admits. Staging the gate alone
         # would trip the rule for the wrong reason — a dangling link, not an unsound
         # one — and the proof would be a lie that reads like a proof.
@@ -251,8 +254,8 @@ COUNTER_EXAMPLES = [
                  params={"strings": _unverified(47, "string", "generator")},
                  children=[
                      Node(id="read-it", kind="discharge",
-                          name="A native reader checks every string",
-                          payload={"who": "a native speaker"}),
+                          name="Someone who reads the language checks every string",
+                          payload={"who": "any competent reader of it"}),
                  ]),
             Node(id="release", kind="gate", name="Publication",
                  links={"admits": ["unread-bundle"]}),
