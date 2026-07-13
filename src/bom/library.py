@@ -235,6 +235,54 @@ class Library:
         return eff
 
 
+def lock_refs(library: Library, pins: list[PackageRef]) -> list[PackageRef]:
+    """The flattened dependency closure of `pins`, every entry hash-bearing —
+    what a lockfile records. Exact names, exact versions, exact bytes: a lock
+    that leaves any of the three open is not a lock."""
+    closure = library.resolve(Bom(packages=pins))
+    return [PackageRef(name=p.name, version=p.version, sha256=package_digest(p))
+            for p in closure]
+
+
+def sync(source: Library, dest: Library, refs: list[PackageRef]) -> list[str]:
+    """Materialize `refs` (and their solver blobs) from one library into another,
+    hash-verified — the consumer half of the channel: registry in, local cache out.
+
+    Every ref must carry its sha256; resolve refuses any whose source content
+    digests differently. Entry into `dest` is through `publish` and nowhere
+    else, so the proof gate re-runs on the consumer's machine — a registry is
+    trusted for transport, not for validation. Dependencies are published
+    first (publish resolves requires against `dest`), and a re-sync of already
+    materialized content is the identical-republish no-op.
+    """
+    hashless = [r for r in refs if not r.sha256]
+    if hashless:
+        raise ValueError("refusing to sync without content pins: "
+                         + ", ".join(f"{r.name}@{r.version}" for r in hashless)
+                         + " carry no sha256 — a lock is exact or it is not a lock")
+    closure = source.resolve(Bom(packages=refs))  # verifies every pinned hash
+    log: list[str] = []
+    done: set[tuple[str, str]] = set()
+
+    def emit(pkg: Package) -> None:
+        if (pkg.name, pkg.version) in done:
+            return
+        done.add((pkg.name, pkg.version))
+        for req in pkg.requires:
+            dep = source.get(req.name, req.version)
+            if dep is not None:  # a dangling require already raised in resolve
+                emit(dep)
+        for s in pkg.solvers:
+            if s.blob:
+                save_blob(dest.blob_dir, load_blob(source.blob_dir, s.blob))
+        dest.publish(pkg, {})
+        log.append(f"{pkg.name}@{pkg.version} sha256:{package_digest(pkg)[:12]}… "
+                   "synced, proof re-run")
+    for pkg in closure:
+        emit(pkg)
+    return log
+
+
 def validate_package(package: Package, blob_dir: Path,
                      library: Library | None = None) -> list[str]:
     """The publish gate: a package must demonstrate itself.
