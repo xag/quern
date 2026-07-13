@@ -484,7 +484,8 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         and this workspace's pins. install='name@version' pins a package — its whole
         dependency closure applies (its requires, transitively), your own entries
         always winning; a broken closure (missing dep, two versions of one name) is
-        refused at pin time. uninstall removes the pin. publish submits {name,
+        refused at pin time. The pin records the package's content digest, so it
+        keeps meaning these exact semantics even against another library. uninstall removes the pin. publish submits {name,
         version, description, requires: [{name, version}], vocabulary, rules,
         solvers: [{name, description, reads, wasm_b64, medium: wasm|web|prose}],
         examples}. Publishing is proof-gated: every rule must be exercised by the
@@ -528,19 +529,25 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             if "@" not in install:
                 return "install takes 'name@version' — see the list for versions"
             pname, version = install.rsplit("@", 1)
-            if lib.get(pname, version) is None:
+            pkg = lib.get(pname, version)
+            if pkg is None:
                 return f"no {pname}@{version} in the library"
             pins = ws.bom.packages
             trial = [p for p in pins if p.name != pname]
-            trial.append(treemod.PackageRef(name=pname, version=version))
+            # The pin records the digest of what was actually inspected, so the
+            # name keeps meaning these bytes even against a different library.
+            trial.append(treemod.PackageRef(
+                name=pname, version=version,
+                sha256=librarymod.package_digest(pkg)))
             try:  # refuse a broken closure loudly at pin time, not on first read
                 lib.resolve(Bom(packages=trial))
             except ValueError as e:
                 return f"not pinned: {e}"
             pins[:] = trial
             ws.save()
-            return (f"pinned {pname}@{version} — its semantics (and its requires' "
-                    "closure) apply here now, yours winning")
+            return (f"pinned {pname}@{version} "
+                    f"(sha256:{trial[-1].sha256[:12]}…) — its semantics (and its "
+                    "requires' closure) apply here now, yours winning")
         if uninstall is not None:
             pins = ws.bom.packages
             before = len(pins)
@@ -560,7 +567,9 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 f"by {pkg.publisher or '?'}"
                 + (" requires: " + ", ".join(f"{r.name}@{r.version}"
                                              for r in pkg.requires)
-                   if pkg.requires else "") for v, pkg in entries)
+                   if pkg.requires else "")
+                + f"\n  sha256:{librarymod.package_digest(pkg)}"
+                for v, pkg in entries)
         listing = lib.list()
         pins = {p.name: p.version for p in ws.bom.packages}
         lines = []
