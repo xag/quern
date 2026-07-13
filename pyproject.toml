@@ -20,6 +20,9 @@ geometry = [
 # bom.host registers the tree_* MCP tools over a Workspace; only a server needs it.
 host = ["mcp[cli]>=1.2"]
 
+[project.scripts]
+bom = "bom.cli:main"
+
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
