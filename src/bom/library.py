@@ -18,6 +18,7 @@ The library interprets nothing — it stores, validates and serves.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from typing import Any
@@ -89,6 +90,23 @@ class Package(BaseModel):
     counter_examples: list[CounterExample] = Field(default_factory=list)
 
 
+def package_digest(package: Package) -> str:
+    """The package's content identity: sha256 of its canonical serialization.
+
+    Deliberately NOT a hash of the stored file's bytes. Storage and transport
+    mangle bytes without changing meaning — text-mode writes translate newlines
+    per platform, git checkouts rewrite them per .gitattributes — and an identity
+    that flips when a file crosses an OS boundary would report drift where there
+    is none. Re-parse, re-serialize, hash that: the digest names the semantics,
+    wherever and however they are stored.
+    """
+    return hashlib.sha256(_canonical(package).encode("utf-8")).hexdigest()
+
+
+def _canonical(package: Package) -> str:
+    return package.model_dump_json(indent=2, exclude_none=True)
+
+
 class Library:
     """Directory-backed registry: packages/<name>/<version>.json + blobs/."""
 
@@ -136,10 +154,11 @@ class Library:
                 raise ValueError(
                     f"{package.name}@{package.version} already exists with different "
                     "content — versions are immutable, publish a new one")
-            return log  # identical republish is a no-op
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(package.model_dump_json(indent=2, exclude_none=True),
-                        encoding="utf-8")
+        else:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(_canonical(package).encode("utf-8"))
+        log.append(f"digest sha256:{package_digest(package)} — a pin carrying it "
+                   "freezes this meaning across libraries, not just this one")
         return log
 
     def resolve(self, tree: Bom, strict: bool = True) -> list[Package]:
@@ -150,13 +169,28 @@ class Library:
 
         A dangling reference (pin or require) raises when strict — a silent hole
         in the semantics is worse than an error — as does a diamond conflict
-        (two exact versions of one name in the closure). Read paths may pass
-        strict=False to keep serving while tree_package reports the hole; there
-        the first version encountered wins."""
+        (two exact versions of one name in the closure) and a hash-bearing ref
+        whose library content digests differently: the version string says the
+        semantics are the pinned ones, the bytes say otherwise, and serving them
+        anyway would be exactly the silent drift the hash exists to catch. Read
+        paths may pass strict=False to keep serving while tree_package reports
+        the hole; there the first version encountered wins and a mismatched
+        package is skipped like a missing one."""
         out: list[Package] = []
         chosen: dict[str, str] = {}
 
         def visit(ref: PackageRef, via: str) -> None:
+            if ref.sha256:
+                pinned = self.get(ref.name, ref.version)
+                if pinned is not None and package_digest(pinned) != ref.sha256:
+                    if strict:
+                        raise ValueError(
+                            f"{ref.name}@{ref.version} ({via}) is not the content "
+                            f"pinned: the library holds sha256:"
+                            f"{package_digest(pinned)[:12]}…, the pin says "
+                            f"{ref.sha256[:12]}… — same name, different meaning; "
+                            "repin what you actually mean")
+                    return
             if ref.name in chosen:
                 if chosen[ref.name] != ref.version and strict:
                     raise ValueError(

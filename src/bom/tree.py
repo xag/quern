@@ -126,10 +126,18 @@ class Rule(BaseModel):
 class PackageRef(BaseModel):
     """A pin on a library package: this tree uses `name` at exactly `version`.
     Frozen deployments stay coherent because the pin, not the library head,
-    decides what semantics apply here — a lockfile, one line at a time."""
+    decides what semantics apply here — a lockfile, one line at a time.
+
+    `sha256`, when present, pins the *content* and not just the name: the digest
+    of the package's canonical serialization, checked at resolve time. Versions
+    are immutable within one library, but nothing makes two libraries agree —
+    ledger@0.1.0 here and ledger@0.1.0 there can be different bytes, and a rule
+    whose meaning drifts turns a red gate green silently. A name-only pin trusts
+    whichever library it happens to face; a hash-bearing pin notices."""
 
     name: str
     version: str
+    sha256: str | None = None
 
 
 class Bom(BaseModel):

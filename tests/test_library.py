@@ -3,7 +3,7 @@
 import pytest
 
 from bom import Bom, PackageRef
-from bom.library import Library, Package
+from bom.library import Library, Package, package_digest
 from bom.tree import KindDef, Node, Rule
 
 
@@ -103,6 +103,76 @@ def test_diamond_conflict_is_refused_loudly(tmp_path):
     lenient = lib.resolve(tree, strict=False)
     assert ("fasteners", "1") in [(p.name, p.version) for p in lenient]
     assert ("fasteners", "2") not in [(p.name, p.version) for p in lenient]
+
+
+# --- content-addressed pins: the version string can lie, the digest cannot --------
+
+
+def test_publish_reports_the_digest(tmp_path):
+    lib = Library(tmp_path)
+    log = lib.publish(fasteners(), {})
+    digest = package_digest(fasteners())
+    assert any(f"sha256:{digest}" in line for line in log)
+    # the identical republish no-op reports it too — it is how a publisher
+    # recovers the pin for something already in the library
+    assert any(f"sha256:{digest}" in line for line in lib.publish(fasteners(), {}))
+
+
+def test_hash_pin_resolves_against_the_content_it_named(tmp_path):
+    lib = Library(tmp_path)
+    lib.publish(fasteners(), {})
+    tree = Bom(packages=[PackageRef(name="fasteners", version="1",
+                                    sha256=package_digest(fasteners()))])
+    assert [p.name for p in lib.resolve(tree)] == ["fasteners"]
+
+
+def test_same_version_different_bytes_is_refused_loudly(tmp_path):
+    # Two libraries, each internally immutable, disagree about fasteners@1 —
+    # the cross-library drift immutability alone cannot see.
+    ours, theirs = Library(tmp_path / "ours"), Library(tmp_path / "theirs")
+    ours.publish(fasteners(), {})
+    theirs.publish(fasteners(min_mass="1"), {})
+    tree = Bom(packages=[PackageRef(
+        name="fasteners", version="1",
+        sha256=package_digest(ours.get("fasteners", "1")))])
+    assert [p.name for p in ours.resolve(tree)] == ["fasteners"]
+    with pytest.raises(ValueError, match="same name, different meaning"):
+        theirs.resolve(tree)
+    # read paths keep serving, the mismatched package skipped like a missing one
+    assert theirs.resolve(tree, strict=False) == []
+
+
+def test_hash_on_a_require_is_verified_transitively(tmp_path):
+    lib = Library(tmp_path)
+    lib.publish(fasteners(), {})
+    ext = assemblies([Node(id="p", kind="pack",
+                           children=[bolt("b1"), bolt("b2")])])
+    ext.requires = [PackageRef(name="fasteners", version="1",
+                               sha256=package_digest(fasteners()))]
+    lib.publish(ext, {})
+    tree = Bom(packages=[PackageRef(name="assemblies", version="1")])
+    assert [p.name for p in lib.resolve(tree)] == ["assemblies", "fasteners"]
+
+    drifted = Bom(packages=[PackageRef(name="drifted-ext", version="1")])
+    bad = ext.model_copy(deep=True)
+    bad.name = "drifted-ext"
+    bad.requires = [PackageRef(name="fasteners", version="1", sha256="0" * 64)]
+    with pytest.raises(ValueError, match="same name, different meaning"):
+        lib.publish(bad, {})  # the publish gate resolves requires, so it catches it
+    with pytest.raises(ValueError, match="not in the library"):
+        lib.resolve(drifted)  # and it never entered, so the pin dangles
+
+
+def test_digest_survives_storage_mangling(tmp_path):
+    # The digest names the semantics, not the bytes at rest: a checkout that
+    # rewrites newlines (git autocrlf, text-mode IO) must not read as drift.
+    lib = Library(tmp_path)
+    lib.publish(fasteners(), {})
+    stored = tmp_path / "packages" / "fasteners" / "1.json"
+    stored.write_bytes(stored.read_bytes().replace(b"\n", b"\r\n"))
+    tree = Bom(packages=[PackageRef(name="fasteners", version="1",
+                                    sha256=package_digest(fasteners()))])
+    assert [p.name for p in lib.resolve(tree)] == ["fasteners"]
 
 
 def test_requires_are_part_of_the_immutable_content(tmp_path):
