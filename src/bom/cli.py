@@ -19,12 +19,11 @@ set BOM_REGISTRY; anyone can root another, and a fork is a directory copy.
 from __future__ import annotations
 
 import argparse
-import json
 import os
 import sys
 from pathlib import Path
 
-from .library import Library, Package, lock_refs
+from .library import Library, Package, lock_refs, read_lock, write_lock
 from .library import sync as sync_libraries
 from .tree import PackageRef
 
@@ -66,18 +65,6 @@ def _load_package(spec: str) -> Package:
     return pkg
 
 
-def _read_lock(path: Path) -> list[PackageRef]:
-    if not path.exists():
-        return []
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return [PackageRef.model_validate(e) for e in data["packages"]]
-
-
-def _write_lock(path: Path, refs: list[PackageRef]) -> None:
-    payload = {"packages": [r.model_dump(exclude_none=True) for r in refs]}
-    path.write_bytes((json.dumps(payload, indent=2) + "\n").encode("utf-8"))
-
-
 def cmd_publish(args: argparse.Namespace) -> None:
     lib = _registry(args)
     pkg = _load_package(args.package)
@@ -99,7 +86,7 @@ def cmd_publish(args: argparse.Namespace) -> None:
 def cmd_pin(args: argparse.Namespace) -> None:
     lib = _registry(args)
     lock = Path(args.lock)
-    pins = {r.name: r for r in _read_lock(lock)}
+    pins = {r.name: r for r in read_lock(lock)}
     for spec in args.packages:
         if "@" not in spec:
             sys.exit(f"pin takes name@version, got '{spec}'")
@@ -109,7 +96,7 @@ def cmd_pin(args: argparse.Namespace) -> None:
         refs = lock_refs(lib, list(pins.values()))
     except ValueError as e:
         sys.exit(f"not pinned: {e}")
-    _write_lock(lock, refs)
+    write_lock(lock, refs)
     for r in refs:
         print(f"{r.name}@{r.version} sha256:{r.sha256}")
     print(f"locked {len(refs)} package(s) in {lock}")
@@ -118,7 +105,7 @@ def cmd_pin(args: argparse.Namespace) -> None:
 def cmd_sync(args: argparse.Namespace) -> None:
     lib = _registry(args)
     lock = Path(args.lock)
-    refs = _read_lock(lock)
+    refs = read_lock(lock)
     if not refs:
         sys.exit(f"nothing to sync: {lock} is missing or empty — pin something first")
     dest = Library(Path(args.dest))

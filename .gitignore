@@ -13,3 +13,6 @@ uv.lock
 .DS_Store
 .idea/
 .vscode/
+
+# bom's own synced package cache (bom.lock is the source of truth)
+.bom/
