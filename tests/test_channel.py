@@ -112,42 +112,6 @@ def test_cli_publish_pin_sync_end_to_end(tmp_path, capsys):
     assert Library(cache).get("fasteners", "1") is not None
 
 
-def test_the_real_ledger_travels_the_channel(tmp_path):
-    # Phase 2 of #19 in miniature: the packages currently sited in src/bom/
-    # publish, pin and sync like any other — nothing about them needs the
-    # substrate's source except the native contracts, which stay host code
-    # (importing bom.ledger registers grounding's natives in-process; the CLI
-    # exposes the same act as --natives).
-    from bom.grounding import GROUNDING_PACKAGE
-    from bom.ledger import LEDGER_PACKAGE
-    reg = Library(tmp_path / "registry")
-    reg.publish(GROUNDING_PACKAGE, {})
-    reg.publish(LEDGER_PACKAGE, {})
-    cache = Library(tmp_path / "cache")
-    refs = lock_refs(reg, [PackageRef(name=LEDGER_PACKAGE.name,
-                                      version=LEDGER_PACKAGE.version)])
-    log = sync(reg, cache, refs)
-    assert len(log) == 2  # grounding travelled as the ledger's require
-    assert cache.get(LEDGER_PACKAGE.name, LEDGER_PACKAGE.version) is not None
-
-
-def test_consume_is_the_whole_ceremony(tmp_path):
-    reg = registry(tmp_path)
-    consumer = tmp_path / "consumer"
-    consumer.mkdir()
-    from bom.library import consume, write_lock
-    write_lock(consumer / "bom.lock",
-               lock_refs(reg, [PackageRef(name="assemblies", version="1")]))
-    lib, refs = consume(consumer, reg.root)
-    tree = lib.effective(Bom(packages=[refs[0]]))
-    assert any(r.name == "bolt-has-mass" for r in tree.rules)
-    # offline: the registry vanishes, the cache still serves, digests verified
-    lib, refs = consume(consumer, tmp_path / "gone")
-    assert lib.effective(Bom(packages=[refs[0]])) is not None
-    with pytest.raises(ValueError, match="nothing locked"):
-        consume(tmp_path)
-
-
 def test_cli_pin_refuses_what_the_registry_lacks(tmp_path):
     reg_dir = tmp_path / "registry"
     reg_dir.mkdir()

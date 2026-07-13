@@ -5,9 +5,9 @@ whose every number states its unit and provenance, named links, and a generic
 `payload` the core assigns no meaning to. What kinds mean lives in vocabulary,
 what must hold in rules, what computes in solvers — all registered at runtime,
 all discovered at each node, all capitalizable as versioned packages. The rule
-grammar is structural and reaches meaning through one bridge, solve(); domains
-(geometry first) are packages whose contracts may have first-class native
-implementations behind the same names.
+grammar is structural and reaches meaning through one bridge, solve(); a domain
+is a package pinned from the registry (xag/bom-registry), whose contracts may
+have first-class native implementations behind the same names.
 
 Canonical repository: xag/bom (private while it hardens; built to be published).
 The substrate knows nothing of its consumers: a domain is a package plus the code
@@ -70,11 +70,12 @@ from .tree import (
 from .library import Library, Package, solver_blob, validate_package
 from .store import SqliteStore
 
-# geometry is NOT re-exported here: it is a domain package, reached as `bom.geometry`,
-# not a citizen of the substrate's surface. Importing that submodule installs its
-# geometry/* natives; `import bom` alone pulls in no domain, no Pillow, no registration.
+# No domain lives in this source tree anymore: geometry@ and ledger@ are authored in
+# their own repos (xag/geometry, xag/ledger) and travel the registry as data — the
+# substrate knows them only as packages a tree pins (xag/bom#19).
 #
-# `bom.grounding` follows the same discipline. Its subject *is* the substrate — the
+# `bom.grounding` is the one survivor, and only its code half. Its subject *is* the
+# substrate — the
 # grounded/tolerance/derived_from fields every Quantity already carries — but the
 # contracts that read them (grounding/untrusted, untrusted_via, depends_untrusted) are
 # still a capability a consumer opts into, and still register natives on import. The
