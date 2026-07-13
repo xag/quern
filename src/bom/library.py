@@ -244,6 +244,22 @@ def lock_refs(library: Library, pins: list[PackageRef]) -> list[PackageRef]:
             for p in closure]
 
 
+def read_lock(path: Path) -> list[PackageRef]:
+    """The lockfile's refs — the flattened, hash-bearing closure `lock_refs`
+    computed. Missing file means nothing locked, not an error: the caller
+    decides whether an empty lock is a state or a mistake."""
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    return [PackageRef.model_validate(e) for e in data["packages"]]
+
+
+def write_lock(path: Path, refs: list[PackageRef]) -> None:
+    path.write_bytes((json.dumps(
+        {"packages": [r.model_dump(exclude_none=True) for r in refs]},
+        indent=2) + "\n").encode("utf-8"))
+
+
 def sync(source: Library, dest: Library, refs: list[PackageRef]) -> list[str]:
     """Materialize `refs` (and their solver blobs) from one library into another,
     hash-verified — the consumer half of the channel: registry in, local cache out.

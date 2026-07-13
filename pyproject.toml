@@ -34,3 +34,9 @@ packages = ["src/bom"]
 dev = [
     "pytest>=9.1.1",
 ]
+
+[tool.pytest.ini_options]
+# `ledger/` is bom's own design ledger — a design-time artifact at the repo root, kept out
+# of the shipped package (packages = ["src/bom"]). It is not installed, so put the root on
+# the path or the suite cannot see it.
+pythonpath = ["."]
