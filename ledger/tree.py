@@ -1,6 +1,6 @@
-"""bom's own ledger — the substrate finally taking its own medicine.
+"""quern's own ledger — the substrate finally taking its own medicine.
 
-bom has shipped `ledger@0.1.0` for other projects to pin since #20, and kept no ledger
+quern has shipped `ledger@0.1.0` for other projects to pin since #20, and kept no ledger
 itself. This is that, and the first slice is the one that hurt: **the compute boundary**.
 
 The story is short. `register_native` lets a package ship a first-class implementation of
@@ -34,9 +34,9 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-import bom.grounding  # noqa: F401 — the natives; the package itself arrives by pin
-from bom import Bom, Node, Quantity
-from bom.library import consume
+import quern.grounding  # noqa: F401 — the natives; the package itself arrives by pin
+from quern import Quern, Node, Quantity
+from quern.library import consume
 
 _ROOT = Path(__file__).resolve().parents[1]
 
@@ -48,18 +48,18 @@ def _unsound(value: float, unit: str, note: str) -> Quantity:
                     source=note)
 
 
-def build() -> Bom:
-    """bom's ledger, with ledger@0.1.0's semantics staged beneath it."""
+def build() -> Quern:
+    """quern's ledger, with ledger@0.1.0's semantics staged beneath it."""
     # The channel of #19 exists now, and the substrate is its own consumer: the ledger
-    # arrives by pin — bom.lock, digest and all — never published from source. This is
+    # arrives by pin — quern.lock, digest and all — never published from source. This is
     # the line the tempdir pattern occupied in every other project, discharged. The
-    # sibling checkout is the fleet's registry convention; $BOM_REGISTRY overrides.
-    lib, refs = consume(_ROOT, os.environ.get("BOM_REGISTRY",
-                                              _ROOT.parent / "bom-registry"))
-    bom = Bom(packages=[next(r for r in refs if r.name == "ledger")])
-    bom = lib.effective(bom)
+    # sibling checkout is the fleet's registry convention; $QUERN_REGISTRY overrides.
+    lib, refs = consume(_ROOT, os.environ.get("QUERN_REGISTRY",
+                                              _ROOT.parent / "quern-registry"))
+    quern = Quern(packages=[next(r for r in refs if r.name == "ledger")])
+    quern = lib.effective(quern)
 
-    bom.root.children = [
+    quern.root.children = [
         Node(
             id="native-contracts-bypass-the-sandbox",
             kind="decision",
@@ -118,7 +118,7 @@ def build() -> Bom:
                 id="meter-the-native-path", kind="discharge",
                 name="run_native takes a ceiling the way run_solver takes fuel, and the "
                      "host clamps caller params before they reach any contract",
-                payload={"who": "anyone who can change bom's solver boundary — the "
+                payload={"who": "anyone who can change quern's solver boundary — the "
                                 "competence is knowing what a contract may be asked for, "
                                 "not who is asking"})],
         ),
@@ -143,7 +143,7 @@ def build() -> Bom:
                 id="offload-the-compute-tools", kind="discharge",
                 name="The compute-bearing host tools become async and run the contract on "
                      "a worker thread",
-                payload={"who": "anyone who can change bom's host surface"})],
+                payload={"who": "anyone who can change quern's host surface"})],
         ),
 
         Node(
@@ -171,7 +171,7 @@ def build() -> Bom:
                      "the only reason the expensive contract cannot take the offer is that "
                      "being native is what makes it unmovable.",
                      "note":
-                     "This is the claim that decides whether bom ever needs real compute "
+                     "This is the claim that decides whether quern ever needs real compute "
                      "capacity (a job queue, workers, a scheduler) or merely a meter and a "
                      "way out. Everything above is a mitigation; this is the exit."},
             children=[Node(
@@ -192,7 +192,7 @@ def build() -> Bom:
         Node(
             id="the-host-surface",
             kind="gate",
-            name="What bom's MCP host exposes to a caller",
+            name="What quern's MCP host exposes to a caller",
             links={"admits": ["a-native-contract-is-unmetered",
                               "a-host-tool-runs-on-the-event-loop"]},
             payload={"note":
@@ -202,4 +202,4 @@ def build() -> Bom:
                      "editing this file."},
         ),
     ]
-    return bom
+    return quern

@@ -1,9 +1,9 @@
-"""SqliteStore: the same verbs as Bom, answered by indexes — parity, then scale."""
+"""SqliteStore: the same verbs as Quern, answered by indexes — parity, then scale."""
 
 import pytest
 
-from bom import (
-    Bom,
+from quern import (
+    Quern,
     KindDef,
     Rule,
     SqliteStore,
@@ -19,7 +19,7 @@ from bom import (
 
 
 def build(tree) -> None:
-    """The same edits against any TreeStore — Bom and SqliteStore alike."""
+    """The same edits against any TreeStore — Quern and SqliteStore alike."""
     set_node(tree, "parts/bolt", {
         "kind": "fastener",
         "params": {"mass": {"value": 10, "unit": "g"}}})
@@ -32,25 +32,25 @@ def build(tree) -> None:
     set_node(tree, "rooms/kitchen/sink-v2", {
         "kind": "fixture",
         "links": {"supersedes": ["rooms/kitchen/sink"]}})
-    set_node(tree, "ebom/line1", {
+    set_node(tree, "assembly/line1", {
         "links": {"uses": ["parts/bolt"]},
         "params": {"qty": {"value": 3, "unit": "each"}}})
 
 
 @pytest.fixture()
 def stores(tmp_path):
-    bom = Bom()
-    build(bom)
+    quern = Quern()
+    build(quern)
     store = SqliteStore(tmp_path / "tree.db")
     build(store)
-    yield bom, store
+    yield quern, store
     store.close()
 
 
 def test_get_and_children_parity(stores):
-    bom, store = stores
+    quern, store = stores
     for path in ("", "rooms", "rooms/kitchen", "rooms/kitchen/sink", "missing"):
-        b, s = get_node(bom, path), get_node(store, path)
+        b, s = get_node(quern, path), get_node(store, path)
         if b is None:
             assert s is None
             continue
@@ -59,18 +59,18 @@ def test_get_and_children_parity(stores):
         assert {k: q.value for k, q in s.params.items()} == \
                {k: q.value for k, q in b.params.items()}
         assert [c.id for c in s.children] == [c.id for c in b.children]
-    assert store.children("rooms/kitchen") == bom.children("rooms/kitchen")
+    assert store.children("rooms/kitchen") == quern.children("rooms/kitchen")
 
 
 def test_walk_preserves_document_order(stores):
-    bom, store = stores
-    assert [p for p, _ in store.walk("")] == [p for p, _ in bom.walk("")]
+    quern, store = stores
+    assert [p for p, _ in store.walk("")] == [p for p, _ in quern.walk("")]
     assert [p for p, _ in store.walk("rooms/kitchen")] == \
-           [p for p, _ in bom.walk("rooms/kitchen")]
+           [p for p, _ in quern.walk("rooms/kitchen")]
 
 
 def test_find_parity(stores):
-    bom, store = stores
+    quern, store = stores
     for kwargs in (
         {"kind": "fixture"},
         {"query": "kitchen"},
@@ -81,7 +81,7 @@ def test_find_parity(stores):
         {"query": "ground"},  # meta values are searchable
     ):
         assert [p for p, _ in find_nodes(store, **kwargs)] == \
-               [p for p, _ in find_nodes(bom, **kwargs)], kwargs
+               [p for p, _ in find_nodes(quern, **kwargs)], kwargs
 
 
 def test_supersession_reads_from_the_link_index(stores):
@@ -91,9 +91,9 @@ def test_supersession_reads_from_the_link_index(stores):
     assert not is_superseded(store, "rooms/kitchen/sink-v2")
 
 
-def test_partial_update_folds_payload_like_bom(stores):
-    bom, store = stores
-    for tree in (bom, store):
+def test_partial_update_folds_payload(stores):
+    quern, store = stores
+    for tree in (quern, store):
         set_node(tree, "rooms/kitchen/sink",
                  {"shape": {"op": "box", "size": [600, 500, 200]}})
         set_node(tree, "rooms/kitchen/sink",
@@ -105,8 +105,8 @@ def test_partial_update_folds_payload_like_bom(stores):
 
 
 def test_children_replacement_and_delete(stores):
-    bom, store = stores
-    for tree in (bom, store):
+    quern, store = stores
+    for tree in (quern, store):
         set_node(tree, "rooms/kitchen", {"children": [
             {"id": "hob", "kind": "fixture"}, {"id": "fridge", "kind": "fixture"}]})
         assert tree.children("rooms/kitchen") == ["hob", "fridge"]
@@ -117,18 +117,18 @@ def test_children_replacement_and_delete(stores):
 
 
 def test_rules_evaluate_identically(stores):
-    bom, store = stores
+    quern, store = stores
     rules = [
         Rule(name="wide-enough", kind="fixture",
              expr="param(self, 'width') >= 500", description="fixtures fit"),
         Rule(name="bolt-mass", path="",
-             expr="rollup('ebom', 'qty', 'mass') == 30"),
+             expr="rollup('assembly', 'qty', 'mass') == 30"),
     ]
-    bom.rules.extend(rules)
+    quern.rules.extend(rules)
     store.rules.extend(rules)
     key = lambda results: sorted((r.rule, r.node, r.ok) for r in results)
-    assert key(run_rules(store)) == key(run_rules(bom))
-    assert rollup(store, "ebom", "qty", "mass") == rollup(bom, "ebom", "qty", "mass")
+    assert key(run_rules(store)) == key(run_rules(quern))
+    assert rollup(store, "assembly", "qty", "mass") == rollup(quern, "assembly", "qty", "mass")
 
 
 def test_persistence_across_reopen(tmp_path):
@@ -149,14 +149,14 @@ def test_persistence_across_reopen(tmp_path):
 
 
 def test_ingest_and_snapshot_round_trip(tmp_path):
-    bom = Bom()
-    build(bom)
-    bom.vocabulary.append(KindDef(kind="space", description="a room"))
+    quern = Quern()
+    build(quern)
+    quern.vocabulary.append(KindDef(kind="space", description="a room"))
     store = SqliteStore(tmp_path / "tree.db")
-    store.ingest(bom)
-    assert store.snapshot() == bom
+    store.ingest(quern)
+    assert store.snapshot() == quern
     with pytest.raises(ValueError, match="already holds a tree"):
-        store.ingest(bom)
+        store.ingest(quern)
     store.close()
 
 

@@ -2,9 +2,9 @@
 
 import pytest
 
-from bom import Bom, PackageRef
-from bom.library import Library, Package, package_digest
-from bom.tree import KindDef, Node, Rule
+from quern import Quern, PackageRef
+from quern.library import Library, Package, package_digest
+from quern.tree import KindDef, Node, Rule
 
 
 def bolt(id: str, mass: float = 10.0) -> Node:
@@ -66,7 +66,7 @@ def test_pin_pulls_the_whole_closure_nearer_winning(tmp_path):
     ext.vocabulary.append(KindDef(kind="bolt", description="a bolt, refined"))
     lib.publish(ext, {})
 
-    tree = Bom(packages=[PackageRef(name="assemblies", version="1")])
+    tree = Quern(packages=[PackageRef(name="assemblies", version="1")])
     resolved = lib.resolve(tree)
     assert [(p.name, p.version) for p in resolved] == [
         ("assemblies", "1"), ("fasteners", "1")]
@@ -82,7 +82,7 @@ def test_shared_dependency_appears_once(tmp_path):
     for name in ("left", "right"):
         lib.publish(Package(name=name, version="1",
                             requires=[PackageRef(name="fasteners", version="1")]), {})
-    tree = Bom(packages=[PackageRef(name="left", version="1"),
+    tree = Quern(packages=[PackageRef(name="left", version="1"),
                          PackageRef(name="right", version="1")])
     assert [p.name for p in lib.resolve(tree)] == ["left", "fasteners", "right"]
 
@@ -95,7 +95,7 @@ def test_diamond_conflict_is_refused_loudly(tmp_path):
                         requires=[PackageRef(name="fasteners", version="1")]), {})
     lib.publish(Package(name="right", version="1",
                         requires=[PackageRef(name="fasteners", version="2")]), {})
-    tree = Bom(packages=[PackageRef(name="left", version="1"),
+    tree = Quern(packages=[PackageRef(name="left", version="1"),
                          PackageRef(name="right", version="1")])
     with pytest.raises(ValueError, match="diamond conflict"):
         lib.resolve(tree)
@@ -121,7 +121,7 @@ def test_publish_reports_the_digest(tmp_path):
 def test_hash_pin_resolves_against_the_content_it_named(tmp_path):
     lib = Library(tmp_path)
     lib.publish(fasteners(), {})
-    tree = Bom(packages=[PackageRef(name="fasteners", version="1",
+    tree = Quern(packages=[PackageRef(name="fasteners", version="1",
                                     sha256=package_digest(fasteners()))])
     assert [p.name for p in lib.resolve(tree)] == ["fasteners"]
 
@@ -132,7 +132,7 @@ def test_same_version_different_bytes_is_refused_loudly(tmp_path):
     ours, theirs = Library(tmp_path / "ours"), Library(tmp_path / "theirs")
     ours.publish(fasteners(), {})
     theirs.publish(fasteners(min_mass="1"), {})
-    tree = Bom(packages=[PackageRef(
+    tree = Quern(packages=[PackageRef(
         name="fasteners", version="1",
         sha256=package_digest(ours.get("fasteners", "1")))])
     assert [p.name for p in ours.resolve(tree)] == ["fasteners"]
@@ -150,10 +150,10 @@ def test_hash_on_a_require_is_verified_transitively(tmp_path):
     ext.requires = [PackageRef(name="fasteners", version="1",
                                sha256=package_digest(fasteners()))]
     lib.publish(ext, {})
-    tree = Bom(packages=[PackageRef(name="assemblies", version="1")])
+    tree = Quern(packages=[PackageRef(name="assemblies", version="1")])
     assert [p.name for p in lib.resolve(tree)] == ["assemblies", "fasteners"]
 
-    drifted = Bom(packages=[PackageRef(name="drifted-ext", version="1")])
+    drifted = Quern(packages=[PackageRef(name="drifted-ext", version="1")])
     bad = ext.model_copy(deep=True)
     bad.name = "drifted-ext"
     bad.requires = [PackageRef(name="fasteners", version="1", sha256="0" * 64)]
@@ -170,7 +170,7 @@ def test_digest_survives_storage_mangling(tmp_path):
     lib.publish(fasteners(), {})
     stored = tmp_path / "packages" / "fasteners" / "1.json"
     stored.write_bytes(stored.read_bytes().replace(b"\n", b"\r\n"))
-    tree = Bom(packages=[PackageRef(name="fasteners", version="1",
+    tree = Quern(packages=[PackageRef(name="fasteners", version="1",
                                     sha256=package_digest(fasteners()))])
     assert [p.name for p in lib.resolve(tree)] == ["fasteners"]
 

@@ -5,7 +5,7 @@ A registry is nothing but a published Library — a directory whose layout
 `Library` already owns (`packages/<name>/<version>.json + blobs/`). Git moves
 that directory around; this CLI never runs git, because git is transport, not
 identity: identity is the content digest in the pin, and it is checked at every
-door. The consumer's `bom.lock` records the flattened closure — name, version,
+door. The consumer's `quern.lock` records the flattened closure — name, version,
 sha256 — and `sync` materializes exactly those bytes into a local Library, the
 one the tempdir-publish pattern always expected to exist. Publication into any
 library goes through `publish` and its proof gate, on the publisher's machine
@@ -13,7 +13,7 @@ AND again on the consumer's: a registry is trusted for transport, not for
 validation.
 
 Where the registry lives is a convention, not a mechanism: pass --registry or
-set BOM_REGISTRY; anyone can root another, and a fork is a directory copy.
+set QUERN_REGISTRY; anyone can root another, and a fork is a directory copy.
 """
 
 from __future__ import annotations
@@ -27,14 +27,14 @@ from .library import Library, Package, lock_refs, read_lock, write_lock
 from .library import sync as sync_libraries
 from .tree import PackageRef
 
-LOCK_DEFAULT = "bom.lock"
-CACHE_DEFAULT = ".bom/library"
+LOCK_DEFAULT = "quern.lock"
+CACHE_DEFAULT = ".quern/library"
 
 
 def _registry(args: argparse.Namespace) -> Library:
-    root = args.registry or os.environ.get("BOM_REGISTRY")
+    root = args.registry or os.environ.get("QUERN_REGISTRY")
     if not root:
-        sys.exit("no registry: pass --registry DIR or set BOM_REGISTRY")
+        sys.exit("no registry: pass --registry DIR or set QUERN_REGISTRY")
     root = Path(root)
     if not root.exists():
         sys.exit(f"registry '{root}' does not exist")
@@ -51,7 +51,7 @@ def _load_package(spec: str) -> Package:
     modpart, attr = spec.rsplit(":", 1)
     if modpart.endswith(".py"):
         import importlib.util
-        mspec = importlib.util.spec_from_file_location("_bom_authoring", modpart)
+        mspec = importlib.util.spec_from_file_location("_quern_authoring", modpart)
         if mspec is None or mspec.loader is None:
             sys.exit(f"cannot load '{modpart}'")
         mod = importlib.util.module_from_spec(mspec)
@@ -61,7 +61,7 @@ def _load_package(spec: str) -> Package:
         mod = importlib.import_module(modpart)
     pkg = getattr(mod, attr, None)
     if not isinstance(pkg, Package):
-        sys.exit(f"'{spec}' is not a bom.library.Package")
+        sys.exit(f"'{spec}' is not a quern.library.Package")
     return pkg
 
 
@@ -120,8 +120,8 @@ def cmd_sync(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="bom", description="packages travel as data: publish, pin, sync")
-    parser.add_argument("--registry", help="registry directory (or $BOM_REGISTRY)")
+        prog="quern", description="packages travel as data: publish, pin, sync")
+    parser.add_argument("--registry", help="registry directory (or $QUERN_REGISTRY)")
     parser.add_argument("--natives", action="append", metavar="MODULE",
                         help="module to import for its register_native side "
                              "effects (repeatable) — native contracts are host "

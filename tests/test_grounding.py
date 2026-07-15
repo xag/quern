@@ -1,15 +1,15 @@
 """The grounding contracts: is any of it safe to act on?
 
-These test the implementations — host code that stays in bom while their meaning
+These test the implementations — host code that stays in quern while their meaning
 (grounding@) is authored in xag/grounding and travels the registry as data.
 """
 
-from bom.grounding import depends_untrusted, untrusted, untrusted_via
-from bom.tree import Bom, Node, set_node
+from quern.grounding import depends_untrusted, untrusted, untrusted_via
+from quern.tree import Quern, Node, set_node
 
 
-def tree(*nodes: Node) -> Bom:
-    b = Bom()
+def tree(*nodes: Node) -> Quern:
+    b = Quern()
     b.root.children = list(nodes)
     return b
 

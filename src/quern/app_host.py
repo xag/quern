@@ -1,11 +1,11 @@
-"""bom.app_host — the semantic navigator, served as an MCP App (SEP-1865).
+"""quern.app_host — the semantic navigator, served as an MCP App (SEP-1865).
 
-The BOM is the shared context of codesign: the model reads and edits it through
+The Quern is the shared context of codesign: the model reads and edits it through
 the generic `tree_*` verbs, and the human needs the same grip — see the tree,
 navigate its semantics (kinds, provenance, rules), and coedit it. This module
 serves that UI two ways over one Workspace:
 
-- **MCP App** — `register_app(mcp, get_ws)` adds a `ui://bom/navigator.html`
+- **MCP App** — `register_app(mcp, get_ws)` adds a `ui://quern/navigator.html`
   resource (`text/html;profile=mcp-app`) and a `tree_app` entry tool carrying
   `_meta.ui.resourceUri`. In an Apps-capable client (claude.ai, Claude Desktop,
   VS Code) the tool result renders as the navigator, and every interaction in
@@ -17,9 +17,9 @@ serves that UI two ways over one Workspace:
 
 Deliberately not geometric: no shapes, no 3D — this is the *meaning* view
 (kinds with their prose, params with provenance and grounding, links, rules
-with pass/fail). Rendering shapes stays a domain concern (bom.geometry_host).
+with pass/fail). Rendering shapes stays a domain concern (quern.geometry_host).
 
-Importing this needs the MCP SDK: install `bom[host]`.
+Importing this needs the MCP SDK: install `quern[host]`.
 """
 
 from __future__ import annotations
@@ -33,7 +33,7 @@ from mcp.server.fastmcp import FastMCP
 from . import tree as treemod
 from .host import Resolver
 
-APP_URI = "ui://bom/navigator.html"
+APP_URI = "ui://quern/navigator.html"
 APP_MIME = "text/html;profile=mcp-app"
 
 # The iframe imports the official bridge SDK from this CDN; the host enforces
@@ -42,7 +42,7 @@ _CSP = {"resourceDomains": ["https://cdn.jsdelivr.net"]}
 
 
 def app_html() -> str:
-    return (resources.files("bom") / "app.html").read_text(encoding="utf-8")
+    return (resources.files("quern") / "app.html").read_text(encoding="utf-8")
 
 
 def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
@@ -52,7 +52,7 @@ def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
     those generic verbs; this module adds only the entry point and the HTML.
     """
 
-    @mcp.resource(APP_URI, name="BOM navigator", mime_type=APP_MIME)
+    @mcp.resource(APP_URI, name="Quern navigator", mime_type=APP_MIME)
     def navigator_html() -> str:
         return app_html()
 
@@ -62,7 +62,7 @@ def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
                      "csp": _CSP}},
     )
     def tree_app() -> dict[str, Any]:
-        """Open the BOM navigator — an interactive view of the tree and its
+        """Open the Quern navigator — an interactive view of the tree and its
         semantics (kinds, params with provenance, links, rules) where the user
         can browse and coedit. Returns the root slice; the UI then navigates
         and edits through the same tree_* tools you use."""
@@ -138,14 +138,14 @@ def _dispatch(ws, name: str, args: dict[str, Any]) -> dict[str, Any]:
     if name == "tree_set":
         path = args["path"]
         ws.assert_editable(path)
-        treemod.set_node(ws.bom, path, args.get("node") or {})
+        treemod.set_node(ws.quern, path, args.get("node") or {})
         ws.save()
         return text(f"set '{path}'.")
 
     if name == "tree_delete":
         path = args["path"]
         ws.assert_editable(path)
-        treemod.delete_node(ws.bom, path)
+        treemod.delete_node(ws.quern, path)
         ws.save()
         return text(f"deleted '{path}'.")
 
@@ -204,7 +204,7 @@ def serve_dev(get_ws: Resolver, port: int = 8765, open_browser: bool = True) -> 
 
     server = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     url = f"http://127.0.0.1:{port}"
-    print(f"bom navigator: {url}  (Ctrl-C to stop)")
+    print(f"quern navigator: {url}  (Ctrl-C to stop)")
     if open_browser:
         webbrowser.open(url)
     try:

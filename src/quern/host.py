@@ -1,8 +1,8 @@
-"""bom.host — the reusable MCP host: one `tree_*` surface over any Workspace.
+"""quern.host — the reusable MCP host: one `tree_*` surface over any Workspace.
 
 The generic Business Object Model tools (navigate, author, check, solve, package)
 are the same verbs whatever the domain. This module registers them once against a
-`Workspace` — the few seams a domain must provide: its live bom, its effective read
+`Workspace` — the few seams a domain must provide: its live quern, its effective read
 view (its own derived overlays plus pinned library packages), the guard on which
 branches are writable, persistence, its solver blob store, its library, and its
 starter vocabulary. A consumer provides the first Workspace; a second domain is the
@@ -11,10 +11,10 @@ same code, no shared datastore.
 
 Rendering is a domain concern, not a generic verb: a spatial domain draws PNGs of
 shapes, a mind map draws a graph. So the geometry tools (`tree_render`, `tree_measure`)
-live in `bom.geometry_host.register_geometry_tools`, which a shape-carrying domain
+live in `quern.geometry_host.register_geometry_tools`, which a shape-carrying domain
 opts into alongside this — the generic surface here stays geometry-free.
 
-Importing this needs the MCP SDK: install `bom[host]`.
+Importing this needs the MCP SDK: install `quern[host]`.
 """
 
 from __future__ import annotations
@@ -28,18 +28,18 @@ from mcp.server.fastmcp import FastMCP
 
 from . import library as librarymod, solver as solvermod, tree as treemod
 from .library import Library
-from .tree import Bom, KindDef
+from .tree import Quern, KindDef
 
 
 class Workspace(Protocol):
-    """One domain's live BOM plus the seams the generic tools need. A resolver
+    """One domain's live Quern plus the seams the generic tools need. A resolver
     hands the host the caller's active Workspace (or an error string) per call."""
 
     label: str
 
     @property
-    def bom(self) -> Bom: ...
-    def effective(self) -> Bom: ...              # read view: overlays + packages
+    def quern(self) -> Quern: ...
+    def effective(self) -> Quern: ...              # read view: overlays + packages
     def assert_editable(self, path: str) -> None: ...
     def save(self) -> None: ...
     @property
@@ -114,13 +114,13 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if isinstance(ws, str):
             return ws
         ws.assert_editable(path)
-        treemod.set_node(ws.bom, path, node)
+        treemod.set_node(ws.quern, path, node)
         ws.save()
         return f"set '{path}'." + _broke(ws, path)
 
     @mcp.tool(structured_output=True)
     def tree_get(path: str = "", depth: int | None = None) -> dict[str, Any]:
-        """Read the BOM at `path` (default: whole tree), pruned to `depth` levels if
+        """Read the Quern at `path` (default: whole tree), pruned to `depth` levels if
         given. Each slice arrives with its own semantics: the kinds present (with
         the operations they afford — full contract at operation://{kind}/{name}),
         the rules that apply, the solvers whose reads cover the slice. A workspace
@@ -146,7 +146,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                   has_param: str | None = None, links_to: str | None = None,
                   under: str = "", current_only: bool = False,
                   limit: int = 20) -> dict[str, Any]:
-        """Search the BOM instead of walking it — when the user names an element,
+        """Search the Quern instead of walking it — when the user names an element,
         locate it in one call. `query` matches id/name/kind/meta (case-insensitive
         substring); `kind`/`has_param` match exactly; `links_to` finds every node
         referencing a path; `under` scopes to a branch; `current_only` drops nodes
@@ -174,7 +174,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         if isinstance(ws, str):
             return ws
         ws.assert_editable(path)
-        node = treemod.delete_node(ws.bom, path)
+        node = treemod.delete_node(ws.quern, path)
         ws.save()
         out = f"deleted '{path}' ({len(node.children)} children went with it)"
         # What you delete can break what remains — a room that other rooms still claim to
@@ -198,7 +198,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        voc = ws.bom.vocabulary
+        voc = ws.quern.vocabulary
         if kind is None:
             have = {k.kind for k in ws.effective().vocabulary}
             merged = [*ws.effective().vocabulary,
@@ -254,7 +254,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        rules = ws.bom.rules
+        rules = ws.quern.rules
         if name is None:
             if not rules:
                 return "no rules yet — register one with name + expr."
@@ -322,7 +322,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        solvers = ws.bom.solvers
+        solvers = ws.quern.solvers
         if name is None:
             if not solvers:
                 return "no artifacts yet — register one with name + wasm_b64."
@@ -532,7 +532,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             pkg = lib.get(pname, version)
             if pkg is None:
                 return f"no {pname}@{version} in the library"
-            pins = ws.bom.packages
+            pins = ws.quern.packages
             trial = [p for p in pins if p.name != pname]
             # The pin records the digest of what was actually inspected, so the
             # name keeps meaning these bytes even against a different library.
@@ -540,7 +540,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 name=pname, version=version,
                 sha256=librarymod.package_digest(pkg)))
             try:  # refuse a broken closure loudly at pin time, not on first read
-                lib.resolve(Bom(packages=trial))
+                lib.resolve(Quern(packages=trial))
             except ValueError as e:
                 return f"not pinned: {e}"
             pins[:] = trial
@@ -549,7 +549,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                     f"(sha256:{trial[-1].sha256[:12]}…) — its semantics (and its "
                     "requires' closure) apply here now, yours winning")
         if uninstall is not None:
-            pins = ws.bom.packages
+            pins = ws.quern.packages
             before = len(pins)
             pins[:] = [p for p in pins if p.name != uninstall]
             if len(pins) == before:
@@ -571,7 +571,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 + f"\n  sha256:{librarymod.package_digest(pkg)}"
                 for v, pkg in entries)
         listing = lib.list()
-        pins = {p.name: p.version for p in ws.bom.packages}
+        pins = {p.name: p.version for p in ws.quern.packages}
         lines = []
         for pname, versions in listing:
             mark = f" — pinned @{pins[pname]}" if pname in pins else ""
@@ -584,7 +584,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                              "package is not in the library")
         if not any("PIN DANGLES" in line for line in lines):
             try:  # the transitive hole a per-pin check misses: requires + diamonds
-                lib.resolve(ws.bom)
+                lib.resolve(ws.quern)
             except ValueError as e:
                 lines.append(f"CLOSURE BROKEN: {e}")
         return "\n".join(lines) if lines else \

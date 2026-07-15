@@ -11,26 +11,26 @@ import asyncio
 
 import pytest
 
-from bom import Bom, Node
-from bom.solver import SolverDef, SolverError, run_native, stamp
-from bom.tree import NATIVE, register_native
+from quern import Quern, Node
+from quern.solver import SolverDef, SolverError, run_native, stamp
+from quern.tree import NATIVE, register_native
 
 
 class Ws:
     label = "test-ws"
 
     def __init__(self, solvers):
-        self._bom = Bom(
+        self._quern = Quern(
             solvers=solvers,
             root=Node(id="root", children=[Node(id="home", children=[
                 Node(id="salon", kind="space")])]))
 
     @property
-    def bom(self):
-        return self._bom
+    def quern(self):
+        return self._quern
 
     def effective(self):
-        return self._bom
+        return self._quern
 
     def assert_editable(self, path):
         pass
@@ -66,7 +66,7 @@ def natives():
 def _solve(ws, args):
     from mcp.server.fastmcp import FastMCP
 
-    from bom.host import register_tree_tools
+    from quern.host import register_tree_tools
 
     mcp = FastMCP("t")
     register_tree_tools(mcp, lambda: ws)
@@ -119,9 +119,9 @@ def test_reads_still_gate_native_contracts(natives):
 
 def test_run_native_refuses_shapeless_output(natives):
     with pytest.raises(SolverError):
-        run_native(lambda tree, path: "not a shape", Bom(), "")
+        run_native(lambda tree, path: "not a shape", Quern(), "")
     with pytest.raises(SolverError):
-        run_native(lambda tree, path: {"proposals": [{"path": "p"}]}, Bom(), "")
+        run_native(lambda tree, path: {"proposals": [{"path": "p"}]}, Quern(), "")
 
 
 def test_a_wasm_proposal_without_lineage_keeps_the_slice_default():

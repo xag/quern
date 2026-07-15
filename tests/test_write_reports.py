@@ -7,8 +7,8 @@ verdict arrives with the write that caused it, not only when asked.
 
 import pytest
 
-from bom import Bom, KindDef, Rule
-from bom.host import _relevant
+from quern import Quern, KindDef, Rule
+from quern.host import _relevant
 
 
 def test_a_write_speaks_about_its_own_branch_and_the_ones_above_it():
@@ -32,15 +32,15 @@ def test_a_write_stays_quiet_about_somebody_elses_branch():
 
 class Ws:
     def __init__(self, rules=()):
-        self._bom = Bom(vocabulary=[KindDef(kind="space", description="a room")],
+        self._quern = Quern(vocabulary=[KindDef(kind="space", description="a room")],
                         rules=list(rules))
 
     @property
-    def bom(self):
-        return self._bom
+    def quern(self):
+        return self._quern
 
     def effective(self):
-        return self._bom
+        return self._quern
 
     def assert_editable(self, path):
         pass
@@ -64,7 +64,7 @@ class Ws:
 def tools():
     from mcp.server.fastmcp import FastMCP
 
-    from bom.host import register_tree_tools
+    from quern.host import register_tree_tools
 
     ws = Ws([Rule(name="space-has-a-name", kind="space", expr="len(self) > 0",
                   description="placeholder, replaced per test")])
@@ -82,14 +82,14 @@ def _set(mcp, path, node):
 
 def test_a_write_with_nothing_to_report_stays_terse(tools):
     mcp, ws = tools
-    ws.bom.rules = []
+    ws.quern.rules = []
     out = _set(mcp, "home/salon", {"kind": "space"})
     assert out == "set 'home/salon'. Render it with tree_render to see the result."
 
 
 def test_a_write_that_breaks_a_rule_says_so(tools):
     mcp, ws = tools
-    ws.bom.rules = [Rule(name="space-has-height", kind="space",
+    ws.quern.rules = [Rule(name="space-has-height", kind="space",
                          expr="param(self, 'height') > 0",
                          description="a room is a volume")]
     out = _set(mcp, "home/salon", {"kind": "space"})
@@ -105,7 +105,7 @@ def test_a_write_hears_about_the_branch_rule_above_it(tools):
     """The one that matters for a survey: moving a room breaks a rule scoped to the
     whole survey, not to the room."""
     mcp, ws = tools
-    ws.bom.rules = [Rule(name="at-most-one-room", path="home",
+    ws.quern.rules = [Rule(name="at-most-one-room", path="home",
                          expr="count('home') <= 1",
                          description="a stand-in for any survey-wide rule")]
     assert "FAIL" not in _set(mcp, "home/salon", {"kind": "space"})
@@ -115,6 +115,6 @@ def test_a_write_hears_about_the_branch_rule_above_it(tools):
 
 def test_a_rule_that_explodes_does_not_make_the_write_look_failed(tools):
     mcp, ws = tools
-    ws.bom.rules = [Rule(name="boom", kind="space", expr="solve('nope/nothing', self)")]
+    ws.quern.rules = [Rule(name="boom", kind="space", expr="solve('nope/nothing', self)")]
     out = _set(mcp, "home/salon", {"kind": "space"})
     assert out.startswith("set 'home/salon'.")  # the write happened, and says so
