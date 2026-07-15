@@ -4,9 +4,9 @@ import hashlib
 
 import pytest
 
-from bom import ArtifactDef, SolverDef, load_blob, save_blob
-from bom.library import Library, Package
-from bom.solver import SolverError
+from quern import ArtifactDef, SolverDef, load_blob, save_blob
+from quern.library import Library, Package
+from quern.solver import SolverError
 
 
 def test_blobs_store_bare_and_roundtrip(tmp_path):

@@ -1,7 +1,7 @@
 [project]
-name = "bom"
+name = "quern"
 version = "0.1.0"
-description = "BOM (Business Object Model): a generic node tree whose semantics (vocabulary, rules, solvers) are data — not Bill of Materials; private while it hardens, built to be open-sourced"
+description = "quern: a generic node tree whose semantics (vocabulary, rules, solvers) are data, registered at runtime and versioned as packages; private while it hardens, built to be open-sourced"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
@@ -9,20 +9,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# bom.host registers the tree_* MCP tools over a Workspace; only a server needs it.
+# quern.host registers the tree_* MCP tools over a Workspace; only a server needs it.
 # (The geometry extra is gone with the geometry module: shapes live in xag/geometry now,
-# and a shape-carrying host installs that package instead — xag/bom#19.)
+# and a shape-carrying host installs that package instead — xag/quern#19.)
 host = ["mcp[cli]>=1.2"]
 
 [project.scripts]
-bom = "bom.cli:main"
+quern = "quern.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/bom"]
+packages = ["src/quern"]
 
 [dependency-groups]
 dev = [
@@ -30,7 +30,7 @@ dev = [
 ]
 
 [tool.pytest.ini_options]
-# `ledger/` is bom's own design ledger — a design-time artifact at the repo root, kept out
-# of the shipped package (packages = ["src/bom"]). It is not installed, so put the root on
+# `ledger/` is quern's own design ledger — a design-time artifact at the repo root, kept out
+# of the shipped package (packages = ["src/quern"]). It is not installed, so put the root on
 # the path or the suite cannot see it.
 pythonpath = ["."]

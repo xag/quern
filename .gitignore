@@ -14,5 +14,5 @@ uv.lock
 .idea/
 .vscode/
 
-# bom's own synced package cache (bom.lock is the source of truth)
-.bom/
+# quern's own synced package cache (quern.lock is the source of truth)
+.quern/

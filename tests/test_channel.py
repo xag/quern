@@ -4,11 +4,11 @@ import json
 
 import pytest
 
-from bom import Bom, PackageRef
-from bom.cli import main
-from bom.library import Library, Package, lock_refs, package_digest, sync
-from bom.solver import load_blob
-from bom.tree import KindDef, Node, Rule
+from quern import Quern, PackageRef
+from quern.cli import main
+from quern.library import Library, Package, lock_refs, package_digest, sync
+from quern.solver import load_blob
+from quern.tree import KindDef, Node, Rule
 
 
 def bolt(id: str, mass: float = 10.0) -> Node:
@@ -59,7 +59,7 @@ def test_sync_materializes_deps_first_and_reruns_the_proof(tmp_path):
     log = sync(reg, cache, refs)
     assert len(log) == 2 and "proof re-run" in log[0]
     # the cache now serves the closure by itself
-    tree = Bom(packages=[PackageRef(name="assemblies", version="1")])
+    tree = Quern(packages=[PackageRef(name="assemblies", version="1")])
     assert [p.name for p in cache.resolve(tree)] == ["assemblies", "fasteners"]
     # and a re-sync is the identical-republish no-op, not an error
     sync(reg, cache, refs)
@@ -99,7 +99,7 @@ def test_cli_publish_pin_sync_end_to_end(tmp_path, capsys):
     reg_dir.mkdir()
     artifact = tmp_path / "fasteners.json"
     artifact.write_text(fasteners().model_dump_json(), encoding="utf-8")
-    lock = tmp_path / "bom.lock"
+    lock = tmp_path / "quern.lock"
     cache = tmp_path / "cache"
 
     main(["--registry", str(reg_dir), "publish", str(artifact)])
@@ -117,4 +117,4 @@ def test_cli_pin_refuses_what_the_registry_lacks(tmp_path):
     reg_dir.mkdir()
     with pytest.raises(SystemExit, match="not pinned"):
         main(["--registry", str(reg_dir), "pin", "ghosts@9",
-              "--lock", str(tmp_path / "bom.lock")])
+              "--lock", str(tmp_path / "quern.lock")])

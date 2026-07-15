@@ -1,17 +1,17 @@
-"""bom.app_host — the semantic navigator: registration, dispatch, HTML."""
+"""quern.app_host — the semantic navigator: registration, dispatch, HTML."""
 
 import anyio
 
-from bom import Bom, KindDef, Node, Rule, design_target
-from bom.app_host import APP_MIME, APP_URI, _dispatch, app_html, register_app
-from bom.library import Library
+from quern import Quern, KindDef, Node, Rule, design_target
+from quern.app_host import APP_MIME, APP_URI, _dispatch, app_html, register_app
+from quern.library import Library
 
 
 class WS:
     label = "test-ws"
 
     def __init__(self, tmp):
-        self._bom = Bom(
+        self._quern = Quern(
             vocabulary=[KindDef(kind="thing", description="a thing means this")],
             rules=[Rule(name="x-positive", kind="thing",
                         expr="param(self, 'x') > 0")],
@@ -26,11 +26,11 @@ class WS:
         self.saved = 0
 
     @property
-    def bom(self):
-        return self._bom
+    def quern(self):
+        return self._quern
 
     def effective(self):
-        return self._bom
+        return self._quern
 
     def assert_editable(self, path):
         pass
@@ -88,13 +88,13 @@ def test_dispatch_covers_the_app_surface(tmp_path):
 
     _dispatch(ws, "tree_set", {"path": "a", "node": {"name": "Alpha2"}})
     assert ws.saved == 1
-    assert ws.bom.get("a").name == "Alpha2"
+    assert ws.quern.get("a").name == "Alpha2"
 
     check = _dispatch(ws, "tree_check", {})["content"][0]["text"]
     assert "PASS x-positive @ a" in check
 
     _dispatch(ws, "tree_delete", {"path": "a/b"})
-    assert ws.bom.get("a/b") is None
+    assert ws.quern.get("a/b") is None
 
     bad = _dispatch(ws, "tree_get", {"path": "nope"})["structuredContent"]
     assert "error" in bad

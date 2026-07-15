@@ -1,10 +1,10 @@
 """Operations on kinds: capabilities discovered with the slice, as data."""
 
-from bom import Bom, KindDef, OperationDef, SolverDef, semantics_at, set_node
+from quern import Quern, KindDef, OperationDef, SolverDef, semantics_at, set_node
 
 
 def test_operations_ride_with_the_slice():
-    tree = Bom()
+    tree = Quern()
     tree.vocabulary.append(KindDef(
         kind="shelf", description="a horizontal board",
         operations={"fit": OperationDef(
@@ -19,14 +19,14 @@ def test_operations_ride_with_the_slice():
 
 
 def test_a_kind_without_operations_stays_as_before():
-    tree = Bom()
+    tree = Quern()
     tree.vocabulary.append(KindDef(kind="shelf", description="a board"))
     set_node(tree, "wardrobe/shelf1", {"kind": "shelf"})
     assert "operations" not in semantics_at(tree, "wardrobe")["kinds"]["shelf"]
 
 
 def test_solvers_whose_reads_cover_the_path_are_surfaced():
-    tree = Bom()
+    tree = Quern()
     set_node(tree, "wardrobe/frame", {})
     set_node(tree, "garden/oak", {})
     tree.solvers.append(SolverDef(name="wardrobe-fit", reads=["wardrobe"],

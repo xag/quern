@@ -8,7 +8,7 @@ and pass, and every solver blob must exist and meet the ABI. A package that can'
 demonstrate itself doesn't enter the library.
 
 Versions are immutable: republishing name@version with different content is
-refused, so a pin (`Bom.packages`) means the same thing forever — packaged
+refused, so a pin (`Quern.packages`) means the same thing forever — packaged
 clients freeze on pins and never go stale, live environments move their pins.
 
 Merging is by precedence, never by magic: a tree's own vocabulary, rules and
@@ -26,7 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from .tree import KindDef, Node, PackageRef, Rule, Bom, run_rules
+from .tree import KindDef, Node, PackageRef, Rule, Quern, run_rules
 from .solver import SolverDef, SolverError, load_blob, save_blob
 
 
@@ -162,7 +162,7 @@ class Library:
                    "freezes this meaning across libraries, not just this one")
         return log
 
-    def resolve(self, tree: Bom, strict: bool = True) -> list[Package]:
+    def resolve(self, tree: Quern, strict: bool = True) -> list[Package]:
         """The pinned packages and their dependency closure, in deterministic
         order: each pin followed depth-first by its requires, already-seen
         skipped — so a package precedes its dependencies and `effective`'s
@@ -213,7 +213,7 @@ class Library:
             visit(ref, "pinned")
         return out
 
-    def effective(self, tree: Bom, strict: bool = True) -> Bom:
+    def effective(self, tree: Quern, strict: bool = True) -> Quern:
         """A composed copy where package semantics apply, the tree's own always
         winning — precedence, never merge magic."""
         eff = tree.model_copy(deep=True)
@@ -240,29 +240,29 @@ def lock_refs(library: Library, pins: list[PackageRef]) -> list[PackageRef]:
     """The flattened dependency closure of `pins`, every entry hash-bearing —
     what a lockfile records. Exact names, exact versions, exact bytes: a lock
     that leaves any of the three open is not a lock."""
-    closure = library.resolve(Bom(packages=pins))
+    closure = library.resolve(Quern(packages=pins))
     return [PackageRef(name=p.name, version=p.version, sha256=package_digest(p))
             for p in closure]
 
 
 def consume(root: Path, registry: Path | str | None = None,
             ) -> tuple[Library, list[PackageRef]]:
-    """Everything a consumer does at load, in one call: read `root/bom.lock`,
-    sync `root/.bom/library` from the first reachable registry (the explicit
-    argument, else $BOM_REGISTRY) with the proof re-run, and hand back the
-    cache with the locked refs — ready for `Bom(packages=...)` + `effective`.
+    """Everything a consumer does at load, in one call: read `root/quern.lock`,
+    sync `root/.quern/library` from the first reachable registry (the explicit
+    argument, else $QUERN_REGISTRY) with the proof re-run, and hand back the
+    cache with the locked refs — ready for `Quern(packages=...)` + `effective`.
 
     No registry reachable is not an error: the last synced cache serves, and
     `effective` verifies the digests against it either way — offline never
     means unverified. An empty lock IS an error; consuming nothing is a
     mistake, not a state.
     """
-    refs = read_lock(root / "bom.lock")
+    refs = read_lock(root / "quern.lock")
     if not refs:
-        raise ValueError(f"nothing locked in {root} — `bom pin name@version` "
+        raise ValueError(f"nothing locked in {root} — `quern pin name@version` "
                          "against a registry first")
-    cache = Library(root / ".bom" / "library")
-    reg = registry or os.environ.get("BOM_REGISTRY")
+    cache = Library(root / ".quern" / "library")
+    reg = registry or os.environ.get("QUERN_REGISTRY")
     if reg and Path(reg).exists():
         sync(Library(Path(reg)), cache, refs)
     return cache, refs
@@ -300,7 +300,7 @@ def sync(source: Library, dest: Library, refs: list[PackageRef]) -> list[str]:
         raise ValueError("refusing to sync without content pins: "
                          + ", ".join(f"{r.name}@{r.version}" for r in hashless)
                          + " carry no sha256 — a lock is exact or it is not a lock")
-    closure = source.resolve(Bom(packages=refs))  # verifies every pinned hash
+    closure = source.resolve(Quern(packages=refs))  # verifies every pinned hash
     log: list[str] = []
     done: set[tuple[str, str]] = set()
 
@@ -353,7 +353,7 @@ def validate_package(package: Package, blob_dir: Path,
             raise ValueError(f"counter-example names rule '{ce.rule}', which this "
                              "package does not define")
 
-    stage = Bom(vocabulary=package.vocabulary, rules=package.rules,
+    stage = Quern(vocabulary=package.vocabulary, rules=package.rules,
                 solvers=package.solvers, packages=package.requires)
     if package.requires:
         if library is None:

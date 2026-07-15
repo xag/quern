@@ -1,4 +1,4 @@
-# bom — the generic backend substrate
+# quern — the generic backend substrate
 
 ## Why: knowledge that moves as fast as the work
 
@@ -18,7 +18,7 @@ frozen in its code — distributed, like a squid whose intelligence lives in its
 and can regrow, rather than commanded from a single brain. Meaning is written at the
 node that needs it, the moment it is needed, and kept.
 
-That is the premise this substrate is built on. **In bom, all three are data**, not
+That is the premise this substrate is built on. **In quern, all three are data**, not
 code — vocabulary you register as you navigate, rules you write against it, solvers
 you install behind one bridge — authored at runtime, per tree, by whoever designs
 there, and capitalized into versioned packages the next design pins and refines. The
@@ -29,12 +29,12 @@ disappears — the model you reason with *is* the model you run. Knowledge no lo
 sits still while operations move around it; the two evolve together. With AI at every
 node, that is simply the new normal.
 
-## What bom is
+## What quern is
 
-The **BOM** — Business Object Model: a tree of typed-by-data objects with a
+The **Quern**: a tree of typed-by-data objects with a
 vocabulary that rules are written against (the pattern BRMS engines like IBM ODM
 call a "Business Object Model"), generalized so **semantics are data**, not code.
-The `Bom` type is the model — vocabulary, rules, solvers, packages, and a `root`
+The `Quern` type is the model — vocabulary, rules, solvers, packages, and a `root`
 node tree. The code here is mechanics and
 safety only; everything that *means* something is content:
 
@@ -70,28 +70,28 @@ safety only; everything that *means* something is content:
   the package's own examples and pass, with the `requires` closure staged
   beneath; modules must meet the ABI). A package extends others by requiring
   them — exact versions only, no ranges, fork-or-republish over resolver
-  algebra — and a `Bom` pin pulls the whole closure, nearer layers winning;
+  algebra — and a `Quern` pin pulls the whole closure, nearer layers winning;
   local content always wins over packages. Two versions of one name in a
   closure is a diamond conflict, refused at pin time.
 - **Standard contracts**: domains are authored in their own repos and travel the
-  registry as data (xag/bom#19): `geometry@` (xag/geometry) documents shape
+  registry as data (xag/quern#19): `geometry@` (xag/geometry) documents shape
   conventions and solver contracts and ships its own native implementations —
   installing that Python registers them; `ledger@` (xag/ledger) is pure
   vocabulary and rules; `grounding@` (xag/grounding) authors the meaning whose
-  implementations stay HERE in `bom.grounding`, because every gate leans on
+  implementations stay HERE in `quern.grounding`, because every gate leans on
   them: meaning is data, safety is code. A native is an optimisation of
-  content, never a semantics of its own, and a plain `import bom` pulls in no
+  content, never a semantics of its own, and a plain `import quern` pulls in no
   domain.
-- **Host** (`bom.host`, extra `bom[host]`): registers the generic `tree_*` MCP
+- **Host** (`quern.host`, extra `quern[host]`): registers the generic `tree_*` MCP
   tools once over a **`Workspace`** — the few seams a domain provides (its live
-  bom, its effective read view, the write guard, persistence, its blob store,
+  quern, its effective read view, the write guard, persistence, its blob store,
   its library, its starter vocabulary). One endpoint hosts several domains by
   resolving a different Workspace per call — same code, separate stores.
 
-- **Navigator** (`bom.app_host`, same `bom[host]` extra): the BOM is the shared
+- **Navigator** (`quern.app_host`, same `quern[host]` extra): the Quern is the shared
   context of codesign, so the human needs the same grip on it as the model.
   `register_app(mcp, get_ws)` serves a semantic navigator as an **MCP App**
-  (SEP-1865): a `ui://bom/navigator.html` resource plus a `tree_app` entry tool;
+  (SEP-1865): a `ui://quern/navigator.html` resource plus a `tree_app` entry tool;
   in an Apps-capable client the tree renders in-conversation — outline, kind
   prose, params with provenance and grounding, links, rules with pass/fail —
   and every browse or edit in the UI goes through the **same generic `tree_*`
@@ -101,10 +101,10 @@ safety only; everything that *means* something is content:
 
 The substrate knows nothing of its consumers. A domain lives entirely outside this
 library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
-`bom` — and domain safety invariants stay in that consumer code: meaning is data,
+`quern` — and domain safety invariants stay in that consumer code: meaning is data,
 safety is code.
 
-Canonical repo: `xag/bom` (private while it hardens). A consumer that vendors it
+Canonical repo: `xag/quern` (private while it hardens). A consumer that vendors it
 (e.g. via `git subtree` under some `<prefix>`) syncs with:
 
     git subtree pull --prefix=<prefix> <remote> main --squash

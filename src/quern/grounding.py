@@ -18,13 +18,13 @@ Only the IMPLEMENTATIONS live here — host safety code, registered by importing
 module, on the substrate's clock. Their meaning (the vocabulary entry and the solver
 descriptors a tree pins) is grounding@, authored in xag/grounding and pinned by digest
 from the registry like any package. Meaning is data, safety is code; this module is
-the code half, and the substrate otherwise knows no domain (xag/bom#19).
+the code half, and the substrate otherwise knows no domain (xag/quern#19).
 """
 
 from __future__ import annotations
 
 from .provenance import Quantity
-from .tree import Bom, Node, get_node, register_native
+from .tree import Quern, Node, get_node, register_native
 
 
 def _params_under(node: Node, path: str) -> list[tuple[str, str, Quantity]]:
@@ -41,21 +41,21 @@ def _params_under(node: Node, path: str) -> list[tuple[str, str, Quantity]]:
     return out
 
 
-def _node(tree: Bom, path: str) -> Node:
+def _node(tree: Quern, path: str) -> Node:
     n = get_node(tree, path)
     if n is None:
         raise ValueError(f"no node at '{path}'")
     return n
 
 
-def untrusted(tree: Bom, path: str = "", tolerance: float | None = None) -> float:
+def untrusted(tree: Quern, path: str = "", tolerance: float | None = None) -> float:
     """How many params at or under `path` are NOT safe to act on — not grounded, or
     grounded more loosely than `tolerance` (omit it to ask only about grounding)."""
     return float(sum(1 for _, _, q in _params_under(_node(tree, path), path)
                      if not q.trusted_within(tolerance)))
 
 
-def untrusted_via(tree: Bom, path: str, rel: str,
+def untrusted_via(tree: Quern, path: str, rel: str,
                   tolerance: float | None = None) -> float:
     """The same question asked of the reality a node is fitted against: follow the
     `rel` link from `path` (one hop) and count the untrusted params in the targets.
@@ -68,7 +68,7 @@ def untrusted_via(tree: Bom, path: str, rel: str,
                      for target in node.links.get(rel, [])))
 
 
-def depends_untrusted(tree: Bom, path: str = "",
+def depends_untrusted(tree: Quern, path: str = "",
                       tolerance: float | None = None) -> float:
     """Follow `derived_from` lineage transitively from every param at or under
     `path`, and count the upstream params that are untrusted.

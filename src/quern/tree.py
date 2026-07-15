@@ -1,4 +1,4 @@
-"""The generic backend substrate: a BOM-like tree where semantics are data.
+"""The generic backend substrate: a node tree where semantics are data.
 
 One structural concept — the node. A node has a free-text `kind` (an étiquette, not
 a class: nothing in this module branches on it), parameters whose every number is a
@@ -9,13 +9,13 @@ domain puts whatever it defines), free-form `meta`, and children. What a kind
 computes in its `solvers` — all written and read through the same API as the tree.
 
 The core interprets none of the payload: shapes, rendering and geometric checks
-live entirely in the `bom.geometry` package, reached — like any domain — through
+live entirely in the `quern.geometry` package, reached — like any domain — through
 the rule language's one bridge, solve('geometry/…', …). Nodes are addressed by
 slash paths ("parent/child/leaf"), so a client edits a branch without
 resending the tree.
 
 Every verb here runs against the `TreeStore` protocol — the structural contract
-`Bom` satisfies in memory and `bom.store.SqliteStore` satisfies with indexes on
+`Quern` satisfies in memory and `quern.store.SqliteStore` satisfies with indexes on
 disk — so the same model serves a hundred-node design and a hundred-thousand-line
 bill without changing a call site.
 """
@@ -44,7 +44,7 @@ USES = "uses"                  # A links uses->[D]: A is a usage of definition D
 
 
 class Node(BaseModel):
-    """One BOM line: a component, an assembly, or anything the vocabulary defines."""
+    """One line of the tree: a component, an assembly, or anything the vocabulary defines."""
 
     id: str
     kind: str = ""   # free label — meaning lives in the tree vocabulary, not here
@@ -140,15 +140,15 @@ class PackageRef(BaseModel):
     sha256: str | None = None
 
 
-class Bom(BaseModel):
+class Quern(BaseModel):
     """A design tree plus the semantics that give it meaning — vocabulary
     (what kinds are), rules (what must hold) and solvers (code that computes over
     branches, sandboxed), all data, all written through the same API as the tree.
     `packages` pins library packages whose semantics apply here too; the tree's
     own entries always win over package ones.
 
-    A Bom is also the in-memory `TreeStore`: the methods below are the structural
-    protocol a scaled store (`bom.store.SqliteStore`) implements with indexes on
+    A Quern is also the in-memory `TreeStore`: the methods below are the structural
+    protocol a scaled store (`quern.store.SqliteStore`) implements with indexes on
     disk. The free functions further down delegate here, so every call site works
     over either — scale is a choice of store, never a change of model."""
 
@@ -261,8 +261,8 @@ class Bom(BaseModel):
 
 class TreeStore(Protocol):
     """The structural contract behind every tree verb: what a thing must expose to
-    be navigated, edited, searched and rule-checked. `Bom` satisfies it in memory;
-    `bom.store.SqliteStore` satisfies it with indexes on disk. Every free function
+    be navigated, edited, searched and rule-checked. `Quern` satisfies it in memory;
+    `quern.store.SqliteStore` satisfies it with indexes on disk. Every free function
     in this module takes either — pass whichever fits the tree's size."""
 
     vocabulary: list[KindDef]
@@ -285,14 +285,14 @@ class TreeStore(Protocol):
 # --- path addressing ----------------------------------------------------------
 #
 # The free functions are the historical (and still canonical) surface; each
-# delegates to the TreeStore protocol, so they serve a Bom and a scaled store
+# delegates to the TreeStore protocol, so they serve a Quern and a scaled store
 # alike. New code may call the methods directly; nothing forces either style.
 
-def get_node(tree: Bom | TreeStore, path: str) -> Node | None:
+def get_node(tree: Quern | TreeStore, path: str) -> Node | None:
     return tree.get(path)
 
 
-def find_nodes(tree: Bom | TreeStore, query: str | None = None, kind: str | None = None,
+def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
                limit: int = 20) -> list[tuple[str, Node]]:
@@ -316,26 +316,26 @@ def find_nodes(tree: Bom | TreeStore, query: str | None = None, kind: str | None
 # any link; these readers, the `current_only` filter above, and the rule builtins
 # (superseded, uses, where_used, rollup, tally) are what make them load-bearing.
 
-def _superseded_set(tree: Bom) -> set[str]:
+def _superseded_set(tree: Quern) -> set[str]:
     stale: set[str] = set()
     for _, n in _iter_paths(tree.root, ""):
         stale.update(n.links.get(SUPERSEDES, []))
     return stale
 
 
-def superseders(tree: Bom | TreeStore, path: str) -> list[str]:
+def superseders(tree: Quern | TreeStore, path: str) -> list[str]:
     """Paths of nodes that declare (via the reserved `supersedes` link) that they
     replace `path`. Non-empty ⇒ `path` is superseded — no longer current belief."""
     return sorted(tree.backlinks(SUPERSEDES, path))
 
 
-def is_superseded(tree: Bom | TreeStore, path: str) -> bool:
+def is_superseded(tree: Quern | TreeStore, path: str) -> bool:
     """True iff some node supersedes `path`. The current-belief predicate a check or
     query keys on to keep only what still stands."""
     return bool(tree.backlinks(SUPERSEDES, path))
 
 
-def lineage(tree: Bom | TreeStore, path: str) -> list[str]:
+def lineage(tree: Quern | TreeStore, path: str) -> list[str]:
     """What `path` was derived from: the union of its node-level `derived_from` link
     and the `derived_from` of every value it carries. The traversable half of
     provenance — walk it to find what a change upstream should invalidate."""
@@ -358,7 +358,7 @@ def lineage(tree: Bom | TreeStore, path: str) -> list[str]:
 # param is called ('qty', 'strands'), what a definition is ('part', 'detail') stays
 # the domain's, passed in as data.
 
-def definition(tree: Bom | TreeStore, path: str) -> str | None:
+def definition(tree: Quern | TreeStore, path: str) -> str | None:
     """The path `path` resolves through: the first target of its reserved `uses`
     link that exists in the tree (later targets are alternates). None when the node
     has no `uses` link — or none of its targets exist, a dangling reference
@@ -372,13 +372,13 @@ def definition(tree: Bom | TreeStore, path: str) -> str | None:
     return None
 
 
-def users(tree: Bom | TreeStore, path: str) -> list[str]:
+def users(tree: Quern | TreeStore, path: str) -> list[str]:
     """Paths of every usage of the definition at `path` — where-used, the symmetric
     of `definition`, exactly as `superseders` is the symmetric of a supersession."""
     return sorted(tree.backlinks(USES, path))
 
 
-def resolve_params(tree: Bom | TreeStore, path: str) -> dict[str, Quantity]:
+def resolve_params(tree: Quern | TreeStore, path: str) -> dict[str, Quantity]:
     """The effective params of a node: its own, then — for names it does not
     carry — its definition's, following `uses` chains cycle-safely. Usage always
     overrides definition: precedence, never merge magic."""
@@ -396,7 +396,7 @@ def resolve_params(tree: Bom | TreeStore, path: str) -> dict[str, Quantity]:
     return out
 
 
-def _resolved_kind(tree: Bom | TreeStore, path: str) -> str:
+def _resolved_kind(tree: Quern | TreeStore, path: str) -> str:
     """A node's kind, read through its definition when it declares none itself."""
     seen: set[str] = set()
     p: str | None = "/".join(_segs(path))
@@ -422,7 +422,7 @@ class Occurrence(BaseModel):
     factor: float = 1.0
 
 
-def explode(tree: Bom | TreeStore, under: str = "", mult: str | None = None,
+def explode(tree: Quern | TreeStore, under: str = "", mult: str | None = None,
             strict: bool = True) -> list[Occurrence]:
     """The instantiated tree: every occurrence at or under `under`, usages expanded
     into their definition's children (after their own — local additions stay).
@@ -471,7 +471,7 @@ def explode(tree: Bom | TreeStore, under: str = "", mult: str | None = None,
     return out
 
 
-def rollup(tree: Bom | TreeStore, under: str, mult: str, value: str,
+def rollup(tree: Quern | TreeStore, under: str, mult: str, value: str,
            strict: bool = True) -> float:
     """Σ over the expansion of factor × `value`: each occurrence carrying the
     `value` param (through its definition) contributes it, weighted by the product
@@ -486,7 +486,7 @@ def rollup(tree: Bom | TreeStore, under: str, mult: str, value: str,
     return total
 
 
-def tally(tree: Bom | TreeStore, under: str, kind: str, mult: str,
+def tally(tree: Quern | TreeStore, under: str, kind: str, mult: str,
           strict: bool = True) -> float:
     """Σ of factor over every occurrence of `kind` (read through definitions) in
     the expansion — "how many of these does the product take?", multiplicities
@@ -508,7 +508,7 @@ def tally(tree: Bom | TreeStore, under: str, kind: str, mult: str,
 # order. What an 'event' or a 'scenario' *is* stays vocabulary; the grammar never
 # grows a domain noun.
 
-def is_before(tree: Bom | TreeStore, a: str, b: str) -> bool:
+def is_before(tree: Quern | TreeStore, a: str, b: str) -> bool:
     """True iff `a` precedes `b` in document order (pre-order walk) — the trace
     predicate. Sibling events compare by child order; nested ones by the walk.
     A path that names nothing raises: an ordering claim over a hole is a broken
@@ -520,7 +520,7 @@ def is_before(tree: Bom | TreeStore, a: str, b: str) -> bool:
     return order["/".join(_segs(a))] < order["/".join(_segs(b))]
 
 
-def _sibling_paths(tree: Bom | TreeStore, path: str) -> tuple[list[str], int]:
+def _sibling_paths(tree: Quern | TreeStore, path: str) -> tuple[list[str], int]:
     segs = _segs(path)
     if not segs:
         raise ValueError("the root has no siblings")
@@ -532,7 +532,7 @@ def _sibling_paths(tree: Bom | TreeStore, path: str) -> tuple[list[str], int]:
     return sibs, sibs.index(norm)
 
 
-def preceding(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list[str]:
+def preceding(tree: Quern | TreeStore, path: str, kind: str | None = None) -> list[str]:
     """The sibling paths before `path`, in order — what already happened when it
     occurred, when the parent is a scenario. `kind` filters, read through
     definitions like `tally` reads it."""
@@ -542,7 +542,7 @@ def preceding(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list
                                      if _resolved_kind(tree, s) == kind]
 
 
-def following(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list[str]:
+def following(tree: Quern | TreeStore, path: str, kind: str | None = None) -> list[str]:
     """The sibling paths after `path`, in order — the symmetric of `preceding`."""
     sibs, i = _sibling_paths(tree, path)
     out = sibs[i + 1:]
@@ -550,12 +550,12 @@ def following(tree: Bom | TreeStore, path: str, kind: str | None = None) -> list
                                      if _resolved_kind(tree, s) == kind]
 
 
-def child_index(tree: Bom | TreeStore, path: str) -> int:
+def child_index(tree: Quern | TreeStore, path: str) -> int:
     """`path`'s position among its parent's children — sequence indexing."""
     return _sibling_paths(tree, path)[1]
 
 
-def child_at(tree: Bom | TreeStore, parent: str, i: int) -> str:
+def child_at(tree: Quern | TreeStore, parent: str, i: int) -> str:
     """The path of the `i`-th child of `parent` — the inverse of `child_index`.
     Out of range raises: indexing past the trace is a broken rule."""
     ids = tree.children(parent)
@@ -566,7 +566,7 @@ def child_at(tree: Bom | TreeStore, parent: str, i: int) -> str:
     return f"{pp}/{ids[i]}" if pp else ids[i]
 
 
-def semantics_at(tree: Bom | TreeStore, path: str, depth: int | None = None) -> dict[str, Any]:
+def semantics_at(tree: Quern | TreeStore, path: str, depth: int | None = None) -> dict[str, Any]:
     """The meaning of a slice of the tree, discovered with the slice itself.
 
     Returns the vocabulary entries for every kind present at `path` (down to
@@ -611,7 +611,7 @@ def semantics_at(tree: Bom | TreeStore, path: str, depth: int | None = None) -> 
     return out
 
 
-def set_node(tree: Bom | TreeStore, path: str, data: dict[str, Any]) -> Node:
+def set_node(tree: Quern | TreeStore, path: str, data: dict[str, Any]) -> Node:
     """Create or update the node at `path`. Given fields replace those fields
     (children included — edit a child by addressing it, not by resending lists);
     missing intermediate nodes are created as bare groups."""
@@ -637,7 +637,7 @@ def _fold_payload(data: dict[str, Any], base_payload: dict[str, Any]) -> dict[st
     return data
 
 
-def delete_node(tree: Bom | TreeStore, path: str) -> Node:
+def delete_node(tree: Quern | TreeStore, path: str) -> Node:
     return tree.delete(path)
 
 
@@ -681,7 +681,7 @@ class RuleResult(BaseModel):
     detail: str = ""
 
 
-def run_rules(tree: Bom | TreeStore, path: str = "",
+def run_rules(tree: Quern | TreeStore, path: str = "",
               context: dict[str, Any] | None = None,
               solver_runner=None) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
@@ -704,7 +704,7 @@ def run_rules(tree: Bom | TreeStore, path: str = "",
     return out
 
 
-def _rule_bindings(tree: Bom | TreeStore, rule: Rule, under: str):
+def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):
     """(path, variables) pairs the rule evaluates against."""
     if rule.kind is not None:
         for node_path, node in tree.walk(""):
@@ -729,7 +729,7 @@ def _iter_paths(node: Node, path: str):
         yield from _iter_paths(c, cpath)
 
 
-def _env(tree: Bom | TreeStore, context: dict[str, Any] | None = None,
+def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
          solver_runner=None) -> dict[str, Any]:
     """Structural builtins + the solve() bridge. Nothing here interprets content."""
     context = context or {}
@@ -780,7 +780,7 @@ def _env(tree: Bom | TreeStore, context: dict[str, Any] | None = None,
     }
 
 
-def _param_of(tree: Bom | TreeStore, path: str, name: str) -> float:
+def _param_of(tree: Quern | TreeStore, path: str, name: str) -> float:
     # a usage resolves params through its definition: own value first, then the
     # `uses` chain — the read half of the reuse verb
     q = resolve_params(tree, path).get(name)

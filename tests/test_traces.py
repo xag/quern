@@ -2,8 +2,8 @@
 
 import pytest
 
-from bom import (
-    Bom,
+from quern import (
+    Quern,
     Rule,
     child_at,
     child_index,
@@ -13,13 +13,13 @@ from bom import (
     run_rules,
     set_node,
 )
-from bom.library import Library, Package
-from bom.tree import KindDef, Node
+from quern.library import Library, Package
+from quern.tree import KindDef, Node
 
 
-def checkout_scenario() -> Bom:
+def checkout_scenario() -> Quern:
     """One purchase, as it should unfold."""
-    tree = Bom()
+    tree = Quern()
     for event, kind in (("browse", "pageview"), ("checkout", "checkout"),
                         ("email-conf", "email"), ("charge", "charge")):
         set_node(tree, f"scenarios/purchase/{event}", {"kind": kind})
@@ -62,7 +62,7 @@ def test_trace_predicates_run_as_ordinary_rules():
     assert results["charge-ends-the-trace"].ok
 
     # the violating trace: charged before any email went out
-    bad = Bom(rules=list(tree.rules))
+    bad = Quern(rules=list(tree.rules))
     for event, kind in (("checkout", "checkout"), ("charge", "charge"),
                         ("email-conf", "email")):
         set_node(bad, f"scenarios/purchase/{event}", {"kind": kind})

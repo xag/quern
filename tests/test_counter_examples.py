@@ -7,8 +7,8 @@ A counter-example is the node the rule MUST reject.
 
 import pytest
 
-from bom.library import CounterExample, Library, Package, validate_package
-from bom.tree import KindDef, Node, Rule
+from quern.library import CounterExample, Library, Package, validate_package
+from quern.tree import KindDef, Node, Rule
 
 BOLT = KindDef(kind="bolt", description="a threaded fastener", params={"mass": "grams"})
 
@@ -87,7 +87,7 @@ def test_a_relational_defect_can_stage_the_world_it_needs(tmp_path):
     BOTH to exist. Stage only the design and the rule still trips — but on a dangling
     link, not an unmeasured one, and the proof would be a lie that reads like a proof.
     """
-    import bom.grounding  # noqa: F401 -- registers grounding/*
+    import quern.grounding  # noqa: F401 -- registers grounding/*
 
     guessed = {"value": 2500, "unit": "mm", "provenance": "inferred"}
     measured = {"value": 2500, "unit": "mm", "provenance": "measured", "tolerance": 2}

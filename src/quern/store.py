@@ -1,18 +1,18 @@
-"""bom.store — scale as a choice of store, never a change of model.
+"""quern.store — scale as a choice of store, never a change of model.
 
-`SqliteStore` is the `TreeStore` protocol on disk: the same verbs `Bom` answers
+`SqliteStore` is the `TreeStore` protocol on disk: the same verbs `Quern` answers
 by walking live objects, answered here by indexes — path ranges for walks, a
 kind column for kind queries, a link table for backlinks (supersession,
-where-used, lineage invalidation). Every free function in `bom.tree` (and so
+where-used, lineage invalidation). Every free function in `quern.tree` (and so
 every rule evaluation, every solver slice, every host tool) accepts either; a
-consumer opens a store instead of loading a Bom and nothing else changes.
+consumer opens a store instead of loading a Quern and nothing else changes.
 
 The store is structural only, like the search: it persists nodes, params, links
 and payloads without reading any of them, and holds the tree's semantics
 (vocabulary, rules, solvers, package pins) as one small document — semantics
 stay conversation-sized even when the tree does not. Node edits commit
 immediately, each in its own transaction; semantics edits are in-memory lists
-(exactly a Bom's) persisted by `save()`, matching the Workspace pattern.
+(exactly a Quern's) persisted by `save()`, matching the Workspace pattern.
 
 SQLite in WAL mode carries the honest concurrency story this buys: snapshot
 reads, one writer. Multi-user change workflow stays consumer code — the
@@ -28,7 +28,7 @@ from typing import Any, Iterator
 
 from .solver import SolverDef
 from .tree import (
-    Bom,
+    Quern,
     KindDef,
     Node,
     PackageRef,
@@ -69,7 +69,7 @@ CREATE TABLE IF NOT EXISTS semantics (
 
 class SqliteStore:
     """A `TreeStore` backed by one SQLite file. Open it where the tree lives;
-    pass it wherever a `Bom` goes."""
+    pass it wherever a `Quern` goes."""
 
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(str(path))
@@ -194,7 +194,7 @@ class SqliteStore:
              has_param: str | None = None, links_to: str | None = None,
              under: str = "", current_only: bool = False,
              limit: int = 20) -> list[tuple[str, Node]]:
-        """Same contract as `Bom.find`, index-narrowed: `kind` hits its column,
+        """Same contract as `Quern.find`, index-narrowed: `kind` hits its column,
         `current_only` its link index; the rest filters the narrowed rows."""
         anchor = "/".join(_segs(under))
         if anchor and not self._exists(anchor):
@@ -230,8 +230,8 @@ class SqliteStore:
 
     # --- moving whole trees ---------------------------------------------------
 
-    def ingest(self, tree: Bom) -> None:
-        """Load a Bom into the store — nodes, semantics and all. The store must
+    def ingest(self, tree: Quern) -> None:
+        """Load a Quern into the store — nodes, semantics and all. The store must
         be empty: this is a migration, not a merge."""
         if self._db.execute("SELECT 1 FROM nodes LIMIT 1").fetchone():
             raise ValueError("the store already holds a tree — ingest into a "
@@ -245,11 +245,11 @@ class SqliteStore:
         self.packages = [p.model_copy(deep=True) for p in tree.packages]
         self.save()
 
-    def snapshot(self) -> Bom:
-        """The whole store as an in-memory Bom — for export, diffing, or a
+    def snapshot(self) -> Quern:
+        """The whole store as an in-memory Quern — for export, diffing, or a
         consumer API that expects the model. On a large tree this is the one
         deliberately expensive call here."""
-        return Bom(vocabulary=[k.model_copy(deep=True) for k in self.vocabulary],
+        return Quern(vocabulary=[k.model_copy(deep=True) for k in self.vocabulary],
                    rules=[r.model_copy(deep=True) for r in self.rules],
                    solvers=[s.model_copy(deep=True) for s in self.solvers],
                    packages=[p.model_copy(deep=True) for p in self.packages],
