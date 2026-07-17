@@ -27,6 +27,11 @@ contract the process serves nothing else: no other request, no stream, no socket
 
 None of this is a bug in any one contract. It is the shape of the boundary, and the
 hypothesis at the end is the load-bearing claim about how to fix it.
+
+A later, unrelated slice sits near the end: the read-only navigator (`quern navigate`)
+and the one decision it rests on — that it depends on no vocabulary of its own, only on
+the ledger-package convention, because `build()` hands back a tree with its semantics
+already composed in.
 """
 
 from __future__ import annotations
@@ -256,6 +261,50 @@ def build() -> Quern:
                               "The right call when history is dirty — rewrite gymnastics "
                               "are worse — but a clean history squashed loses the "
                               "provenance of every decision for no gain."}),
+            ],
+        ),
+
+        Node(
+            id="the-navigator-is-vocabulary-blind",
+            kind="decision",
+            name="quern navigate serves whatever build() composed, and depends on no "
+                 "vocabulary of its own",
+            payload={
+                "rationale":
+                    "The read-only navigator (`quern navigate <project>`) renders any "
+                    "project's ledger with no per-project wiring. It rests on ONE "
+                    "convention, which is its whole contract: a project's ledger is the "
+                    "package `ledger/` whose `tree.py` exposes an argument-free "
+                    "`build() -> Quern`. build() calls `lib.effective(...)`, so the pinned "
+                    "vocabulary package (ledger@, or any domain's) is already folded into "
+                    "the tree it returns — kinds, prose and rules and all. The navigator "
+                    "therefore supplies nothing: its starter_vocabulary is empty, and it "
+                    "wraps the composed tree in a read-only Workspace that refuses every "
+                    "write. Meaning arrives pre-resolved; the viewer stays domain-agnostic "
+                    "and renders any vocabulary unchanged.",
+                "note":
+                    "The dependency runs one way: a project pins a vocabulary and resolves "
+                    "it; the navigator consumes the result and never learns which package "
+                    "it was. Because the ledger is a PACKAGE, `tree.py` may `from . import` "
+                    "its siblings, so the loader imports `ledger.tree` as a package, not as "
+                    "a lone file.",
+            },
+            children=[
+                Node(id="alt-navigator-loads-tree-as-a-lone-file", kind="alternative",
+                     name="Load ledger/tree.py by file path, with no package context",
+                     payload={"why":
+                              "The first cut, and it worked only for ledgers that import "
+                              "nothing local. A real ledger is a package and its tree.py "
+                              "does `from . import strategy`; loaded as a lone file it has "
+                              "no __package__ and the relative import fails. The loader "
+                              "must import it AS the package `ledger.tree`."}),
+                Node(id="alt-navigator-needs-per-project-wiring", kind="alternative",
+                     name="Each project wires its own Workspace and serves the navigator",
+                     payload={"why":
+                              "Defeats the point — one command against any ledgered repo, "
+                              "no wiring. And it would make the viewer carry a live "
+                              "Workspace or vocabulary it does not need: build() already "
+                              "returns a composed tree, so a read-only wrapper is enough."}),
             ],
         ),
 
