@@ -90,6 +90,82 @@ def _broke(ws: "Workspace", path: str) -> str:
     return "\n" + "\n".join(lines)
 
 
+def _red_set(ws: "Workspace") -> dict[str, str]:
+    """Every failing rule of the effective tree, keyed 'rule@node' -> detail. The unit
+    the commit gate compares: not pass/fail counts, the named set — so a commit is
+    judged by which reds it creates, never by arithmetic that could cancel out."""
+    results = treemod.run_rules(ws.effective(), "")
+    return {(f"{r.rule}@{r.node}" if r.node else r.rule): (r.detail or "")
+            for r in results if not r.ok}
+
+
+def _restore(live: Quern, snapshot: Quern) -> None:
+    """Roll a Quern back to a deep-copied snapshot, in place — the object identity the
+    Workspace holds must survive the rollback, so fields are reassigned, not the tree."""
+    live.root = snapshot.root
+    live.vocabulary = snapshot.vocabulary
+    live.rules = snapshot.rules
+    live.solvers = snapshot.solvers
+    live.packages = snapshot.packages
+
+
+def commit_changes(ws: "Workspace", changes: list[dict[str, Any]],
+                   acknowledge: list[str] | None = None) -> dict[str, Any]:
+    """Apply a change-set transactionally under the one invariant of authoring:
+    **the committed tree's red set never changes silently.**
+
+    A draft may be incomplete (a decision before its alternatives is red by rule), so
+    the gate judges the change-set as a whole, not each keystroke. Green stays green;
+    a change-set that would CREATE reds is refused — every write rolled back, nothing
+    saved — unless each new red is acknowledged by name in `acknowledge`. Deliberate
+    reds are this estate's own practice (a gate shipped red is a caveat that fires),
+    so the guard forbids drift, never honesty: acknowledged reds commit, and the
+    acknowledgment is recorded on the root's meta where a later reader finds it.
+
+    Atomic throughout: one refused or failing change rolls back the whole set.
+    """
+    ack = set(acknowledge or [])
+    try:
+        before = _red_set(ws)
+    except Exception as e:
+        raise ValueError(f"the rules cannot be evaluated, so no commit can be "
+                         f"judged: {e}") from e
+    snapshot = ws.quern.model_copy(deep=True)
+    try:
+        for change in changes:
+            op = change.get("op", "set")
+            path = change["path"]
+            ws.assert_editable(path)
+            if op == "set":
+                treemod.set_node(ws.quern, path, change.get("node") or {})
+            elif op == "delete":
+                treemod.delete_node(ws.quern, path)
+            else:
+                raise ValueError(f"unknown op '{op}' — a change is "
+                                 "{op: set|delete, path, node?}")
+        after = _red_set(ws)
+    except Exception:
+        _restore(ws.quern, snapshot)
+        raise
+    new = {k: v for k, v in after.items() if k not in before}
+    refused = sorted(k for k in new if k not in ack)
+    if refused:
+        _restore(ws.quern, snapshot)
+        return {"committed": False,
+                "refused": [{"red": k, "detail": new[k]} for k in refused],
+                "hint": "this change-set would create the red(s) above. Fix the "
+                        "change, or commit deliberately by naming each in "
+                        "acknowledge=[...] — the acknowledgment is recorded."}
+    if new:
+        seen = ws.quern.root.meta.get("acknowledged-reds")
+        have = list(seen) if isinstance(seen, list) else []
+        ws.quern.root.meta["acknowledged-reds"] = sorted({*have, *new})
+    ws.save()
+    return {"committed": True, "changes": len(changes),
+            "reds_before": sorted(before), "reds_after": sorted(after),
+            "acknowledged": sorted(new)}
+
+
 def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     """Register the tree_* tools and the solver:// resource on `mcp`, each acting
     on the Workspace `get_ws()` returns for the current caller."""
@@ -181,6 +257,25 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         # adjoin, a boundary a design is still scribed to. The parent hears about it.
         broke = _broke(ws, "/".join(treemod._segs(path)[:-1]))
         return out + (broke if broke.startswith("\n") else "")
+
+    @mcp.tool(structured_output=True)
+    def tree_commit(changes: list[dict[str, Any]],
+                    acknowledge: list[str] | None = None) -> dict[str, Any]:
+        """Apply a change-set — [{op: 'set'|'delete', path, node?}] — atomically,
+        under authoring's one invariant: the committed tree's red set never changes
+        silently. Green stays green; a set that would CREATE reds is refused whole
+        (nothing written) and returns them by name; commit deliberately by naming
+        each in `acknowledge` — the acknowledgment is recorded on the root. Use
+        this over bare tree_set when a change should stand or fall with its
+        consequences; drafts that are legitimately incomplete belong in one
+        change-set with what completes them."""
+        ws = get_ws()
+        if isinstance(ws, str):
+            return {"error": ws}
+        try:
+            return commit_changes(ws, changes, acknowledge)
+        except Exception as e:
+            return {"error": str(e)}
 
     @mcp.tool()
     def tree_vocabulary(kind: str | None = None, description: str | None = None,

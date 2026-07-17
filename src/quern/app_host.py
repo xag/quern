@@ -149,6 +149,11 @@ def _dispatch(ws, name: str, args: dict[str, Any]) -> dict[str, Any]:
         ws.save()
         return text(f"deleted '{path}'.")
 
+    if name == "tree_commit":
+        from .host import commit_changes
+        return structured(commit_changes(ws, args.get("changes") or [],
+                                         args.get("acknowledge")))
+
     if name == "tree_check":
         results = treemod.run_rules(ws.effective(), args.get("path", ""))
         if not results:
