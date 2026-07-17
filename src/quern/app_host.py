@@ -40,9 +40,37 @@ APP_MIME = "text/html;profile=mcp-app"
 # CSP, so the domain must be declared on the tool that opens the app.
 _CSP = {"resourceDomains": ["https://cdn.jsdelivr.net"]}
 
+# The MCP Apps extension id (SEP-1865). A server that serves ui:// resources
+# MUST say so in its initialize capabilities — a spec-conforming host that
+# never hears this ignores every `_meta.ui` and renders nothing, silently.
+UI_EXTENSION = "io.modelcontextprotocol/ui"
+
 
 def app_html() -> str:
     return (resources.files("quern") / "app.html").read_text(encoding="utf-8")
+
+
+def declare_ui_capability(mcp: FastMCP) -> None:
+    """Declare the MCP Apps extension in the server's initialize capabilities.
+
+    The SDK's ServerCapabilities predates the extension but allows extra
+    fields, so the declaration rides initialization as data. Idempotent —
+    `register_app` calls it, and a consumer registering a second app over the
+    same server may call it again freely."""
+    server = mcp._mcp_server
+    if getattr(server.create_initialization_options, "_declares_ui", False):
+        return
+    orig = server.create_initialization_options
+
+    def with_ui(notification_options=None, experimental_capabilities=None):
+        opts = orig(notification_options, experimental_capabilities)
+        ext = getattr(opts.capabilities, "extensions", None) or {}
+        ext[UI_EXTENSION] = {"mimeTypes": [APP_MIME]}
+        opts.capabilities.extensions = ext  # ServerCapabilities: extra="allow"
+        return opts
+
+    with_ui._declares_ui = True
+    server.create_initialization_options = with_ui
 
 
 def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
@@ -51,6 +79,7 @@ def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
     Call alongside `register_tree_tools` — the app drives the tree through
     those generic verbs; this module adds only the entry point and the HTML.
     """
+    declare_ui_capability(mcp)
 
     @mcp.resource(APP_URI, name="Quern navigator", mime_type=APP_MIME)
     def navigator_html() -> str:

@@ -103,3 +103,21 @@ def test_dispatch_covers_the_app_surface(tmp_path):
 
     bad = _dispatch(ws, "tree_get", {"path": "nope"})["structuredContent"]
     assert "error" in bad
+
+
+def test_register_app_declares_the_ui_extension_capability(tmp_path):
+    """SEP-1865: a server serving ui:// resources MUST declare the extension in
+    its initialize capabilities - a spec-conforming host that never hears it
+    ignores every _meta.ui and renders nothing, silently. (Found the hard way:
+    the navigator negotiated fine and never rendered.)"""
+    from mcp.server.fastmcp import FastMCP
+
+    from quern.app_host import UI_EXTENSION, declare_ui_capability
+
+    ws = WS(tmp_path)
+    mcp = FastMCP("test")
+    register_app(mcp, lambda: ws)
+    declare_ui_capability(mcp)  # idempotent: a second app may declare again
+    opts = mcp._mcp_server.create_initialization_options()
+    dumped = opts.capabilities.model_dump()
+    assert dumped["extensions"][UI_EXTENSION] == {"mimeTypes": [APP_MIME]}
