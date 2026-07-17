@@ -216,6 +216,28 @@ function flash(msg, bad=false) {
   setTimeout(() => el.classList.remove("show"), 2200);
 }
 
+/* Every write goes through the commit gate: the committed tree's red set never
+   changes silently. A change-set that would create reds comes back refused, whole;
+   the author sees them by name and either fixes the change or commits deliberately —
+   and the acknowledgment is recorded on the tree, not just clicked away. */
+async function commit(changes, okMsg) {
+  let r = await call("tree_commit", { changes });
+  if (r?.error) throw new Error(r.error);
+  if (r && r.committed === false) {
+    const reds = (r.refused || []).map(x => "  RED " + x.red + (x.detail ? ` — ${x.detail}` : ""));
+    const ok = confirm("This change makes check(s) go RED:\n\n" + reds.join("\n") +
+      "\n\nCommit anyway? Each red is acknowledged by name and recorded on the tree.");
+    if (!ok) return false;
+    r = await call("tree_commit",
+      { changes, acknowledge: (r.refused || []).map(x => x.red) });
+    if (r?.error) throw new Error(r.error);
+    if (r && r.committed === false)
+      throw new Error("still refused — the red set moved underneath you; reload and retry");
+  }
+  if (okMsg) flash(okMsg + (r?.acknowledged?.length ? " — red acknowledged, recorded" : ""));
+  return true;
+}
+
 /* ---------- navigation ---------- */
 
 async function go(path) {
@@ -349,7 +371,7 @@ function renderNode() {
   $("#nname").onblur = async () => {
     const name = $("#nname").textContent.trim();
     if (path && name !== (n.name || "")) {
-      await call("tree_set", { path, node: { name } }); flash("name saved"); refresh();
+      if (await commit([{ op: "set", path, node: { name } }], "name saved")) refresh();
     }
   };
   el.querySelectorAll("tr[data-param]").forEach(tr =>
@@ -362,8 +384,7 @@ function renderNode() {
   const del = $("#delnode");
   if (del) del.onclick = async () => {
     if (!confirm(`Delete '${path}' and its whole branch?`)) return;
-    const r = await call("tree_delete", { path });
-    flash(r?.text || "deleted");
+    if (!await commit([{ op: "delete", path }], "deleted")) return;
     cache.clear(); go(path.split("/").slice(0, -1).join("/"));
   };
 }
@@ -404,10 +425,9 @@ function paramDialog(name, q) {
       if (Number.isNaN(quantity.value)) throw new Error("value must be a number");
       if ($("#f_tol").value) quantity.tolerance = parseFloat($("#f_tol").value);
       if ($("#f_src").value) quantity.source = $("#f_src").value;
-      const r = await call("tree_set", { path: current.path,
-        node: { params: { ...(current.node.params || {}), [pname]: quantity } } });
-      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
-      flash("param saved"); refresh();
+      if (await commit([{ op: "set", path: current.path,
+        node: { params: { ...(current.node.params || {}), [pname]: quantity } } }],
+        "param saved")) refresh();
     });
 }
 
@@ -420,9 +440,8 @@ function linkDialog() {
       if (!lname || !t) throw new Error("both fields required");
       const links = { ...(current.node.links || {}) };
       links[lname] = [...(links[lname] || []), t];
-      const r = await call("tree_set", { path: current.path, node: { links } });
-      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
-      flash("link added"); refresh();
+      if (await commit([{ op: "set", path: current.path, node: { links } }],
+        "link added")) refresh();
     });
 }
 
@@ -431,9 +450,8 @@ function jsonDialog(field, obj) {
     <textarea id="f_json" spellcheck="false">${esc(JSON.stringify(obj, null, 2))}</textarea>`,
     async () => {
       const parsed = JSON.parse($("#f_json").value);
-      const r = await call("tree_set", { path: current.path, node: { [field]: parsed } });
-      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
-      flash(field + " saved"); refresh();
+      if (await commit([{ op: "set", path: current.path, node: { [field]: parsed } }],
+        field + " saved")) refresh();
     });
 }
 
@@ -450,9 +468,8 @@ function childDialog() {
       const node = {};
       if ($("#f_kind").value.trim()) node.kind = $("#f_kind").value.trim();
       if ($("#f_cname").value.trim()) node.name = $("#f_cname").value.trim();
-      const r = await call("tree_set", { path: childPath(current.path, id), node });
-      if (r?.text && !/^set /.test(r.text)) throw new Error(r.text);
-      flash("node created"); refresh();
+      if (await commit([{ op: "set", path: childPath(current.path, id), node }],
+        "node created")) refresh();
     });
 }
 

@@ -52,9 +52,14 @@ class WS:
 
 def test_html_ships_and_drives_the_generic_verbs():
     html = app_html()
-    for verb in ("tree_app", "tree_get", "tree_set", "tree_find", "tree_check",
-                 "tree_delete", "callServerTool", "/rpc"):
+    # Reads go through the generic read verbs; every WRITE goes through the commit
+    # gate — the app deliberately never calls bare tree_set/tree_delete, so a write
+    # cannot change the committed red set silently.
+    for verb in ("tree_app", "tree_get", "tree_find", "tree_check",
+                 "tree_commit", "callServerTool", "/rpc"):
         assert verb in html
+    for bare in ('call("tree_set"', 'call("tree_delete"'):
+        assert bare not in html, "a write slipped past the commit gate"
 
 
 def test_register_app_wires_tool_meta_and_resource(tmp_path):
