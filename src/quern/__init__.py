@@ -9,7 +9,7 @@ grammar is structural and reaches meaning through one bridge, solve(); a domain
 is a package pinned from the registry (xag/quern-registry), whose contracts may
 have first-class native implementations behind the same names.
 
-Canonical repository: xag/quern (private while it hardens; built to be published).
+Canonical repository: xag/quern.
 The substrate knows nothing of its consumers: a domain is a package plus the code
 that embeds this library — never a reference from inside it.
 """
