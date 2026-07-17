@@ -1,4 +1,66 @@
-# quern — the generic backend substrate
+# quern
+
+quern is a tree of typed objects where the types, the rules and the solvers are **data**,
+authored at runtime — not code, not schema migrations. You register what a kind of node
+*means* (in prose), write rules against that meaning in a small safe expression language,
+and watch them go red on the exact node that violates them. What proves out gets published
+as a versioned, digest-pinned package — and publication is **proof-gated**: a rule that no
+example exercises and no counter-example refutes does not enter.
+
+## Five minutes
+
+```bash
+git clone https://github.com/xag/quern && cd quern && uv sync
+```
+
+**Author a kind, write a rule** — meaning first, as data:
+
+```python
+from quern import KindDef, Node, Quantity, Quern, Rule, run_rules
+
+tree = Quern(
+    vocabulary=[KindDef(kind="tank",
+                        description="A storage tank. Params: level and capacity, in litres.")],
+    rules=[Rule(name="never-over-capacity", kind="tank",
+                description="a tank's level stays within its capacity",
+                expr="param(self, 'level') <= param(self, 'capacity')")],
+)
+```
+
+**Add a node that violates it, and watch the rule fire** — every number is a `Quantity`
+carrying its unit, where it came from, and whether it is grounded enough to act on:
+
+```python
+tree.root.children = [Node(id="t1", kind="tank", params={
+    "level": Quantity(value=120, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
+    "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+})]
+for r in run_rules(tree):
+    print(("ok " if r.ok else "RED"), r.rule, "@", r.node)
+# RED never-over-capacity @ t1
+```
+
+**Try to publish it, and watch the proof gate refuse** — a rule nothing demonstrates is a
+claim nobody has to believe:
+
+```python
+from quern.library import Library, Package
+
+Library("registry").publish(Package(name="tanks", version="0.1.0", description="tanks",
+                                    publisher="you", vocabulary=tree.vocabulary,
+                                    rules=tree.rules), {})
+# ValueError: a package with rules must carry examples that exercise them
+```
+
+Add an example that exercises the rule and a counter-example that refutes it, and the same
+call publishes a versioned, immutable package other trees pin by digest. That is the whole
+loop: meaning is authored where the work happens, checked where it stands, and only what
+demonstrates itself becomes something others can build on.
+
+This repo's own design ledger runs on the same machinery (`uv run python -m ledger.check`)
+— and it is **red today, on purpose**: the host's compute boundary carries two open debts,
+recorded as data a gate can see, refusing to call the surface sound until the work is done.
+A caveat that fires is the pitch.
 
 ## Why: knowledge that moves as fast as the work
 
@@ -104,7 +166,14 @@ library — as a package (vocabulary, rules, solvers) plus a `Workspace` embeddi
 `quern` — and domain safety invariants stay in that consumer code: meaning is data,
 safety is code.
 
-Canonical repo: `xag/quern` (private while it hardens). A consumer that vendors it
-(e.g. via `git subtree` under some `<prefix>`) syncs with:
+Canonical repo: `xag/quern`. Depend on it by git rev (the estate pins by rev, never a
+range); a consumer that vendors it instead (e.g. via `git subtree` under some `<prefix>`)
+syncs with:
 
-    git subtree pull --prefix=<prefix> <remote> main --squash
+    git subtree pull --prefix=<prefix> https://github.com/xag/quern main --squash
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).
+
+© 2026 Xavier Grehant

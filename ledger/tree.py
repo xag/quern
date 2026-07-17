@@ -190,6 +190,76 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-red-ledger-ships-red",
+            kind="decision",
+            name="quern goes public with its own gate visibly red — deliberately, not "
+                 "by accident",
+            payload={
+                "rationale":
+                    "The pitch of this substrate is that a caveat can FIRE: debts are "
+                    "data, gates lean on grounding, and nothing unsound passes. A repo "
+                    "that scrubbed its ledger green before flipping public would be "
+                    "refuting its own thesis in the launch commit — the first thing a "
+                    "stranger should meet is `ledger.check` exiting 1 on the compute "
+                    "boundary, with the two debts named and their discharge conditions "
+                    "attached, because that is the product behaving as designed. The "
+                    "red is not an admission bolted on for honesty points; it is the "
+                    "demonstration.",
+                "consequence":
+                    "The README says it out loud ('red today, on purpose'), CONTRIBUTING "
+                    "repeats the discharge discipline, and the go/no-go for the flip "
+                    "does not wait on the compute-boundary work — the two are unrelated, "
+                    "and coupling them would hold the launch hostage to engineering it "
+                    "does not need.",
+            },
+            children=[
+                Node(id="alt-green-before-flipping", kind="alternative",
+                     name="Discharge the compute-boundary debts first, flip public green",
+                     payload={"why":
+                              "Ties the flip to unrelated engineering and, worse, "
+                              "launches a ledger whose gates have never been seen red — "
+                              "indistinguishable, to a stranger, from decoration."}),
+                Node(id="alt-hide-the-ledger", kind="alternative",
+                     name="Keep the ledger private and ship a README caveat instead",
+                     payload={"why":
+                              "A README caveat cannot fire — the exact pathology this "
+                              "substrate exists to refuse, reintroduced at the front "
+                              "door of the repo that argues against it."}),
+            ],
+        ),
+
+        Node(
+            id="the-history-ships-as-is",
+            kind="decision",
+            name="The public flip keeps the full git history — scrubbed and found clean, "
+                 "no fresh root needed",
+            params={
+                "findings": Quantity(
+                    value=0, unit="finding", provenance="verified", grounded=True,
+                    source="full-depth scan over all 47 commits, 2026-07-17: token/key "
+                           "patterns (AWS, GitHub, Slack, OpenAI, private keys, "
+                           "password/secret assignments) zero hits; the only emails in "
+                           "history are the public git identities; no local paths, no "
+                           "personal names, no real-usage data in tests or fixtures"),
+            },
+            payload={
+                "rationale":
+                    "The issue reserved a fresh-root release for a dirty history. The "
+                    "scan came back clean — the repo has carried synthetic fixtures from "
+                    "the start — so the history's forty-seven commits of recorded "
+                    "decisions are an asset a squash would destroy for nothing.",
+            },
+            children=[
+                Node(id="alt-fresh-root", kind="alternative",
+                     name="One squashed initial commit for the public release",
+                     payload={"why":
+                              "The right call when history is dirty — rewrite gymnastics "
+                              "are worse — but a clean history squashed loses the "
+                              "provenance of every decision for no gain."}),
+            ],
+        ),
+
+        Node(
             id="the-host-surface",
             kind="gate",
             name="What quern's MCP host exposes to a caller",
