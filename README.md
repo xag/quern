@@ -52,10 +52,31 @@ Library("registry").publish(Package(name="tanks", version="0.1.0", description="
 # ValueError: a package with rules must carry examples that exercise them
 ```
 
-Add an example that exercises the rule and a counter-example that refutes it, and the same
-call publishes a versioned, immutable package other trees pin by digest. That is the whole
-loop: meaning is authored where the work happens, checked where it stands, and only what
-demonstrates itself becomes something others can build on.
+**Add the demonstration, and the same call publishes** — an example the rule passes, and a
+counter-example it must reject:
+
+```python
+from quern.library import CounterExample
+
+Library("registry").publish(Package(
+    name="tanks", version="0.1.0", description="tanks", publisher="you",
+    vocabulary=tree.vocabulary, rules=tree.rules,
+    examples=[Node(id="sound", kind="tank", params={
+        "level": Quantity(value=80, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
+        "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+    })],
+    counter_examples=[CounterExample(
+        rule="never-over-capacity", because="a tank fuller than its capacity",
+        node=Node(id="overfull", kind="tank", params={
+            "level": Quantity(value=120, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
+            "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+        }))],
+), {})
+# registry/packages/tanks/0.1.0.json — versioned, immutable, pinned by digest
+```
+
+That is the whole loop: meaning is authored where the work happens, checked where it
+stands, and only what demonstrates itself becomes something others can build on.
 
 This repo's own design ledger runs on the same machinery (`uv run python -m ledger.check`)
 — and it is **red today, on purpose**: the host's compute boundary carries two open debts,
@@ -166,8 +187,8 @@ library — as a package (vocabulary, rules, solvers) plus a `Workspace` embeddi
 `quern` — and domain safety invariants stay in that consumer code: meaning is data,
 safety is code.
 
-Canonical repo: `xag/quern`. Depend on it by git rev (the estate pins by rev, never a
-range); a consumer that vendors it instead (e.g. via `git subtree` under some `<prefix>`)
+Canonical repo: `xag/quern`. Depend on it by git rev, never a range; a consumer that
+vendors it instead (e.g. via `git subtree` under some `<prefix>`)
 syncs with:
 
     git subtree pull --prefix=<prefix> https://github.com/xag/quern main --squash
