@@ -118,9 +118,16 @@ def cmd_sync(args: argparse.Namespace) -> None:
     print(f"{len(log)} package(s) in {dest.root}")
 
 
+def cmd_navigate(args: argparse.Namespace) -> None:
+    from .navigate import serve
+    serve(args.project, module=args.module, port=args.port,
+          open_browser=not args.no_browser)
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
-        prog="quern", description="packages travel as data: publish, pin, sync")
+        prog="quern",
+        description="packages travel as data: publish, pin, sync; navigate a ledger")
     parser.add_argument("--registry", help="registry directory (or $QUERN_REGISTRY)")
     parser.add_argument("--natives", action="append", metavar="MODULE",
                         help="module to import for its register_native side "
@@ -144,6 +151,15 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--lock", default=LOCK_DEFAULT)
     p.add_argument("--dest", default=CACHE_DEFAULT)
     p.set_defaults(func=cmd_sync)
+
+    p = sub.add_parser("navigate", help="serve a project's ledger in the read-only navigator")
+    p.add_argument("project", nargs="?", default=".",
+                   help="project root holding ledger/tree.py (default: current dir)")
+    p.add_argument("--module", metavar="PATH[:ATTR]",
+                   help="override the build entry (default: <project>/ledger/tree.py:build)")
+    p.add_argument("--port", type=int, default=8765, help="localhost port (default: 8765)")
+    p.add_argument("--no-browser", action="store_true", help="do not open a browser window")
+    p.set_defaults(func=cmd_navigate)
 
     args = parser.parse_args(argv)
     import importlib

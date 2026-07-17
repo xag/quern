@@ -182,6 +182,18 @@ safety only; everything that *means* something is content:
   localhost for a plain browser. Deliberately not geometric: this is the
   meaning view; shapes stay a domain concern (`geometry.host`, in xag/geometry).
 
+  `quern navigate <project>` (needs the `host` extra) serves that view for a
+  whole project with no per-project wiring. It relies on **one convention**,
+  which is the contract of the command: a project's ledger is the package
+  `ledger/` (an `__init__.py` beside a `tree.py`), and `tree.py` exposes a
+  `build() -> Quern` that resolves its own registry (from `$QUERN_REGISTRY` or a
+  sibling `quern-registry`), so `build()` takes no arguments and locates
+  everything from its own file. `navigate` imports `ledger.tree` *as a package*
+  — so `tree.py` may `from . import` its siblings — calls `build()`, wraps the
+  Quern in a read-only Workspace (every write seam refuses), and serves it.
+  `--module PATH[:ATTR]` points at any other entry for a ledger that does not
+  follow the convention — the convention is the default, not a requirement.
+
 The substrate knows nothing of its consumers. A domain lives entirely outside this
 library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
 `quern` — and domain safety invariants stay in that consumer code: meaning is data,
