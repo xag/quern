@@ -336,6 +336,8 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         """The tree's checks, as data. No arguments: list the rules. With name +
         expr: register one — a boolean expression whose builtins are STRUCTURAL only
         (param, nodes, params_of, count, sum/len/abs/min/max, ctx, superseded,
+        unsupported(p, rel) — how many of what p leans on via `rel` are superseded
+        or gone, so a rule can ask whether a claim's supports still stand —
         uses/where_used, the reuse folds rollup(under, mult, value) /
         tally(under, kind, mult) — mult/value name params, data not schema —
         the trace verbs over event subtrees: before(a, b) document order,
