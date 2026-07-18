@@ -65,6 +65,7 @@ from .tree import (
     set_node,
     superseders,
     tally,
+    unsupported,
     users,
 )
 from .library import Library, Package, solver_blob, validate_package
@@ -93,5 +94,6 @@ __all__ = [
     "find_nodes", "following", "get_node", "is_before", "is_superseded",
     "lineage", "load_blob", "path_allowed", "preceding", "register_native",
     "resolve_params", "rollup", "run_rules", "run_solver", "save_blob",
-    "semantics_at", "set_node", "stamp", "superseders", "tally", "users",
+    "semantics_at", "set_node", "stamp", "superseders", "tally", "unsupported",
+    "users",
 ]

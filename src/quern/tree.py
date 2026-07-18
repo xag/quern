@@ -314,7 +314,8 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
 # whole: "what do we currently hold?" (supersession), "where did this come from?"
 # (lineage) and "what is this an instance of?" (reuse). A node declares them like
 # any link; these readers, the `current_only` filter above, and the rule builtins
-# (superseded, uses, where_used, rollup, tally) are what make them load-bearing.
+# (superseded, unsupported, uses, where_used, rollup, tally) are what make them
+# load-bearing.
 
 def _superseded_set(tree: Quern) -> set[str]:
     stale: set[str] = set()
@@ -333,6 +334,28 @@ def is_superseded(tree: Quern | TreeStore, path: str) -> bool:
     """True iff some node supersedes `path`. The current-belief predicate a check or
     query keys on to keep only what still stands."""
     return bool(tree.backlinks(SUPERSEDES, path))
+
+
+def unsupported(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """Targets of `path`'s `rel` link that no longer stand: superseded, or gone from
+    the tree entirely. The symmetric of `is_superseded` — that verb asks whether a
+    node still holds, this one asks whether what a node LEANS ON still holds, over
+    an arbitrary domain link.
+
+    Structural, like every verb here: the core fixes only that a link is followed
+    and its targets tested for currency. What `rel` means — rests_on, licenses,
+    refines — is the domain's, and the core reads none of it. Supersession is
+    already transitive through this: if B supersedes A and C supersedes B, a node
+    resting on A is unsupported, and so is one resting on B.
+
+    Absence counts. A target that resolved yesterday and resolves to nothing today
+    was deleted, and a node resting on a hole is in exactly the trouble this verb
+    exists to name."""
+    node = tree.get(path)
+    if node is None:
+        return []
+    return sorted(t for t in node.links.get(rel, [])
+                  if tree.get(t) is None or is_superseded(tree, t))
 
 
 def lineage(tree: Quern | TreeStore, path: str) -> list[str]:
@@ -763,6 +786,9 @@ def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         "nodes": nodes,                       # structural query: paths by kind/branch
         "params_of": params_of,               # a param across many nodes -> list
         "superseded": lambda p: is_superseded(tree, p),  # current-belief verb
+        # ...and the same question asked of what a node leans on, over any link:
+        # a count, because a rule wants `== 0` and a diagnostic wants how many.
+        "unsupported": lambda p, rel: float(len(unsupported(tree, p, rel))),
         "uses": lambda p: definition(tree, p) or "",     # reuse verb: the definition
         "where_used": lambda p: users(tree, p),          # ...and its symmetric
         "rollup": lambda under, mult, value: rollup(tree, under, mult, value),
