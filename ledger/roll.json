@@ -103,5 +103,20 @@
     "path": "the-roll-digests-what-an-entry-says/alt-digest-load-bearing-fields",
     "kind": "alternative",
     "digest": "415e564c25e8"
+  },
+  {
+    "path": "the-working-set-is-computed",
+    "kind": "decision",
+    "digest": "b8ccd94c8145"
+  },
+  {
+    "path": "the-working-set-is-computed/alt-keep-ledgers-small-by-writing-less",
+    "kind": "alternative",
+    "digest": "0c5f23ce853d"
+  },
+  {
+    "path": "the-working-set-is-computed/alt-summarize-with-a-model",
+    "kind": "alternative",
+    "digest": "7ce33fbb37a8"
   }
 ]

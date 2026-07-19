@@ -130,6 +130,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
   border: 1px solid var(--line); border-radius: 8px; padding: 4px 10px;
   font-size: 11px; color: var(--fg2); opacity: 0; transition: opacity .3s; }
 #status.show { opacity: 1; }
+.stale { opacity: .5; }
+.stalebanner { background: var(--bg2); border-left: 3px solid var(--fg2);
+  padding: 6px 10px; margin: 8px 0; font-size: 12px; color: var(--fg2); }
+.treebar { display: block; font-size: 11px; color: var(--fg2); padding: 4px 6px;
+  cursor: pointer; user-select: none; }
+.linkmeaning { font-size: 11px; margin: 1px 0 4px 12px; }
 </style>
 </head>
 <body>
@@ -177,6 +183,8 @@ let mode = null, mcpApp = null;
 let current = { path: "", node: null, semantics: {} };
 const cache = new Map();     // path -> node slice (depth 2)
 const expanded = new Set([""]);
+let staleSet = new Set();    // paths some node supersedes — not current belief
+let hideStale = false;       // the "current only" outline toggle
 
 function norm(r) {
   if (!r) return null;
@@ -244,6 +252,7 @@ async function go(path) {
   const d = await call("tree_get", { path, depth: 2 });
   if (!d || d.error) { flash(d?.error || "load failed", true); return; }
   cache.set(path, d);
+  if (d.superseded) staleSet = new Set(d.superseded);
   current = { path, node: d, semantics: d.semantics || {} };
   expanded.add(path);
   renderAll();
@@ -257,19 +266,32 @@ function renderTree() {
   const rootSlice = cache.get("") || (current.path === "" ? current.node : null);
   const el = $("#tree"); el.innerHTML = "";
   if (!rootSlice) return;
+  if (staleSet.size) {
+    const bar = document.createElement("label");
+    bar.className = "treebar";
+    bar.title = "hide entries another node supersedes — the archaeology stays in the tree";
+    bar.innerHTML = `<input type="checkbox" id="curonly" ${hideStale ? "checked" : ""}>
+      current only <span class="muted">(${staleSet.size} superseded)</span>`;
+    bar.querySelector("input").onchange = e => { hideStale = e.target.checked; renderTree(); };
+    el.appendChild(bar);
+  }
   el.appendChild(outline(rootSlice, ""));
 }
 
 function outline(node, path) {
+  const kinds = current.semantics.kinds || {};
   const wrap = document.createElement("div"); wrap.className = "tnode";
   for (const c of node.children || []) {
     const p = childPath(path, c.id);
+    const stale = staleSet.has(p);
+    if (stale && hideStale) continue;
     const row = document.createElement("div");
-    row.className = "trow" + (p === current.path ? " sel" : "");
+    row.className = "trow" + (p === current.path ? " sel" : "") + (stale ? " stale" : "");
+    if (stale) row.title = "superseded — no longer current belief";
     const hasKids = (c.children || []).length || cache.get(p)?.children?.length;
     row.innerHTML = `<span class="twist">${hasKids ? (expanded.has(p) ? "▾" : "▸") : ""}</span>
       <span class="tid mono">${esc(c.id)}</span>
-      ${c.kind ? `<span class="tkind">${esc(c.kind)}</span>` : ""}`;
+      ${c.kind ? `<span class="tkind" title="${esc(kinds[c.kind]?.description || "")}">${esc(c.kind)}</span>` : ""}`;
     row.onclick = async e => {
       if (e.target.classList.contains("twist") && hasKids) {
         expanded.has(p) ? expanded.delete(p) : expanded.add(p);
@@ -310,6 +332,8 @@ function renderNode() {
 
   const params = Object.entries(n.params || {});
   const links = Object.entries(n.links || {});
+  const linkedFrom = Object.entries(n.linked_from || {});
+  const supersededBy = (n.linked_from || {}).supersedes || [];
   const payload = n.payload || {};
   const meta = n.meta || {};
   const kids = n.children || [];
@@ -319,6 +343,9 @@ function renderNode() {
         title="click to edit the name">${esc(n.name || n.id || "(root)")}</h1>
     <div class="path mono">${esc(path || "/")}
       ${n.kind ? `&nbsp;<span class="chip kind">${esc(n.kind)}</span>` : ""}</div>
+    ${supersededBy.length ? `<div class="stalebanner">superseded — no longer current belief.
+      Replaced by ${supersededBy.map(t =>
+        `<span class="chip mono linkchip" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}</div>` : ""}
     ${kd ? `<div class="kinddesc">${esc(kd.description || "")}</div>` : ""}
 
     <section class="block"><div class="blockhead"><h2>Params</h2>
@@ -336,10 +363,18 @@ function renderNode() {
     <section class="block"><div class="blockhead"><h2>Links</h2>
       <button id="addlink">+ link</button></div>
       ${links.length ? links.map(([name, targets]) => `<div>
-        <span class="muted">${esc(name)}${kd?.links?.[name] ? ` — ${esc(kd.links[name])}` : ""}:</span>
-        ${targets.map(t => `<span class="chip mono linkchip" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}
+        <span class="muted" title="${esc(kd?.links?.[name] || "")}">${esc(name)}:</span>
+        ${targets.map(t => `<span class="chip mono linkchip${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}
+        ${kd?.links?.[name] ? `<div class="linkmeaning muted">${esc(kd.links[name])}</div>` : ""}
       </div>`).join("") : `<span class="muted">none</span>`}
     </section>
+
+    ${linkedFrom.length ? `<section class="block"><div class="blockhead"><h2>Linked here</h2></div>
+      ${linkedFrom.map(([name, sources]) => `<div>
+        <span class="muted" title="nodes whose '${esc(name)}' names this one">&larr; ${esc(name)}:</span>
+        ${sources.map(s => `<span class="chip mono linkchip${staleSet.has(s) ? " stale" : ""}" data-go="${esc(s)}">${esc(s)}</span>`).join(" ")}
+      </div>`).join("")}
+    </section>` : ""}
 
     <section class="block"><div class="blockhead"><h2>Payload</h2>
       <button id="editpayload">edit</button></div>
@@ -357,7 +392,8 @@ function renderNode() {
 
     <section class="block"><div class="blockhead"><h2>Children (${kids.length})</h2>
       <button id="addchild">+ child</button></div>
-      ${kids.map(c => `<div class="kidrow" data-go="${esc(childPath(path, c.id))}">
+      ${kids.map(c => `<div class="kidrow" data-go="${esc(childPath(path, c.id))}"
+          title="${esc(kinds[c.kind]?.description || "")}">
         <span class="mono">${esc(c.id)}</span>
         ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}
         <span class="muted">${esc(c.name || "")}</span></div>`).join("")}

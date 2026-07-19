@@ -102,3 +102,27 @@ def test_a_chain_of_supersessions_unsupports_every_link_in_it():
         "fail-closed", "fail-open"]
     # the head of the chain is current, and nothing rests on it yet
     assert unsupported(tree, "stop-guessing", "rests_on") == []
+
+
+def test_linked_from_is_the_whole_reverse_index_at_a_node():
+    """Both directions of every link, domain names included, with the viewer
+    knowing none of their meanings."""
+    from quern import linked_from
+    tree = sample()
+    set_node(tree, "search-is-improved", {
+        "kind": "decision", "links": {"supersedes": ["search-is-complete"]}})
+
+    assert linked_from(tree, "search-is-complete") == {
+        "rests_on": ["last-word", "may-accuse"],
+        "supersedes": ["search-is-improved"],
+    }
+    assert linked_from(tree, "depth-corrupts-proofs") == {}
+
+
+def test_superseded_paths_is_the_not_current_set_in_one_read():
+    from quern import superseded_paths
+    tree = sample()
+    assert superseded_paths(tree) == []
+    set_node(tree, "search-is-improved", {
+        "kind": "decision", "links": {"supersedes": ["search-is-complete"]}})
+    assert superseded_paths(tree) == ["search-is-complete"]

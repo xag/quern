@@ -358,6 +358,47 @@ def unsupported(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
                   if tree.get(t) is None or is_superseded(tree, t))
 
 
+def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
+    """Every (link name -> source paths) that names `path`: the whole reverse index
+    at one node, domain links and reserved verbs alike. This is what makes a link
+    navigable in BOTH directions — `rests_on` says what this leans on; this says
+    what leans on it — without the viewer knowing what any link means."""
+    out: dict[str, list[str]] = {}
+    for p, n in tree.walk(""):
+        for name, targets in n.links.items():
+            if path in targets:
+                out.setdefault(name, []).append(p)
+    return {k: sorted(v) for k, v in sorted(out.items())}
+
+
+def superseded_paths(tree: Quern | TreeStore) -> list[str]:
+    """Every path some node supersedes — the not-current set, in one read, so a
+    viewer can dim or drop the archaeology without asking per node."""
+    stale: set[str] = set()
+    for _, n in tree.walk(""):
+        stale.update(n.links.get(SUPERSEDES, []))
+    return sorted(p for p in stale if tree.get(p) is not None)
+
+
+def _prose_words(value: Any) -> int:
+    if isinstance(value, str):
+        return len(value.split())
+    if isinstance(value, dict):
+        return sum(_prose_words(v) for v in value.values())
+    if isinstance(value, (list, tuple)):
+        return sum(_prose_words(v) for v in value)
+    return 0
+
+
+def said_words(tree: Quern | TreeStore, path: str) -> int:
+    """Words in what the subtree at `path` says: names and payload prose, the node
+    and everything beneath it. This is the size a reader pays — a person or a model
+    context — for one entry and its whole argument, which is why a vocabulary may
+    budget it with a rule. Structural: the core counts words and reads none of them."""
+    return sum(len((n.name or "").split()) + _prose_words(n.payload)
+               for _, n in tree.walk(path))
+
+
 def lineage(tree: Quern | TreeStore, path: str) -> list[str]:
     """What `path` was derived from: the union of its node-level `derived_from` link
     and the `derived_from` of every value it carries. The traversable half of
@@ -789,6 +830,10 @@ def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         # ...and the same question asked of what a node leans on, over any link:
         # a count, because a rule wants `== 0` and a diagnostic wants how many.
         "unsupported": lambda p, rel: float(len(unsupported(tree, p, rel))),
+        # the cost verb: how many words a subtree makes every reader pay. A budget
+        # rule (`said_words(self) <= N`) is the one mechanical brake on the way
+        # ledgers actually decay - not by lying, by growing.
+        "said_words": lambda p: float(said_words(tree, p)),
         "uses": lambda p: definition(tree, p) or "",     # reuse verb: the definition
         "where_used": lambda p: users(tree, p),          # ...and its symmetric
         "rollup": lambda under, mult, value: rollup(tree, under, mult, value),

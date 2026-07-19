@@ -215,6 +215,16 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         semantics = treemod.semantics_at(composed, path, depth)
         if semantics:
             data["semantics"] = semantics
+        # The relational envelope: what names this node (links are navigable in
+        # both directions), and which paths are no longer current belief - so a
+        # viewer can dim the archaeology without a second round-trip.
+        if path:
+            rev = treemod.linked_from(composed, path)
+            if rev:
+                data["linked_from"] = rev
+        stale = treemod.superseded_paths(composed)
+        if stale:
+            data["superseded"] = stale
         return data
 
     @mcp.tool(structured_output=True)

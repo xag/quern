@@ -359,6 +359,47 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-working-set-is-computed",
+            kind="decision",
+            name="Reading a ledger costs one line per current claim: the brief drops "
+                 "what is superseded, and the tree keeps it",
+            payload={
+                "rationale":
+                    "A ledger pays for itself only if reading it is cheaper than "
+                    "re-deriving it, and by default every session paid the whole "
+                    "history to find the dozen claims that still bind. `quern brief` "
+                    "renders the working set - kind, id, name, links, ungrounded "
+                    "params, red rules, one line each - and counts the archaeology "
+                    "away instead of spending it. Depth is on demand: brief, then "
+                    "tree_get, then source. The same seam serves the navigator: "
+                    "tree_get now carries the reverse link index (`linked_from`) and "
+                    "the not-current set, so every relation is navigable both ways "
+                    "and the stale is dimmed, with the viewer still vocabulary-blind. "
+                    "`said_words` prices a subtree in the rule language, so a "
+                    "vocabulary can put a budget where the decay actually happens: "
+                    "not lying, growing.",
+            },
+            children=[
+                Node(id="alt-summarize-with-a-model", kind="alternative",
+                     name="Have a model summarize the ledger on demand",
+                     payload={"why":
+                              "Costs the tokens it claims to save, differs run to "
+                              "run, and drifts from the tree - a summary nothing can "
+                              "check is prose again, which is the pathology this "
+                              "substrate exists to abolish. The brief is computed, "
+                              "deterministic, and asserts nothing the tree does not."}),
+                Node(id="alt-keep-ledgers-small-by-writing-less", kind="alternative",
+                     name="Solve reading cost by recording less history",
+                     payload={"why":
+                              "Throws away the record to save the reader, when the "
+                              "cost was never keeping history - it was READING it by "
+                              "default. Superseded entries and refuted hypotheses are "
+                              "the part a later reader most needs to not re-litigate; "
+                              "they should cost a trailer line, not their prose."}),
+            ],
+        ),
+
+        Node(
             id="the-host-surface",
             kind="gate",
             name="What quern's MCP host exposes to a caller",

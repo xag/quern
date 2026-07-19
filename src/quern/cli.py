@@ -124,6 +124,17 @@ def cmd_navigate(args: argparse.Namespace) -> None:
           open_browser=not args.no_browser)
 
 
+def cmd_brief(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from .brief import brief
+    from .navigate import load_build, project_label
+    root = Path(args.project).resolve()
+    tree = load_build(root, args.module)()
+    print(f"{project_label(root)} - ledger brief")
+    print(brief(tree, all=args.all, fat=args.fat))
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(
         prog="quern",
@@ -151,6 +162,18 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--lock", default=LOCK_DEFAULT)
     p.add_argument("--dest", default=CACHE_DEFAULT)
     p.set_defaults(func=cmd_sync)
+
+    p = sub.add_parser("brief", help="one line per current ledger entry - the working "
+                                     "set, not the archaeology")
+    p.add_argument("project", nargs="?", default=".",
+                   help="project root holding ledger/tree.py (default: current dir)")
+    p.add_argument("--module", metavar="PATH[:ATTR]",
+                   help="override the build entry (default: <project>/ledger/tree.py:build)")
+    p.add_argument("--all", action="store_true",
+                   help="include superseded entries instead of counting them away")
+    p.add_argument("--fat", action="store_true",
+                   help="sort by said_words, heaviest first - the curation view")
+    p.set_defaults(func=cmd_brief)
 
     p = sub.add_parser("navigate", help="serve a project's ledger in the read-only navigator")
     p.add_argument("project", nargs="?", default=".",
