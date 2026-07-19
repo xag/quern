@@ -95,6 +95,39 @@ def vanished(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
             if e["path"] not in here and e["path"] not in spared]
 
 
+def audit(tree: Quern | TreeStore, repo: str | Path, relpath: str,
+          rev: str = "HEAD", excused: Iterable[str] = (),
+          ) -> tuple[list[str], bool]:
+    """The whole removal check in one call: `(complaints, looked)`.
+
+    Empty complaints and `looked` False is NOT a pass — it means the roll could not
+    be read at `rev`, so nothing was compared. Every caller must report those two
+    states differently, which is why this returns the flag rather than folding it
+    into an empty list. A gate that says "all clear" when it never opened its eyes
+    is the failure the roll exists to remove, and it would be an odd module that
+    reintroduced it in its own convenience wrapper.
+
+    WHICH `rev`, and it is not a detail. Working locally, the edit under judgement is
+    in the working tree and HEAD is the last good state, so HEAD is right. In CI the
+    commit under judgement IS HEAD and carries the roll written beside it, so HEAD
+    compares the tree with itself and passes anything. CI must name the base it is
+    diffing from.
+
+    `excused` stays the caller's: what earns a removal is vocabulary, and this module
+    knows only that some paths were removed on purpose."""
+    previous = committed(repo, relpath, rev)
+    if previous is None:
+        return [], False
+
+    out = [f"{e['path']} ({e['kind']}) was on the roll and is gone - supersede it, "
+           "discharge it, or retract it with a tombstone, but do not delete it"
+           for e in vanished(tree, previous, excused)]
+    out += [f"{e['path']} was a {e['was']} and is now a {e['now']} - a belief "
+            "rewritten into a decision was not confirmed, it stopped being falsifiable"
+            for e in rekinded(tree, previous)]
+    return out, True
+
+
 def rekinded(tree: Quern | TreeStore,
              previous: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
     """Nodes still present but under a different kind than the roll recorded. A
