@@ -1,74 +1,107 @@
 [
   {
     "path": "a-host-tool-runs-on-the-event-loop",
-    "kind": "debt"
+    "kind": "debt",
+    "digest": "bc610e8aa603"
   },
   {
     "path": "a-host-tool-runs-on-the-event-loop/offload-the-compute-tools",
-    "kind": "discharge"
+    "kind": "discharge",
+    "digest": "ec6fa669552b"
   },
   {
     "path": "a-native-contract-is-unmetered",
-    "kind": "debt"
+    "kind": "debt",
+    "digest": "bde53ac0b6ff"
   },
   {
     "path": "a-native-contract-is-unmetered/meter-the-native-path",
-    "kind": "discharge"
+    "kind": "discharge",
+    "digest": "afd20699655c"
   },
   {
     "path": "heavy-compute-is-a-proposer-never-a-judge",
-    "kind": "hypothesis"
+    "kind": "hypothesis",
+    "digest": "a740859c76c6"
   },
   {
     "path": "heavy-compute-is-a-proposer-never-a-judge/an-expensive-judge",
-    "kind": "falsification"
+    "kind": "falsification",
+    "digest": "0a9ceb93265c"
   },
   {
     "path": "native-contracts-bypass-the-sandbox",
-    "kind": "decision"
+    "kind": "decision",
+    "digest": "8c6e4b4bf08b"
   },
   {
     "path": "native-contracts-bypass-the-sandbox/compile-every-contract-to-wasm",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "39cbe8cf5107"
   },
   {
     "path": "native-contracts-bypass-the-sandbox/no-native-contracts",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "2049da734a2f"
   },
   {
     "path": "the-history-ships-as-is",
-    "kind": "decision"
+    "kind": "decision",
+    "digest": "2a36550d28b6"
   },
   {
     "path": "the-history-ships-as-is/alt-fresh-root",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "6fa011f6cd63"
   },
   {
     "path": "the-host-surface",
-    "kind": "gate"
+    "kind": "gate",
+    "digest": "34728df7b159"
   },
   {
     "path": "the-navigator-is-vocabulary-blind",
-    "kind": "decision"
+    "kind": "decision",
+    "digest": "93e4c9c54b09"
   },
   {
     "path": "the-navigator-is-vocabulary-blind/alt-navigator-loads-tree-as-a-lone-file",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "0e0095d4767a"
   },
   {
     "path": "the-navigator-is-vocabulary-blind/alt-navigator-needs-per-project-wiring",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "ec92043486da"
   },
   {
     "path": "the-red-ledger-ships-red",
-    "kind": "decision"
+    "kind": "decision",
+    "digest": "eacbab36991c"
   },
   {
     "path": "the-red-ledger-ships-red/alt-green-before-flipping",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "2b41768c1d90"
   },
   {
     "path": "the-red-ledger-ships-red/alt-hide-the-ledger",
-    "kind": "alternative"
+    "kind": "alternative",
+    "digest": "f3c38c52ddaf"
+  },
+  {
+    "path": "the-roll-digests-what-an-entry-says",
+    "kind": "decision",
+    "digest": "af279f466c1f"
+  },
+  {
+    "path": "the-roll-digests-what-an-entry-says/alt-an-amendment-kind",
+    "kind": "alternative",
+    "digest": "a1bb4b4dd93b"
+  },
+  {
+    "path": "the-roll-digests-what-an-entry-says/alt-digest-load-bearing-fields",
+    "kind": "alternative",
+    "digest": "415e564c25e8"
   }
 ]

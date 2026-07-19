@@ -309,6 +309,56 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-roll-digests-what-an-entry-says",
+            kind="decision",
+            name="The roll records a digest of every node's words — name, payload, and "
+                 "each param's bare value — and nothing else",
+            payload={
+                "rationale":
+                    "Path and kind catch the rare erasures: deletion and re-kinding. The "
+                    "common one keeps the id and rewrites the words — korean-gpt-coach "
+                    "1d11a9e rewrote a debt's premise in place and the check reported "
+                    "zero removals (xag/ledger#1). So the roll now digests what each "
+                    "entry SAYS, and `rewritten` fires when it changes. The correction "
+                    "channel is supersession; a wording-only edit is acknowledged in the "
+                    "node's own meta (`amended: <digest> <why>`), which excuses exactly "
+                    "one content state and goes stale the moment the words move again.",
+                "scope":
+                    "Deliberately outside the digest: a param's grounding (provenance, "
+                    "`grounded`, source) — discharging a debt is the one in-place act "
+                    "the record sanctions, and its trace belongs to provenance; `meta`, "
+                    "which is where the acknowledgement itself lives; and links, which "
+                    "are lifecycle — a gate's `admits` grows with every release, and "
+                    "digesting links would make routine growth indistinguishable from "
+                    "erasure. A link quietly deleted to dodge a red rule is therefore "
+                    "still invisible to the roll; that window is open, known, and "
+                    "narrower than the one this closed.",
+            },
+            children=[
+                Node(id="alt-digest-load-bearing-fields", kind="alternative",
+                     name="Digest only named load-bearing payload keys (rationale, why, "
+                          "claim)",
+                     payload={"why":
+                              "Refuted by the incident it was meant to catch: 1d11a9e "
+                              "rewrote `why_this_is_the_load_bearing_one` and a "
+                              "discharge's `who` — authors name payload keys freely, so "
+                              "any fixed list is a list of places NOT to write the lie. "
+                              "And the list would be domain vocabulary hard-coded into a "
+                              "domain-free module, or one more knob in every consumer's "
+                              "check."}),
+                Node(id="alt-an-amendment-kind", kind="alternative",
+                     name="A new `amendment` node kind acknowledging each rewrite",
+                     payload={"why":
+                              "A third mechanism to remember, minted the very week the "
+                              "apparatus was called 'a problem rather than a help'. The "
+                              "acknowledgement needs no node: the amended entry itself "
+                              "can carry it in meta, self-describing and self-expiring, "
+                              "with tombstones' property — visible in the diff — for "
+                              "free."}),
+            ],
+        ),
+
+        Node(
             id="the-host-surface",
             kind="gate",
             name="What quern's MCP host exposes to a caller",

@@ -8,13 +8,15 @@ import json
 
 from quern import Quern, set_node
 from quern.roll import (
-    audit, committed, dumps, read, rekinded, roll, vanished, write,
+    AMENDED, audit, committed, digest, dumps, read, rekinded, rewritten, roll,
+    vanished, write,
 )
 
 
 def ledger() -> Quern:
     tree = Quern()
-    set_node(tree, "key-for-key", {"kind": "decision"})
+    set_node(tree, "key-for-key", {"kind": "decision",
+                                   "payload": {"rationale": "blank strings ship silently"}})
     set_node(tree, "key-for-key/alt-fallback", {"kind": "alternative"})
     set_node(tree, "the-eight-are-human", {"kind": "hypothesis"})
     set_node(tree, "the-eight-are-human/a-reader-reports", {"kind": "falsification"})
@@ -22,14 +24,18 @@ def ledger() -> Quern:
     return tree
 
 
-def test_the_roll_is_every_node_by_path_and_kind():
-    assert roll(ledger()) == [
-        {"path": "key-for-key", "kind": "decision"},
-        {"path": "key-for-key/alt-fallback", "kind": "alternative"},
-        {"path": "release", "kind": "gate"},
-        {"path": "the-eight-are-human", "kind": "hypothesis"},
-        {"path": "the-eight-are-human/a-reader-reports", "kind": "falsification"},
+def test_the_roll_is_every_node_by_path_kind_and_what_it_says():
+    tree = ledger()
+    entries = roll(tree)
+    assert [(e["path"], e["kind"]) for e in entries] == [
+        ("key-for-key", "decision"),
+        ("key-for-key/alt-fallback", "alternative"),
+        ("release", "gate"),
+        ("the-eight-are-human", "hypothesis"),
+        ("the-eight-are-human/a-reader-reports", "falsification"),
     ]
+    by_path = {p: n for p, n in tree.walk("")}
+    assert all(e["digest"] == digest(by_path[e["path"]]) for e in entries)
 
 
 def test_the_roll_is_canonical_so_a_diff_shows_the_tree_not_the_formatter():
@@ -49,7 +55,8 @@ def test_a_deleted_node_is_reported():
     tree = ledger()
     tree.root.children = [c for c in tree.root.children if c.id != "release"]
 
-    assert vanished(tree, before) == [{"path": "release", "kind": "gate"}]
+    assert [(e["path"], e["kind"]) for e in vanished(tree, before)] == [
+        ("release", "gate")]
 
 
 def test_a_deleted_parent_reports_its_children_too():
@@ -98,6 +105,81 @@ def test_a_rekinded_node_is_reported_though_it_never_vanished():
         {"path": "the-eight-are-human", "was": "hypothesis", "now": "decision"}]
 
 
+def test_a_rewritten_payload_is_reported_though_nothing_vanished():
+    """korean-gpt-coach's 1d11a9e rewrote a debt's premise in place. The id stayed,
+    the kind stayed, and the check reported zero removals — the erasure the roll
+    could not see. Now it is the digest that moved."""
+    before = roll(ledger())
+    tree = ledger()
+    tree.get("key-for-key").payload["rationale"] = "it seemed tidier this way"
+
+    assert vanished(tree, before) == []
+    assert rekinded(tree, before) == []
+    assert [e["path"] for e in rewritten(tree, before)] == ["key-for-key"]
+
+
+def test_a_renamed_node_is_a_rewrite_too():
+    """transponder marks supersession by editing names ('[SUPERSEDED] …'). The name
+    is part of what an entry says."""
+    before = roll(ledger())
+    tree = ledger()
+    tree.get("the-eight-are-human").name = "[SUPERSEDED] the eight are human"
+
+    assert [e["path"] for e in rewritten(tree, before)] == ["the-eight-are-human"]
+
+
+def test_a_param_value_rewrite_is_seen_but_grounding_it_is_not():
+    """The one in-place act the record sanctions: discharging a debt grounds its
+    values. The VALUE is what was said and is digested; provenance, `grounded` and
+    source are the trace of checking it, and belong to grounding, not the roll."""
+    from quern.provenance import Quantity
+
+    tree = ledger()
+    tree.get("key-for-key").params["strings"] = Quantity(
+        value=47, unit="string", provenance="unreviewed", grounded=False,
+        source="generator")
+    before = roll(tree)
+
+    # grounding the same value: the discharge act, invisible on purpose
+    tree.get("key-for-key").params["strings"] = Quantity(
+        value=47, unit="string", provenance="verified", grounded=True,
+        source="checked by a reader, 2026-07")
+    assert rewritten(tree, before) == []
+
+    # rewriting the value itself: a different claim, and it fires
+    tree.get("key-for-key").params["strings"].value = 512
+    assert [e["path"] for e in rewritten(tree, before)] == ["key-for-key"]
+
+
+def test_an_amended_note_excuses_exactly_one_content_state():
+    """The acknowledgement is the node's own meta, naming the digest of what it says
+    NOW. It excuses that state and no other — edit the words again and it no longer
+    matches, so it cannot be left in place as a standing licence."""
+    before = roll(ledger())
+    tree = ledger()
+    node = tree.get("key-for-key")
+    node.payload["rationale"] = "blank strings ship silently to a reader"
+
+    assert [e["path"] for e in rewritten(tree, before)] == ["key-for-key"]
+
+    node.meta[AMENDED] = f"{digest(node)} wording only, claim unchanged"
+    assert rewritten(tree, before) == []
+
+    node.payload["rationale"] = "rewritten again, note left behind"
+    assert [e["path"] for e in rewritten(tree, before)] == ["key-for-key"]
+
+
+def test_a_roll_without_digests_is_skipped_not_failed():
+    """A roll written before digests existed recorded nothing to compare; claiming a
+    rewrite there would be inventing a memory. The induction resumes one commit
+    later, when the rewritten roll carries them."""
+    before = [{"path": e["path"], "kind": e["kind"]} for e in roll(ledger())]
+    tree = ledger()
+    tree.get("key-for-key").payload["rationale"] = "changed under an old roll"
+
+    assert rewritten(tree, before) == []
+
+
 def test_write_and_read_round_trip(tmp_path):
     tree = ledger()
     p = tmp_path / "roll.json"
@@ -137,8 +219,8 @@ def test_git_reads_the_roll_at_head(tmp_path):
 
     # ...and the working tree may now drop a node without the committed roll moving
     tree.root.children = [c for c in tree.root.children if c.id != "release"]
-    assert vanished(tree, committed(repo, "ledger/roll.json")) == [
-        {"path": "release", "kind": "gate"}]
+    assert [e["path"] for e in vanished(tree, committed(repo, "ledger/roll.json"))] == [
+        "release"]
 
 
 def test_audit_reports_not_looking_as_distinct_from_all_clear(tmp_path):
@@ -165,13 +247,16 @@ def test_audit_folds_the_whole_check_into_one_call(tmp_path):
 
     assert audit(tree, repo, "ledger/roll.json") == ([], True)
 
-    # drop a node and re-kind another in one go
+    # drop a node, re-kind another, and rewrite a third in one go
     tree.root.children = [c for c in tree.root.children if c.id != "release"]
     set_node(tree, "the-eight-are-human", {"kind": "decision"})
+    tree.get("key-for-key").payload["rationale"] = "quietly different now"
     complaints, looked = audit(tree, repo, "ledger/roll.json")
     assert looked is True
     assert any("release" in c and "is gone" in c for c in complaints)
     assert any("the-eight-are-human" in c and "stopped being falsifiable" in c
+               for c in complaints)
+    assert any("key-for-key" in c and "no longer says what the roll recorded" in c
                for c in complaints)
 
     # ...and a tombstone excuses the removal, but never the re-kinding
