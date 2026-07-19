@@ -263,3 +263,20 @@ def test_audit_folds_the_whole_check_into_one_call(tmp_path):
     complaints, _ = audit(tree, repo, "ledger/roll.json", excused={"release"})
     assert not any("is gone" in c for c in complaints)
     assert any("stopped being falsifiable" in c for c in complaints)
+
+
+def test_an_excused_path_spares_its_subtree():
+    """Burying a node buries its children: one tombstone naming the root of what
+    left accounts for all of it. The ledger repo's first compaction hit this - the
+    entry was excused, its two alternatives were not, and the check demanded
+    tombstones that would have said nothing the first one did not."""
+    before = roll(ledger())
+    tree = ledger()
+    tree.root.children = [c for c in tree.root.children if c.id != "key-for-key"]
+
+    assert [e["path"] for e in vanished(tree, before)] == [
+        "key-for-key", "key-for-key/alt-fallback"]
+    assert vanished(tree, before, excused={"key-for-key"}) == []
+    # ...and a sibling that merely shares the prefix string is NOT spared
+    assert [e["path"] for e in vanished(tree, before, excused={"key-for"})] == [
+        "key-for-key", "key-for-key/alt-fallback"]

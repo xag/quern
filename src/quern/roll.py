@@ -128,15 +128,23 @@ def committed(repo: str | Path, relpath: str, rev: str = "HEAD") -> list[dict[st
 def vanished(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
              excused: Iterable[str] = ()) -> list[dict[str, str]]:
     """Entries on the previous roll with no node at that path today, minus those the
-    caller excuses by path.
+    caller excuses by path. An excused path spares its whole subtree: burying a node
+    buries its children with it, and one tombstone naming the root of what left
+    accounts for all of it — a tombstone per descendant would be ceremony without
+    information.
 
     A rename is a deletion and an addition, and is reported as the deletion — which
     is the point, because rewriting a node in place while keeping its meaning is the
     move that erases a record most quietly and reads, in a diff, like an edit."""
     spared = set(excused)
     here = {p for p, _ in tree.walk("")}
+
+    def is_spared(path: str) -> bool:
+        return (path in spared
+                or any(path.startswith(x + "/") for x in spared))
+
     return [dict(e) for e in previous
-            if e["path"] not in here and e["path"] not in spared]
+            if e["path"] not in here and not is_spared(e["path"])]
 
 
 def audit(tree: Quern | TreeStore, repo: str | Path, relpath: str,
