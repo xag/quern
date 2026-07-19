@@ -7,11 +7,83 @@ and watch them go red on the exact node that violates them. What proves out gets
 as a versioned, digest-pinned package — and publication is **proof-gated**: a rule that no
 example exercises and no counter-example refutes does not enter.
 
-## Five minutes
-
 ```bash
 git clone https://github.com/xag/quern && cd quern && uv sync
 ```
+
+The core needs only pydantic and wasmtime. The MCP host and the navigator need one extra:
+`uv sync --extra host`.
+
+## Read a tree
+
+The tree most projects meet first is a **design ledger**: the decisions a codebase rests on
+with the alternatives they rejected, the debts it carries on purpose, the hypotheses still
+open, and the gates that refuse to go green while a debt is unpaid. Two commands open one,
+and neither needs any per-project wiring.
+
+**`quern brief`** — one line per claim that still binds:
+
+```bash
+uv run quern brief             # the ledger of the current directory
+uv run quern brief path/to/project
+```
+
+```
+quern - ledger brief
+[decision]  native-contracts-bypass-the-sandbox  —  A package may ship a first-class contract that does not run in wasm  {2 alternative}
+[debt]  a-native-contract-is-unmetered  —  run_native grants no fuel, no memory cap and no clock  !meter  {1 discharge}
+[debt]  a-host-tool-runs-on-the-event-loop  —  A CPU-bound tool makes the whole host deaf for its duration  !concurrency  {1 discharge}
+[hypothesis]  heavy-compute-is-a-proposer-never-a-judge  —  A contract that is expensive never needs to be authoritative  {1 falsification}
+...
+[gate]  the-host-surface  —  What quern's MCP host exposes to a caller  admits->a-native-contract-is-unmetered,a-host-tool-runs-on-the-event-loop  RED(nothing-unsound-passes-a-gate)
+
+10 entr(y/ies), ~2066 words of prose.
+```
+
+Every marker on a line is read off the node, never annotated by hand. `!meter` names a
+param that is **not grounded** — the unsound value the entry is carrying, and precisely
+what a gate reads to refuse. `admits->…` are the node's links, `{2 alternative}` counts
+its children by kind, and `RED(…)` names the rule failing on it.
+
+Superseded entries are counted away rather than printed, with a trailer saying what was
+omitted; the tree keeps them and `--all` prints them marked with what superseded them.
+`--fat` appends each entry's wordcount and sorts by it, heaviest first — the curation
+view, where the first line is the first thing to tighten.
+
+**`quern navigate`** — the same tree in a browser, read-only:
+
+```bash
+uv run quern navigate          # serves http://localhost:8765 and opens it
+uv run quern navigate path/to/project
+```
+
+Outline, kind prose, params with their provenance and grounding, links, and each rule's
+pass or fail against the node it names. The same view is served in-conversation as an MCP
+App, where the model browses through exactly the tools you are looking at.
+
+Both rest on **one convention, which is the contract of the commands**: the project keeps
+its tree in a package `ledger/` — an `__init__.py` beside a `tree.py` — and `tree.py`
+exposes `build() -> Quern` that takes no arguments and resolves its own registry. Point
+`--module PATH[:ATTR]` at any other entry and the convention is bypassed; it is the
+default, not a requirement.
+
+**Checking it** is a separate act from reading it, and it is what makes a ledger worth
+keeping. A project's own gate is an ordinary Python module — quern ships one for itself:
+
+```bash
+uv run python -m ledger.check   # exit 1 while any rule is red
+```
+
+This repo's own ledger is **red today, on purpose**: the host's compute boundary carries
+two open debts, recorded as data a gate can see, refusing to call the surface sound until
+the work is done. A caveat that fires is the pitch.
+
+None of that vocabulary is quern's. `decision`, `debt`, `hypothesis`, `gate` and the rules
+that judge them arrive as a package pinned by digest in `quern.lock`, like any other
+content. quern supplies the mechanics — the tree, the rule evaluator, the proof gate, the
+roll, the viewer — and interprets none of it.
+
+## Five minutes
 
 **Author a kind, write a rule** — meaning first, as data:
 
@@ -78,15 +150,10 @@ Library("registry").publish(Package(
 That is the whole loop: meaning is authored where the work happens, checked where it
 stands, and only what demonstrates itself becomes something others can build on.
 
-This repo's own design ledger runs on the same machinery (`uv run python -m ledger.check`)
-— and it is **red today, on purpose**: the host's compute boundary carries two open debts,
-recorded as data a gate can see, refusing to call the surface sound until the work is done.
-A caveat that fires is the pitch.
-
 ## Why: knowledge that moves as fast as the work
 
-Designing anything takes three kinds of knowledge — **semantics** (what the parts mean), **models**
-(what must hold between them), **solvers** (what computes over them). In the old
+Designing anything takes three kinds of knowledge — **semantics** (what the parts mean),
+**models** (what must hold between them), **solvers** (what computes over them). In the old
 world all three are frozen into software the moment a programme is built. You learn
 something while designing — a better way to describe a part, a rule you should have
 had, a smarter way to compute a fit — and you cannot apply it to the very programme
@@ -114,17 +181,16 @@ node, that is simply the new normal.
 
 ## What quern is
 
-The **Quern**: a tree of typed-by-data objects with a
-vocabulary that rules are written against (the pattern BRMS engines like IBM ODM
-call a "Business Object Model"), generalized so **semantics are data**, not code.
-The `Quern` type is the model — vocabulary, rules, solvers, packages, and a `root`
-node tree. The code here is mechanics and
-safety only; everything that *means* something is content:
+The **Quern**: a tree of typed-by-data objects with a vocabulary that rules are written
+against (the pattern BRMS engines call a "Business Object Model"), generalized so
+**semantics are data**, not code. The `Quern` type is the model — vocabulary, rules,
+solvers, packages, and a `root` node tree. The code here is mechanics and safety only;
+everything that *means* something is content:
 
 - **Nodes**: free-text `kind`, params (every number is a Quantity: `value`, `unit`,
   `tolerance`, a free-text `provenance` label the domain names, the fixed `grounded`
   predicate — is this an observation you may act on? — plus `source` and
-  `derived_from` lineage), named links, optional shape payload, children.
+  `derived_from` lineage), named links, an opaque payload, children.
   Path-addressed, partially updatable.
 - **Vocabulary**: what kinds mean — prose, registered at runtime, discovered with
   each node you read (`semantics_at`). A kind may also declare `operations` —
@@ -156,52 +222,40 @@ safety only; everything that *means* something is content:
   algebra — and a `Quern` pin pulls the whole closure, nearer layers winning;
   local content always wins over packages. Two versions of one name in a
   closure is a diamond conflict, refused at pin time.
-- **Standard contracts**: domains are authored in their own repos and travel the
-  registry as data (xag/quern#19): `geometry@` (xag/geometry) documents shape
-  conventions and solver contracts and ships its own native implementations —
-  installing that Python registers them; `ledger@` (xag/ledger) is pure
-  vocabulary and rules; `grounding@` (xag/grounding) authors the meaning whose
-  implementations stay HERE in `quern.grounding`, because every gate leans on
-  them: meaning is data, safety is code. A native is an optimisation of
-  content, never a semantics of its own, and a plain `import quern` pulls in no
-  domain.
+- **The roll** (`quern.roll`): every rule runs against the tree as it is now, so no rule
+  can see what was *removed*. The roll is the smallest artifact that makes absence
+  mechanical — each node's path, kind, and a digest of what it says, committed beside
+  the tree. A vanished entry, a re-kinded one, or one that quietly no longer says what
+  the record said it did is then a fact in the diff rather than a memory.
 - **Host** (`quern.host`, extra `quern[host]`): registers the generic `tree_*` MCP
   tools once over a **`Workspace`** — the few seams a domain provides (its live
   quern, its effective read view, the write guard, persistence, its blob store,
   its library, its starter vocabulary). One endpoint hosts several domains by
   resolving a different Workspace per call — same code, separate stores.
+- **Navigator** (`quern.app_host`, same extra): the Quern is the shared context of
+  codesign, so the human needs the same grip on it as the model. `register_app(mcp,
+  get_ws)` serves it as an **MCP App** (SEP-1865) — a `ui://quern/navigator.html`
+  resource plus a `tree_app` entry tool — and every browse or edit in the UI goes
+  through the **same generic `tree_*` tools** the model uses. `serve_dev(get_ws)`
+  serves the identical HTML on localhost, which is what `quern navigate` runs.
+  Deliberately not geometric: this is the meaning view, and shapes stay a domain
+  concern.
 
-- **Navigator** (`quern.app_host`, same `quern[host]` extra): the Quern is the shared
-  context of codesign, so the human needs the same grip on it as the model.
-  `register_app(mcp, get_ws)` serves a semantic navigator as an **MCP App**
-  (SEP-1865): a `ui://quern/navigator.html` resource plus a `tree_app` entry tool;
-  in an Apps-capable client the tree renders in-conversation — outline, kind
-  prose, params with provenance and grounding, links, rules with pass/fail —
-  and every browse or edit in the UI goes through the **same generic `tree_*`
-  tools** the model uses. `serve_dev(get_ws)` serves the identical HTML on
-  localhost for a plain browser. Deliberately not geometric: this is the
-  meaning view; shapes stay a domain concern (`geometry.host`, in xag/geometry).
-
-  `quern navigate <project>` (needs the `host` extra) serves that view for a
-  whole project with no per-project wiring. It relies on **one convention**,
-  which is the contract of the command: a project's ledger is the package
-  `ledger/` (an `__init__.py` beside a `tree.py`), and `tree.py` exposes a
-  `build() -> Quern` that resolves its own registry (from `$QUERN_REGISTRY` or a
-  sibling `quern-registry`), so `build()` takes no arguments and locates
-  everything from its own file. `navigate` imports `ledger.tree` *as a package*
-  — so `tree.py` may `from . import` its siblings — calls `build()`, wraps the
-  Quern in a read-only Workspace (every write seam refuses), and serves it.
-  `--module PATH[:ATTR]` points at any other entry for a ledger that does not
-  follow the convention — the convention is the default, not a requirement.
+Domains are authored in their own repositories and travel the registry as data. A domain
+package may be nothing but vocabulary and rules; it may also carry native implementations
+of its contracts, registered when its Python is imported — a native is an optimisation of
+content, never a semantics of its own, and a plain `import quern` pulls in no domain at
+all. The one asymmetry is deliberate: the contracts every gate leans on are authored as
+content like anything else, while their implementations ship here in `quern.grounding`,
+because a gate that could be handed its own grounding is not a gate. Meaning is data,
+safety is code.
 
 The substrate knows nothing of its consumers. A domain lives entirely outside this
 library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding
-`quern` — and domain safety invariants stay in that consumer code: meaning is data,
-safety is code.
+`quern` — and domain safety invariants stay in that consumer code.
 
 Canonical repo: `xag/quern`. Depend on it by git rev, never a range; a consumer that
-vendors it instead (e.g. via `git subtree` under some `<prefix>`)
-syncs with:
+vendors it instead (e.g. via `git subtree` under some `<prefix>`) syncs with:
 
     git subtree pull --prefix=<prefix> https://github.com/xag/quern main --squash
 

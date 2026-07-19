@@ -16,9 +16,9 @@ Counts, not booleans: a rule wants `== 0`, and a diagnostic wants to know how ma
 
 Only the IMPLEMENTATIONS live here — host safety code, registered by importing this
 module, on the substrate's clock. Their meaning (the vocabulary entry and the solver
-descriptors a tree pins) is grounding@, authored in xag/grounding and pinned by digest
-from the registry like any package. Meaning is data, safety is code; this module is
-the code half, and the substrate otherwise knows no domain (xag/quern#19).
+descriptors a tree pins) is the `grounding@` package, authored in its own repository
+and pinned by digest from the registry like any other. Meaning is data, safety is
+code; this module is the code half, and the substrate otherwise knows no domain.
 """
 
 from __future__ import annotations

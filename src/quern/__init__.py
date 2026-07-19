@@ -6,8 +6,8 @@ whose every number states its unit and provenance, named links, and a generic
 what must hold in rules, what computes in solvers — all registered at runtime,
 all discovered at each node, all capitalizable as versioned packages. The rule
 grammar is structural and reaches meaning through one bridge, solve(); a domain
-is a package pinned from the registry (xag/quern-registry), whose contracts may
-have first-class native implementations behind the same names.
+is a package pinned from a registry, whose contracts may have first-class native
+implementations behind the same names.
 
 Canonical repository: xag/quern.
 The substrate knows nothing of its consumers: a domain is a package plus the code
@@ -74,9 +74,9 @@ from .tree import (
 from .library import Library, Package, solver_blob, validate_package
 from .store import SqliteStore
 
-# No domain lives in this source tree anymore: geometry@ and ledger@ are authored in
-# their own repos (xag/geometry, xag/ledger) and travel the registry as data — the
-# substrate knows them only as packages a tree pins (xag/quern#19).
+# No domain lives in this source tree anymore: every domain is authored in its own
+# repository and travels the registry as data — the substrate knows them only as
+# packages a tree pins.
 #
 # `quern.grounding` is the one survivor, and only its code half. Its subject *is* the
 # substrate — the

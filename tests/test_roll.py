@@ -60,8 +60,8 @@ def test_a_deleted_node_is_reported():
 
 
 def test_a_deleted_parent_reports_its_children_too():
-    """chores deleted `the-french-gui-has-never-been-seen` and its discharge child
-    in one commit. Both were on the roll; both come back."""
+    """A consumer deleted an entry and its discharge child in one commit. Both were
+    on the roll; both come back."""
     before = roll(ledger())
     tree = ledger()
     tree.root.children = [c for c in tree.root.children if c.id != "the-eight-are-human"]
@@ -71,9 +71,8 @@ def test_a_deleted_parent_reports_its_children_too():
 
 
 def test_a_rename_is_a_deletion_and_is_reported_as_one():
-    """spec-studio's baae263 rewrote `sampling-first-no-model-of-our-own` into
-    `deal-over-a-switchboard-channel`, id and all. In a diff that reads as an edit.
-    On the roll the old id is simply gone, which is what it is."""
+    """A rename rewrites an entry into a different one, id and all. In a diff that
+    reads as an edit. On the roll the old id is simply gone, which is what it is."""
     before = roll(ledger())
     tree = ledger()
     tree.root.children = [c for c in tree.root.children if c.id != "key-for-key"]
@@ -93,9 +92,10 @@ def test_an_excused_path_is_spared():
 
 
 def test_a_rekinded_node_is_reported_though_it_never_vanished():
-    """switchboard's 8d9a17a turned a hypothesis into a decision and deleted its
-    falsification child. The node is still there; what it claims about itself is
-    not. `vanished` cannot see this and does not pretend to — `rekinded` does."""
+    """Turning a hypothesis into a decision and deleting its falsification child is
+    how a belief gets retracted without anyone saying so. The node is still there;
+    what it claims about itself is not. `vanished` cannot see this and does not
+    pretend to — `rekinded` does."""
     before = roll(ledger())
     tree = ledger()
     set_node(tree, "the-eight-are-human", {"kind": "decision"})
@@ -106,9 +106,9 @@ def test_a_rekinded_node_is_reported_though_it_never_vanished():
 
 
 def test_a_rewritten_payload_is_reported_though_nothing_vanished():
-    """korean-gpt-coach's 1d11a9e rewrote a debt's premise in place. The id stayed,
-    the kind stayed, and the check reported zero removals — the erasure the roll
-    could not see. Now it is the digest that moved."""
+    """A debt's premise rewritten in place: the id stayed, the kind stayed, and a
+    roll of paths and kinds alone reported zero removals — the erasure it could not
+    see. Now it is the digest that moved."""
     before = roll(ledger())
     tree = ledger()
     tree.get("key-for-key").payload["rationale"] = "it seemed tidier this way"
@@ -119,8 +119,8 @@ def test_a_rewritten_payload_is_reported_though_nothing_vanished():
 
 
 def test_a_renamed_node_is_a_rewrite_too():
-    """transponder marks supersession by editing names ('[SUPERSEDED] …'). The name
-    is part of what an entry says."""
+    """A ledger that marks supersession by editing names ('[SUPERSEDED] …') moves
+    what the entry says. The name is part of it."""
     before = roll(ledger())
     tree = ledger()
     tree.get("the-eight-are-human").name = "[SUPERSEDED] the eight are human"
@@ -267,9 +267,9 @@ def test_audit_folds_the_whole_check_into_one_call(tmp_path):
 
 def test_an_excused_path_spares_its_subtree():
     """Burying a node buries its children: one tombstone naming the root of what
-    left accounts for all of it. The ledger repo's first compaction hit this - the
-    entry was excused, its two alternatives were not, and the check demanded
-    tombstones that would have said nothing the first one did not."""
+    left accounts for all of it. A first compaction hits this - the entry is
+    excused, its alternatives are not, and the check demands tombstones that would
+    say nothing the first one did not."""
     before = roll(ledger())
     tree = ledger()
     tree.root.children = [c for c in tree.root.children if c.id != "key-for-key"]

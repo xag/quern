@@ -10,7 +10,7 @@ editing.
 Run it from an environment that has the host extra (`quern[host]`, for the MCP
 SDK `serve_dev` needs) and point it at a project directory:
 
-    quern navigate ../assay-office
+    quern navigate ../my-project
     python -m quern.navigate            # defaults to the current directory
 
 The launcher knows nothing of any consumer: it discovers `ledger/tree.py` by

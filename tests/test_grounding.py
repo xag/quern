@@ -1,7 +1,7 @@
 """The grounding contracts: is any of it safe to act on?
 
 These test the implementations — host code that stays in quern while their meaning
-(grounding@) is authored in xag/grounding and travels the registry as data.
+(the `grounding@` package) is authored elsewhere and travels the registry as data.
 """
 
 from quern.grounding import depends_untrusted, untrusted, untrusted_via

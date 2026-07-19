@@ -313,13 +313,16 @@ def build() -> Quern:
             kind="decision",
             name="The roll records a digest of every node's words — name, payload, and "
                  "each param's bare value — and nothing else",
+            meta={"amended": "1daeb595ec52 wording only: the incident is described "
+                             "without naming the consumer it happened in. The claim, "
+                             "the rejected alternatives and the scope are unchanged."},
             payload={
                 "rationale":
                     "Path and kind catch the rare erasures: deletion and re-kinding. The "
-                    "common one keeps the id and rewrites the words — korean-gpt-coach "
-                    "1d11a9e rewrote a debt's premise in place and the check reported "
-                    "zero removals (xag/ledger#1). So the roll now digests what each "
-                    "entry SAYS, and `rewritten` fires when it changes. The correction "
+                    "common one keeps the id and rewrites the words — a consumer rewrote "
+                    "a debt's premise in place and the check reported zero removals, "
+                    "which is the incident that prompted this. So the roll now digests "
+                    "what each entry SAYS, and `rewritten` fires when it changes. The correction "
                     "channel is supersession; a wording-only edit is acknowledged in the "
                     "node's own meta (`amended: <digest> <why>`), which excuses exactly "
                     "one content state and goes stale the moment the words move again.",
@@ -338,9 +341,12 @@ def build() -> Quern:
                 Node(id="alt-digest-load-bearing-fields", kind="alternative",
                      name="Digest only named load-bearing payload keys (rationale, why, "
                           "claim)",
+                     meta={"amended": "3f415985ae75 wording only: the same rewrite, "
+                                      "described without the consumer's commit hash. "
+                                      "The refutation is unchanged."},
                      payload={"why":
-                              "Refuted by the incident it was meant to catch: 1d11a9e "
-                              "rewrote `why_this_is_the_load_bearing_one` and a "
+                              "Refuted by the incident it was meant to catch: the rewrite "
+                              "moved `why_this_is_the_load_bearing_one` and a "
                               "discharge's `who` — authors name payload keys freely, so "
                               "any fixed list is a list of places NOT to write the lie. "
                               "And the list would be domain vocabulary hard-coded into a "

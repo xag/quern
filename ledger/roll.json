@@ -92,7 +92,7 @@
   {
     "path": "the-roll-digests-what-an-entry-says",
     "kind": "decision",
-    "digest": "af279f466c1f"
+    "digest": "1daeb595ec52"
   },
   {
     "path": "the-roll-digests-what-an-entry-says/alt-an-amendment-kind",
@@ -102,7 +102,7 @@
   {
     "path": "the-roll-digests-what-an-entry-says/alt-digest-load-bearing-fields",
     "kind": "alternative",
-    "digest": "415e564c25e8"
+    "digest": "3f415985ae75"
   },
   {
     "path": "the-working-set-is-computed",

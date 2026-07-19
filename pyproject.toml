@@ -10,8 +10,8 @@ dependencies = [
 
 [project.optional-dependencies]
 # quern.host registers the tree_* MCP tools over a Workspace; only a server needs it.
-# (The geometry extra is gone with the geometry module: shapes live in xag/geometry now,
-# and a shape-carrying host installs that package instead — xag/quern#19.)
+# (The geometry extra is gone with the geometry module: shapes are a domain package now,
+# and a shape-carrying host installs that package instead.)
 host = ["mcp[cli]>=1.2"]
 
 [project.scripts]

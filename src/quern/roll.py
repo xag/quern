@@ -16,8 +16,8 @@ built tree against the roll at HEAD and a vanished id is a fact, not a memory.
 The digest is there because deletion is the *rare* erasure. The common one keeps
 the id and rewrites the words: the node is still on the roll, still the right kind,
 and no longer says what the record said it did. Path and kind alone wave that
-through (korean-gpt-coach 1d11a9e rewrote a debt's premise in place and the check
-reported zero removals). So the roll also records WHAT WAS SAID — name, payload,
+through: a debt whose premise is rewritten in place keeps both, and the check
+reports zero removals. So the roll also records WHAT WAS SAID — name, payload,
 and every param's value — and `rewritten` fires when it changes. What it
 deliberately does not digest: a param's grounding (provenance, `grounded`, source),
 because grounding a debt's values is the one in-place act a record sanctions, and
