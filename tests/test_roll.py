@@ -7,7 +7,9 @@ These ask the one question a tree cannot answer about itself.
 import json
 
 from quern import Quern, set_node
-from quern.roll import committed, dumps, read, rekinded, roll, vanished, write
+from quern.roll import (
+    audit, committed, dumps, read, rekinded, roll, vanished, write,
+)
 
 
 def ledger() -> Quern:
@@ -137,3 +139,42 @@ def test_git_reads_the_roll_at_head(tmp_path):
     tree.root.children = [c for c in tree.root.children if c.id != "release"]
     assert vanished(tree, committed(repo, "ledger/roll.json")) == [
         {"path": "release", "kind": "gate"}]
+
+
+def test_audit_reports_not_looking_as_distinct_from_all_clear(tmp_path):
+    """The two states a gate must never confuse."""
+    complaints, looked = audit(ledger(), tmp_path, "ledger/roll.json")
+    assert complaints == [] and looked is False
+
+
+def test_audit_folds_the_whole_check_into_one_call(tmp_path):
+    import subprocess
+
+    repo = tmp_path / "repo"
+    (repo / "ledger").mkdir(parents=True)
+    run = lambda *a: subprocess.run(["git", "-C", str(repo), *a],
+                                    capture_output=True, check=True)
+    run("init", "-q")
+    run("config", "user.email", "t@example.com")
+    run("config", "user.name", "t")
+
+    tree = ledger()
+    write(tree, repo / "ledger" / "roll.json")
+    run("add", "-A")
+    run("commit", "-qm", "roll")
+
+    assert audit(tree, repo, "ledger/roll.json") == ([], True)
+
+    # drop a node and re-kind another in one go
+    tree.root.children = [c for c in tree.root.children if c.id != "release"]
+    set_node(tree, "the-eight-are-human", {"kind": "decision"})
+    complaints, looked = audit(tree, repo, "ledger/roll.json")
+    assert looked is True
+    assert any("release" in c and "is gone" in c for c in complaints)
+    assert any("the-eight-are-human" in c and "stopped being falsifiable" in c
+               for c in complaints)
+
+    # ...and a tombstone excuses the removal, but never the re-kinding
+    complaints, _ = audit(tree, repo, "ledger/roll.json", excused={"release"})
+    assert not any("is gone" in c for c in complaints)
+    assert any("stopped being falsifiable" in c for c in complaints)
