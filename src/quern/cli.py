@@ -23,12 +23,22 @@ import os
 import sys
 from pathlib import Path
 
-from .library import Library, Package, lock_refs, read_lock, write_lock
+# `library` is imported as a MODULE, and reached through it below, because the flight
+# recorder wraps a boundary by setting the attribute on the module it was handed: a name
+# bound here by `from .library import ...` would keep pointing at the unwrapped original,
+# and its calls would silently never be recorded. Today's boundary sits one level deeper
+# (read_text/write_text), so nothing imported here is wrapped — but the discipline is what
+# keeps that true by accident rather than by luck the next time the boundary moves.
+# `Library` may come by value: the recorder patches methods on the class object itself,
+# which every reference already shares.
+from . import library
+from .library import Library, Package, lock_refs
 from .library import sync as sync_libraries
 from .tree import PackageRef
 
 LOCK_DEFAULT = "quern.lock"
 CACHE_DEFAULT = ".quern/library"
+FLIGHT_DEFAULT = ".quern/flight"
 
 
 def _registry(args: argparse.Namespace) -> Library:
@@ -65,7 +75,7 @@ def _load_package(spec: str) -> Package:
     return pkg
 
 
-def cmd_publish(args: argparse.Namespace) -> None:
+def _cmd_publish(args: argparse.Namespace) -> None:
     lib = _registry(args)
     pkg = _load_package(args.package)
     blobs: dict[str, bytes] = {}
@@ -83,10 +93,10 @@ def cmd_publish(args: argparse.Namespace) -> None:
         print(f"  {line}")
 
 
-def cmd_pin(args: argparse.Namespace) -> None:
+def _cmd_pin(args: argparse.Namespace) -> None:
     lib = _registry(args)
     lock = Path(args.lock)
-    pins = {r.name: r for r in read_lock(lock)}
+    pins = {r.name: r for r in library.read_lock(lock)}
     for spec in args.packages:
         if "@" not in spec:
             sys.exit(f"pin takes name@version, got '{spec}'")
@@ -96,16 +106,16 @@ def cmd_pin(args: argparse.Namespace) -> None:
         refs = lock_refs(lib, list(pins.values()))
     except ValueError as e:
         sys.exit(f"not pinned: {e}")
-    write_lock(lock, refs)
+    library.write_lock(lock, refs)
     for r in refs:
         print(f"{r.name}@{r.version} sha256:{r.sha256}")
     print(f"locked {len(refs)} package(s) in {lock}")
 
 
-def cmd_sync(args: argparse.Namespace) -> None:
+def _cmd_sync(args: argparse.Namespace) -> None:
     lib = _registry(args)
     lock = Path(args.lock)
-    refs = read_lock(lock)
+    refs = library.read_lock(lock)
     if not refs:
         sys.exit(f"nothing to sync: {lock} is missing or empty — pin something first")
     dest = Library(Path(args.dest))
@@ -118,13 +128,13 @@ def cmd_sync(args: argparse.Namespace) -> None:
     print(f"{len(log)} package(s) in {dest.root}")
 
 
-def cmd_navigate(args: argparse.Namespace) -> None:
+def _cmd_navigate(args: argparse.Namespace) -> None:
     from .navigate import serve
     serve(args.project, module=args.module, port=args.port,
           open_browser=not args.no_browser)
 
 
-def cmd_brief(args: argparse.Namespace) -> None:
+def _cmd_brief(args: argparse.Namespace) -> None:
     from pathlib import Path
 
     from .brief import brief
@@ -135,7 +145,59 @@ def cmd_brief(args: argparse.Namespace) -> None:
     print(brief(tree, all=args.all, fat=args.fat))
 
 
-def main(argv: list[str] | None = None) -> None:
+def _utf8_streams() -> None:
+    """The help text, the briefs and the proof lines all carry en-dashes and
+    arrows; Windows consoles default to cp1252, which cannot encode them, so
+    `quern --help` died inside argparse before it could print a word. Encode
+    UTF-8 and replace what the terminal cannot render: a mojibake arrow still
+    tells the reader what the command does, a UnicodeEncodeError does not."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is not None:
+            reconfigure(encoding="utf-8", errors="replace")
+
+
+_armed = False
+
+
+def _record() -> None:
+    """Arm the flight recorder over this invocation: one tape per CLI run, the command as
+    the call, under `.quern/flight`.
+
+    `install` wraps every public function this module defines — `run`, which is the one that
+    matters, and `main`, which is merely along for the ride. Arming is guarded because a
+    process may call `main` many times (the test suite does), and re-patching an already
+    patched boundary each time would stack wrappers on wrappers; the recorder is explicit
+    that idempotence is the caller's business, so this is the caller minding it.
+
+    On by default, because a recorder that must be remembered is a recorder that is off on
+    the run that mattered. `QUERN_FLIGHT=0` opts out for anyone who wants a CLI that writes
+    nothing but what it was asked to write."""
+    global _armed
+    if _armed or os.environ.get("QUERN_FLIGHT", "1").lower() in ("0", "off", "false", "no"):
+        return
+    _armed = True
+    try:
+        from flight_recorder import install
+
+        from .boundary import boundary
+        install(boundary(), sys.modules[__name__], directory=FLIGHT_DEFAULT)
+    except Exception:
+        # Never let instrumentation break the tool it instruments. A missing or broken
+        # recorder costs a tape; it must not cost the user their `quern sync`.
+        pass
+
+
+def run(argv: list[str]) -> None:
+    """The whole command, taking the ARGV and nothing else — which is what makes the tape
+    worth having.
+
+    The obvious shape was to record the `_cmd_*` verbs, and it does not work: each takes an
+    `argparse.Namespace`, an object the tape can only hold as `{"__opaque__": "Namespace(…)"}`
+    and can only replay as that repr STRING. The recording would look healthy and reproduce
+    nothing. A list of strings, by contrast, the tape holds exactly — so `run` is the seam,
+    parsing happens INSIDE the replayed code where it belongs, and the recorded call is
+    literally the command the user typed."""
     parser = argparse.ArgumentParser(
         prog="quern",
         description="packages travel as data: publish, pin, sync; navigate a ledger")
@@ -151,17 +213,17 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("package", help="pkg.json, path/to/module.py:ATTR, or module:ATTR")
     p.add_argument("--blob", action="append", metavar="NAME=FILE",
                    help="solver blob to store content-addressed (repeatable)")
-    p.set_defaults(func=cmd_publish)
+    p.set_defaults(func=_cmd_publish)
 
     p = sub.add_parser("pin", help="record name@version + digest in the lockfile")
     p.add_argument("packages", nargs="+", metavar="name@version")
     p.add_argument("--lock", default=LOCK_DEFAULT)
-    p.set_defaults(func=cmd_pin)
+    p.set_defaults(func=_cmd_pin)
 
     p = sub.add_parser("sync", help="materialize the lockfile into a local library")
     p.add_argument("--lock", default=LOCK_DEFAULT)
     p.add_argument("--dest", default=CACHE_DEFAULT)
-    p.set_defaults(func=cmd_sync)
+    p.set_defaults(func=_cmd_sync)
 
     p = sub.add_parser("brief", help="one line per current ledger entry - the working "
                                      "set, not the archaeology")
@@ -173,7 +235,7 @@ def main(argv: list[str] | None = None) -> None:
                    help="include superseded entries instead of counting them away")
     p.add_argument("--fat", action="store_true",
                    help="sort by said_words, heaviest first - the curation view")
-    p.set_defaults(func=cmd_brief)
+    p.set_defaults(func=_cmd_brief)
 
     p = sub.add_parser("navigate", help="serve a project's ledger in the read-only navigator")
     p.add_argument("project", nargs="?", default=".",
@@ -182,13 +244,23 @@ def main(argv: list[str] | None = None) -> None:
                    help="override the build entry (default: <project>/ledger/tree.py:build)")
     p.add_argument("--port", type=int, default=8765, help="localhost port (default: 8765)")
     p.add_argument("--no-browser", action="store_true", help="do not open a browser window")
-    p.set_defaults(func=cmd_navigate)
+    p.set_defaults(func=_cmd_navigate)
 
     args = parser.parse_args(argv)
     import importlib
     for module in args.natives or []:
         importlib.import_module(module)
     args.func(args)
+
+
+def main(argv: list[str] | None = None) -> None:
+    """The process entry: set the streams up, arm the recorder, then hand the argv to `run`.
+
+    Nothing here is recorded — it IS the recording apparatus, and a tape of the code that
+    starts the tape would be a curiosity rather than evidence."""
+    _utf8_streams()
+    _record()
+    run(sys.argv[1:] if argv is None else list(argv))
 
 
 if __name__ == "__main__":

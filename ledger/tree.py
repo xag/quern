@@ -32,6 +32,12 @@ A later, unrelated slice sits near the end: the read-only navigator (`quern navi
 and the one decision it rests on — that it depends on no vocabulary of its own, only on
 the ledger-package convention, because `build()` hands back a tree with its semantics
 already composed in.
+
+The last slice is the other half of the estate's day-one practice, arriving late and for the
+same reason the first one did: quern shipped the ledger to everyone else and instrumented
+nothing of its own. It now declares a nondeterminism boundary and records every CLI run. The
+decision worth reading twice is the second — where the seam goes — because the obvious answer
+produced a tape that looked healthy and could not be played, and only running a replay said so.
 """
 
 from __future__ import annotations
@@ -403,6 +409,125 @@ def build() -> Quern:
                               "the part a later reader most needs to not re-litigate; "
                               "they should cost a trailer line, not their prose."}),
             ],
+        ),
+
+        Node(
+            id="the-substrate-records-its-own-runs",
+            kind="decision",
+            name="quern declares a nondeterminism boundary and records every CLI run, "
+                 "on by default",
+            payload={
+                "rationale":
+                    "The estate's practice is to name the boundary as a project's first "
+                    "artifact and record from commit one, so a bug is replayed rather than "
+                    "re-derived. quern had shipped the ledger half of that practice to "
+                    "every other project and kept neither half itself — a survey found it "
+                    "among the repos with a ledger and no recorder. The boundary is "
+                    "`src/quern/boundary.py`; `quern.replay` plays a tape back.\n\n"
+                    "Recording is ON by default (`QUERN_FLIGHT=0` opts out) because a "
+                    "recorder that must be remembered is a recorder that was off on the run "
+                    "that mattered — and the tapes cost a few KB into `.quern/`, which is "
+                    "already ignored as the synced-package cache.",
+                "note":
+                    "The boundary turned out to be four things, and naming what is ABSENT "
+                    "was the more useful half: quern reads no clock and draws no randomness. "
+                    "Identity here is a content digest, never a timestamp or a nonce, which "
+                    "is exactly why a pin is reproducible. A clock read appearing in this "
+                    "codebase is a design event before it is a recording gap.",
+            },
+            children=[
+                Node(id="alt-flight-recorder-as-a-dev-dependency", kind="alternative",
+                     name="Depend on the recorder in the dev group and record only in tests",
+                     payload={"why":
+                              "Recording that happens only in development is recording that "
+                              "is absent from every run a user could report — which is the "
+                              "one population of runs nobody can reproduce by hand. It is a "
+                              "runtime dependency for the same reason the practice exists."}),
+                Node(id="alt-no-recorder-quern-is-deterministic", kind="alternative",
+                     name="Skip it: quern is nearly a pure function over a directory",
+                     payload={"why":
+                              "True, and it is the argument FOR instrumenting rather than "
+                              "against — a boundary this narrow costs four declarations and "
+                              "makes every run replayable. 'Deterministic given its inputs' "
+                              "is precisely the claim a tape lets somebody check, and the "
+                              "inputs are a directory another tool wrote."}),
+            ],
+        ),
+
+        Node(
+            id="the-boundary-sits-at-text-not-at-the-package-api",
+            kind="decision",
+            name="The seam is `read_text`/`write_text`, not `Library.get`/`publish` — a tape "
+                 "may hold only what it can represent",
+            payload={
+                "rationale":
+                    "The first cut wrapped the obvious API: `Library.get`, `Library.publish`, "
+                    "`read_lock`, `write_lock`. It recorded, the counts were right, and every "
+                    "result on the tape was `{\"__opaque__\": \"PackageRef(...)\"}` — because "
+                    "the format holds primitives and containers, and a pydantic model is "
+                    "neither. Such a tape replays the repr STRING into code expecting an "
+                    "object. It would have looked healthy and reproduced nothing.\n\n"
+                    "One level down the world's answer is a JSON string, which the tape holds "
+                    "exactly. Feed it back and `model_validate_json` — quern's own code — "
+                    "rebuilds what it built the first time. This is the cardinal rule read "
+                    "carefully: parsing is not the boundary, it is the code under test, and "
+                    "recording it hides the thing a replay exists to re-run.\n\n"
+                    "The same reasoning moved the recorded CALL from the five `_cmd_*` verbs "
+                    "to `run(argv)`. A verb takes an `argparse.Namespace`, opaque for the same "
+                    "reason; an argv is a list of strings. So the tape now holds literally the "
+                    "command that was typed, and parsing happens inside the replay.",
+                "consequence":
+                    "`read_text` returns `str | None` with the existence check folded in — "
+                    "absence is an ANSWER, and a boundary that recorded only contents would "
+                    "send a replay back to the real filesystem to ask whether a file was "
+                    "there. `tests/test_flight.py` pins all of it by PLAYING a tape rather "
+                    "than inspecting its shape: it asserts no result is opaque and that a "
+                    "recorded `quern brief` replays bit-for-bit.",
+            },
+            children=[
+                Node(id="alt-record-the-package-api", kind="alternative",
+                     name="Record `Library.get`/`publish` — the meaningful-looking seam",
+                     payload={"why":
+                              "Refuted by running it: every result recorded as an opaque "
+                              "repr, so the tape was unreplayable while every count on it "
+                              "looked correct. The failure is silent, which is what makes it "
+                              "worth a ledger entry rather than a comment."}),
+                Node(id="alt-teach-the-recorder-about-pydantic", kind="alternative",
+                     name="Serialize models by teaching the tape a pydantic codec",
+                     payload={"why":
+                              "Puts quern's type system inside a library whose whole doctrine "
+                              "is that it knows no semantics, to record something quern can "
+                              "already rebuild from the text it was parsed out of. The fix "
+                              "belongs at the seam, not in the recorder."}),
+            ],
+        ),
+
+        Node(
+            id="a-solver-blob-records-opaquely",
+            kind="debt",
+            name="wasm blobs cross the boundary as bytes, and the tape cannot hold bytes",
+            params={"replayable": _unsound(
+                0, "effect",
+                "`solver_blob` is declared in the boundary and records as "
+                "{\"__opaque__\": \"<repr>\"} — the tape format represents str, not bytes. "
+                "Text effects: fully replayable. Blob effects: zero.")},
+            payload={"note":
+                     "Every text path through quern replays bit-for-bit; a run that loads a "
+                     "solver does not, because the recorded blob replays as a repr string "
+                     "rather than a module. Narrow today — `brief`, `pin`, `sync` and "
+                     "`navigate` touch no blob — and it will stop being narrow the moment a "
+                     "solver bug is the one somebody needs to replay.",
+                     "found": "2026-07-19, while proving the first tape replayable; the same "
+                              "opacity that condemned the package-API seam, in the one place "
+                              "moving the seam cannot fix it, because bytes are what the "
+                              "world actually hands over."},
+            children=[Node(
+                id="record-blobs-by-digest", kind="discharge",
+                name="Record a blob as its sha256 and let replay load the content from the "
+                     "content-addressed store the digest already names",
+                payload={"who": "anyone who can change quern's boundary declaration — the "
+                                "content is immutable and already keyed by that hash, so "
+                                "the tape needs to carry the key, not the bytes"})],
         ),
 
         Node(

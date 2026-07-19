@@ -83,6 +83,22 @@ that judge them arrive as a package pinned by digest in `quern.lock`, like any o
 content. quern supplies the mechanics — the tree, the rule evaluator, the proof gate, the
 roll, the viewer — and interprets none of it.
 
+## Every run is recorded
+
+quern declares its nondeterminism boundary — text on disk, the registry listing, solver
+blobs, `$QUERN_REGISTRY` — and writes one small JSONL *tape* per invocation into
+`.quern/flight/`. A tape is that run, compressed: replay it and the real code re-executes
+with the recorded answers fed back, every internal variable observable.
+
+```bash
+uv run python -m quern.replay .quern/flight/<tape>.jsonl            # what does it hold?
+uv run python -m quern.replay .quern/flight/<tape>.jsonl --call 0   # play it
+```
+
+Set `QUERN_FLIGHT=0` to turn it off. It is on by default because a recorder you have to
+remember to switch on is a recorder that was off on the run that mattered — and the point
+of a bug report is that nobody knew it was coming.
+
 ## Five minutes
 
 **Author a kind, write a rule** — meaning first, as data:

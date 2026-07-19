@@ -6,6 +6,11 @@ requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
     "wasmtime>=25",  # sandboxed solver runtime: fuel-metered, no ambient authority
+    # The boundary (src/quern/boundary.py) is declared and recorded from every CLI run: the
+    # registry, the lockfile, blob bytes, $QUERN_REGISTRY. A runtime dependency, not a dev
+    # one — recording that only happens in development is recording that is absent from
+    # every run a user could report.
+    "xag-flight-recorder",  # distribution name; the module is `flight_recorder`
 ]
 
 [project.optional-dependencies]
@@ -16,6 +21,10 @@ host = ["mcp[cli]>=1.2"]
 
 [project.scripts]
 quern = "quern.cli:main"
+
+[tool.uv.sources]
+# Pinned by rev, always — the estate's fork-or-republish doctrine over resolver algebra.
+xag-flight-recorder = { git = "https://github.com/xag/flight-recorder", rev = "3416d25" }
 
 [build-system]
 requires = ["hatchling"]

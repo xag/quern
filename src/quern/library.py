@@ -108,6 +108,34 @@ def _canonical(package: Package) -> str:
     return package.model_dump_json(indent=2, exclude_none=True)
 
 
+def read_text(path: Path) -> str | None:
+    """Every character quern takes from the world arrives here — and `None` when there is
+    nothing at `path`.
+
+    Absence is folded in deliberately rather than left to a separate `exists()`. It is an
+    ANSWER, and one the tape has to carry: a boundary that recorded only the contents would
+    send a replay back to the real filesystem to ask whether the file was there, which is the
+    one question a replay must never have to ask. One call, one answer, missing included.
+
+    Text and not bytes, equally deliberately: the tape can represent a string exactly, and
+    a `bytes` result would be recorded as an opaque repr — replayable in appearance only.
+    Everything quern reads through this door is UTF-8 JSON. The one thing that is not is a
+    wasm blob, and that limit is recorded in the ledger rather than papered over here."""
+    if not path.exists():
+        return None
+    return path.read_text(encoding="utf-8")
+
+
+def write_text(path: Path, text: str) -> None:
+    """The write half, parents included so the caller has no second effect to declare.
+
+    `write_bytes` of the UTF-8 encoding, never `write_text`: the latter would translate `\\n`
+    to `\\r\\n` on Windows, and these bytes are the ones a content digest is taken over — a
+    pin that changed meaning by platform would defeat the entire point of the digest."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_bytes(text.encode("utf-8"))
+
+
 class Library:
     """Directory-backed registry: packages/<name>/<version>.json + blobs/."""
 
@@ -135,10 +163,8 @@ class Library:
         return out
 
     def get(self, name: str, version: str) -> Package | None:
-        path = self._path(name, version)
-        if not path.exists():
-            return None
-        return Package.model_validate_json(path.read_text(encoding="utf-8"))
+        raw = read_text(self._path(name, version))
+        return None if raw is None else Package.model_validate_json(raw)
 
     def publish(self, package: Package, wasm_blobs: dict[str, bytes]) -> list[str]:
         """Validate and store; returns the proof log. `wasm_blobs` maps solver
@@ -149,15 +175,15 @@ class Library:
         log = validate_package(package, self.blob_dir, self)
 
         path = self._path(package.name, package.version)
-        if path.exists():
-            existing = Package.model_validate_json(path.read_text(encoding="utf-8"))
+        raw = read_text(path)
+        if raw is not None:
+            existing = Package.model_validate_json(raw)
             if existing.model_dump() != package.model_dump():
                 raise ValueError(
                     f"{package.name}@{package.version} already exists with different "
                     "content — versions are immutable, publish a new one")
         else:
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_bytes(_canonical(package).encode("utf-8"))
+            write_text(path, _canonical(package))
         log.append(f"digest sha256:{package_digest(package)} — a pin carrying it "
                    "freezes this meaning across libraries, not just this one")
         return log
@@ -272,16 +298,16 @@ def read_lock(path: Path) -> list[PackageRef]:
     """The lockfile's refs — the flattened, hash-bearing closure `lock_refs`
     computed. Missing file means nothing locked, not an error: the caller
     decides whether an empty lock is a state or a mistake."""
-    if not path.exists():
+    raw = read_text(path)
+    if raw is None:
         return []
-    data = json.loads(path.read_text(encoding="utf-8"))
-    return [PackageRef.model_validate(e) for e in data["packages"]]
+    return [PackageRef.model_validate(e) for e in json.loads(raw)["packages"]]
 
 
 def write_lock(path: Path, refs: list[PackageRef]) -> None:
-    path.write_bytes((json.dumps(
+    write_text(path, json.dumps(
         {"packages": [r.model_dump(exclude_none=True) for r in refs]},
-        indent=2) + "\n").encode("utf-8"))
+        indent=2) + "\n")
 
 
 def sync(source: Library, dest: Library, refs: list[PackageRef]) -> list[str]:

@@ -20,6 +20,16 @@
     "digest": "afd20699655c"
   },
   {
+    "path": "a-solver-blob-records-opaquely",
+    "kind": "debt",
+    "digest": "d063fc3e4e1c"
+  },
+  {
+    "path": "a-solver-blob-records-opaquely/record-blobs-by-digest",
+    "kind": "discharge",
+    "digest": "a906a3c2859f"
+  },
+  {
     "path": "heavy-compute-is-a-proposer-never-a-judge",
     "kind": "hypothesis",
     "digest": "a740859c76c6"
@@ -43,6 +53,21 @@
     "path": "native-contracts-bypass-the-sandbox/no-native-contracts",
     "kind": "alternative",
     "digest": "2049da734a2f"
+  },
+  {
+    "path": "the-boundary-sits-at-text-not-at-the-package-api",
+    "kind": "decision",
+    "digest": "c1acaf1852eb"
+  },
+  {
+    "path": "the-boundary-sits-at-text-not-at-the-package-api/alt-record-the-package-api",
+    "kind": "alternative",
+    "digest": "c5cdadb7b7f1"
+  },
+  {
+    "path": "the-boundary-sits-at-text-not-at-the-package-api/alt-teach-the-recorder-about-pydantic",
+    "kind": "alternative",
+    "digest": "419185908e92"
   },
   {
     "path": "the-history-ships-as-is",
@@ -103,6 +128,21 @@
     "path": "the-roll-digests-what-an-entry-says/alt-digest-load-bearing-fields",
     "kind": "alternative",
     "digest": "3f415985ae75"
+  },
+  {
+    "path": "the-substrate-records-its-own-runs",
+    "kind": "decision",
+    "digest": "cc4b209a3b54"
+  },
+  {
+    "path": "the-substrate-records-its-own-runs/alt-flight-recorder-as-a-dev-dependency",
+    "kind": "alternative",
+    "digest": "086081637f70"
+  },
+  {
+    "path": "the-substrate-records-its-own-runs/alt-no-recorder-quern-is-deterministic",
+    "kind": "alternative",
+    "digest": "40e3efc167c7"
   },
   {
     "path": "the-working-set-is-computed",
