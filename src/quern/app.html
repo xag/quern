@@ -202,8 +202,8 @@ const cache = new Map();     // path -> node slice (depth 2)
 const expanded = new Set([""]);
 let staleSet = new Set();    // paths some node supersedes — not current belief
 let hideStale = false;       // the "current only" outline toggle
-let groupKinds = true;       // the "group by kind" outline toggle
 const collapsedKinds = new Set();   // kind -> folded away in the outline
+let groupsPrimed = false;    // have the groups been folded shut for the first paint?
 let redByPath = new Map();   // path -> [failing rule names]
 
 function norm(r) {
@@ -275,6 +275,7 @@ async function go(path) {
   if (d.superseded) staleSet = new Set(d.superseded);
   current = { path, node: d, semantics: d.semantics || {} };
   expanded.add(path);
+  revealGroup(path);
   renderAll();
 }
 
@@ -304,25 +305,31 @@ function renderTree() {
   const el = $("#tree"); el.innerHTML = "";
   if (!rootSlice) return;
 
-  const bar = document.createElement("div");
-  bar.className = "treebar";
-  bar.innerHTML =
-    `<label title="fold entries of the same kind together — a ledger is a wide, shallow
-      tree, so the kinds are the only grouping it has">
-       <input type="checkbox" id="bykind" ${groupKinds ? "checked" : ""}> group by kind</label>` +
-    (staleSet.size
-      ? `<label title="hide entries another node supersedes — the archaeology stays in the tree">
-           <input type="checkbox" id="curonly" ${hideStale ? "checked" : ""}>
-           current only <span class="muted">(${staleSet.size})</span></label>`
-      : "");
-  bar.querySelector("#bykind").onchange = e => { groupKinds = e.target.checked; renderTree(); };
-  const cur = bar.querySelector("#curonly");
-  if (cur) cur.onchange = e => { hideStale = e.target.checked; renderTree(); };
-  el.appendChild(bar);
+  if (staleSet.size) {
+    const bar = document.createElement("div");
+    bar.className = "treebar";
+    bar.innerHTML =
+      `<label title="hide entries another node supersedes — the archaeology stays in the tree">
+         <input type="checkbox" id="curonly" ${hideStale ? "checked" : ""}>
+         current only <span class="muted">(${staleSet.size})</span></label>`;
+    bar.querySelector("#curonly").onchange = e => { hideStale = e.target.checked; renderTree(); };
+    el.appendChild(bar);
+  }
 
   // Grouping applies to the TOP level only. Deeper, an entry has a handful of children
   // and grouping them would add a layer of chrome to hide two rows behind.
-  el.appendChild(groupKinds ? grouped(rootSlice, "") : outline(rootSlice, ""));
+  el.appendChild(grouped(rootSlice, ""));
+}
+
+/* The group holding `path`, opened. Navigation can arrive from anywhere — a search hit, a
+   link chip in the centre panel, a crumb — and landing on a node whose group is shut
+   would leave the outline looking untouched, with the selection hidden inside a fold. */
+function revealGroup(path) {
+  const top = String(path || "").split("/")[0];
+  if (!top) return;
+  const root = cache.get("");
+  const entry = (root?.children || []).find(c => c.id === top);
+  if (entry) collapsedKinds.delete(entry.kind || "—");
 }
 
 /* Top-level children, bucketed by kind. Order is first-appearance, not alphabetical:
@@ -339,6 +346,16 @@ function grouped(node, path) {
     buckets.get(k).push(c);
   }
   if (!buckets.size) return wrap;
+
+  // Shut on the first paint. A ledger opens as its own table of contents — four kind
+  // headers with their counts — and the reader chooses what to unfold, rather than
+  // being handed forty rows and asked to find the shape in them.
+  if (!groupsPrimed) {
+    groupsPrimed = true;
+    for (const k of buckets.keys()) collapsedKinds.add(k);
+    revealGroup(current.path);   // unless a path was already selected: show where we are
+  }
+
   if (buckets.size === 1) return outline(node, path);  // one kind: grouping buys nothing
 
   for (const [kind, kids] of buckets) {
@@ -359,10 +376,10 @@ function grouped(node, path) {
   return wrap;
 }
 
-/* `hideKind` drops the per-row kind chip when a group header already names it. It is an
-   argument rather than a read of `groupKinds` because grouping is a TOP-LEVEL device:
-   nested rows (a decision's alternatives, a debt's discharge) are never grouped, so
-   their chip is the only thing telling them apart and must survive the toggle. */
+/* `hideKind` drops the per-row kind chip when a group header already names it, and is an
+   argument rather than global state because grouping is a TOP-LEVEL device: nested rows
+   (a decision's alternatives, a debt's discharge) are never grouped, so their chip is the
+   only thing telling them apart and has to survive. */
 function outline(node, path, hideKind = false) {
   const kinds = current.semantics.kinds || {};
   const wrap = document.createElement("div"); wrap.className = "tnode";
