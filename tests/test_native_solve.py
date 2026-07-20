@@ -127,3 +127,70 @@ def test_run_native_refuses_shapeless_output(natives):
 def test_a_wasm_proposal_without_lineage_keeps_the_slice_default():
     stamped = stamp([{"path": "a", "param": "x", "value": 1.0}], "s", "deadbeef", "home")
     assert stamped[0]["quantity"]["derived_from"] == ["home"]
+
+
+class SplitWs:
+    """A workspace whose EFFECTIVE tree carries a solver its writable tree does not —
+    the shape a pinned package makes: the descriptor is available to read and to solve,
+    but it is not in the tree the host may edit."""
+    label = "split-ws"
+
+    def __init__(self, pinned):
+        self._stored = Quern(root=Node(id="root"))
+        self._effective = Quern(solvers=pinned, root=Node(id="root"))
+
+    @property
+    def quern(self):
+        return self._stored
+
+    def effective(self):
+        return self._effective
+
+    def assert_editable(self, path):
+        pass
+
+    def save(self):
+        pass
+
+    @property
+    def blob_dir(self):
+        raise NotImplementedError
+
+    @property
+    def library(self):
+        raise NotImplementedError
+
+    def starter_vocabulary(self):
+        return []
+
+
+def _solver_tool(ws, args):
+    from mcp.server.fastmcp import FastMCP
+
+    from quern.host import register_tree_tools
+
+    mcp = FastMCP("t")
+    register_tree_tools(mcp, lambda: ws)
+    res = asyncio.run(mcp.call_tool("tree_solver", args))
+    out = res[1] if isinstance(res, tuple) else res
+    return out.get("result", out) if isinstance(out, dict) else out
+
+
+def test_tree_solver_inspects_a_pinned_solver_it_cannot_author():
+    """The bug this pins: tree_solver read ws.quern, so a package-pinned solver — the
+    kind the Solvers panel lists — answered 'no artifact' when asked about itself. The
+    read path now consults the effective tree; register/remove still cannot touch a pin."""
+    ws = SplitWs([SolverDef(name="grounding/untrusted", native=True, reads=[""],
+                            description="counts what is not safe to act on",
+                            params_doc={"tolerance": "loosest grounding that still counts"})])
+
+    listing = _solver_tool(ws, {})
+    assert "grounding/untrusted" in listing  # listed though it is not in the writable tree
+
+    detail = _solver_tool(ws, {"name": "grounding/untrusted"})
+    assert "counts what is not safe to act on" in detail
+    assert "tolerance" in detail                  # params_doc reaches the reader on demand
+    assert "pinned from a package" in detail      # and it says the descriptor is not editable
+
+    refused = _solver_tool(ws, {"name": "grounding/untrusted", "remove": True})
+    assert "pinned from a package" in refused      # a read-listed pin is not removable

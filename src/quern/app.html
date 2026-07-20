@@ -127,6 +127,12 @@ button.danger { color: var(--bad); }
 .rulecard { border-bottom: 1px solid var(--line); padding: 8px 2px; }
 .solverreads { font-size: 11px; color: var(--fg2); margin-top: 5px; }
 .solverreads .chip { font-size: 10px; }
+.linkish { background: none; border: none; color: var(--accent); cursor: pointer;
+  font: inherit; font-size: 11px; padding: 0; margin-left: 6px; }
+.linkish:hover { text-decoration: underline; }
+.solversig { margin: 6px 0 0; padding: 8px 10px; background: var(--bg3);
+  border-radius: 6px; font-size: 11px; white-space: pre-wrap; word-break: break-word;
+  color: var(--fg2); }
 .rulecard code { display: block; background: var(--bg3); border-radius: 6px;
   padding: 6px 8px; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
 #checkout .line { padding: 2px 4px; border-radius: 4px; }
@@ -654,17 +660,36 @@ function renderSide() {
   // and "none at all" are very different facts and the panel is the only place to tell
   // them apart.
   $("#solverstab").innerHTML = solvers.length ? solvers.map(s => `
-    <div class="rulecard">
+    <div class="rulecard solvercard" data-solver="${esc(s.name)}">
       <b class="mono">${esc(s.name)}</b>
       <span class="chip">${esc(s.native ? "native" : s.medium || "wasm")}</span>
       <div class="muted">${esc(s.description || "")}</div>
       <div class="solverreads">reads ${(s.reads || []).length
         ? (s.reads || []).map(r => `<span class="chip mono">${esc(r || "/")}</span>`).join(" ")
-        : `<span class="muted">nothing declared — it can see no branch</span>`}</div>
+        : `<span class="muted">nothing declared — it can see no branch</span>`}
+        <button class="linkish sig">how to call →</button></div>
+      <pre class="solversig mono" hidden></pre>
     </div>`).join("")
     : `<p class="muted">no solver reads this branch.${current.path
         ? " One scoped to another branch will not appear here."
         : " A solver scoped to a branch appears when you open that branch, not at the root."}</p>`;
+
+  // The call signature — params_doc, fuel, the blob — is fetched on click, never carried
+  // in the slice: it is a solver's manual, not its entry, and tree_get is the hot path
+  // (see the ledger). tree_solver already renders the authoritative descriptor; show that
+  // verbatim rather than re-parsing a human string to re-pretty-print it.
+  $("#solverstab").querySelectorAll(".sig").forEach(btn => btn.onclick = async e => {
+    e.stopPropagation();
+    const card = btn.closest(".solvercard");
+    const out = card.querySelector(".solversig");
+    if (!out.hidden) { out.hidden = true; return; }
+    if (!out.textContent) {
+      const r = await call("tree_solver", { name: card.dataset.solver });
+      out.textContent = (r && (r.text ?? (typeof r === "string" ? r : JSON.stringify(r))))
+        || "no detail";
+    }
+    out.hidden = false;
+  });
 }
 
 $("#runcheck").onclick = async () => {

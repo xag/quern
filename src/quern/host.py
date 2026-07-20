@@ -448,26 +448,41 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        solvers = ws.quern.solvers
+        # A READ sees the effective tree — pinned package solvers included, which is most
+        # of them and the only way to inspect one you did not author. A WRITE (register,
+        # remove) acts on ws.quern, the writable stored tree: a pin is immutable content,
+        # not something this verb may edit. Confusing the two is what made `tree_solver`
+        # answer "no artifact" for a solver plainly listed in the same slice's semantics.
+        listed = ws.effective().solvers
+        writable = ws.quern.solvers
         if name is None:
-            if not solvers:
+            if not listed:
                 return "no artifacts yet — register one with name + wasm_b64."
             return "\n".join(f"[{s.name}]"
                              + (f" ({s.medium})" if s.medium != "wasm" else "")
                              + f" {s.blob[:12]}… reads: {', '.join(s.reads) or '(nothing)'}"
-                             + (f" — {s.description}" if s.description else "") for s in solvers)
-        existing = next((s for s in solvers if s.name == name), None)
+                             + (f" — {s.description}" if s.description else "") for s in listed)
         if remove:
+            existing = next((s for s in writable if s.name == name), None)
             if existing is None:
-                return f"no solver '{name}'"
-            solvers.remove(existing)
+                return (f"no solver '{name}' in the writable tree"
+                        + (" — it is pinned from a package, which this cannot remove"
+                           if any(s.name == name for s in listed) else ""))
+            writable.remove(existing)
             ws.save()
             return f"removed solver '{name}' (its blob stays in the content store)"
+        existing = next((s for s in writable if s.name == name), None)
         if wasm_b64 is None:
-            return (f"[{existing.name}] ({existing.medium}) blob {existing.blob[:12]}… "
-                    f"reads: {existing.reads} params: {existing.params_doc} — "
-                    f"{existing.description} (content: artifact://{existing.blob})"
-                    if existing else f"no artifact '{name}'")
+            shown = existing or next((s for s in listed if s.name == name), None)
+            if shown is None:
+                return f"no artifact '{name}'"
+            origin = "" if existing is not None else " (pinned from a package)"
+            # `medium` describes a BLOB; a native has none, so naming it there would print
+            # the contradictory "(wasm) native". Say what runs — native, or the blob's medium.
+            how = "native" if shown.native else f"{shown.medium} blob {shown.blob[:12]}…"
+            return (f"[{shown.name}] {how}{origin} "
+                    f"reads: {shown.reads} params: {shown.params_doc} — {shown.description}"
+                    + (f" (content: artifact://{shown.blob})" if shown.blob else ""))
         try:
             content = base64.b64decode(wasm_b64, validate=True)
         except Exception:
@@ -480,9 +495,9 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                                   medium=medium, reads=reads or [],
                                   params_doc=params_doc or {})
         if existing is None:
-            solvers.append(new)
+            writable.append(new)
         else:
-            solvers[solvers.index(existing)] = new
+            writable[writable.index(existing)] = new
         ws.save()
         if medium == "wasm":
             return (f"registered solver '{name}' @ {sha[:12]}… reading "

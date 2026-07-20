@@ -184,6 +184,25 @@ def _dispatch(ws, name: str, args: dict[str, Any]) -> dict[str, Any]:
         return structured(commit_changes(ws, args.get("changes") or [],
                                          args.get("acknowledge")))
 
+    if name == "tree_solver":
+        # Read-only here: the navigator inspects a solver's descriptor, it does not author
+        # one. Effective, so a pinned package solver is inspectable — the same lookup the
+        # host tool does. (The dev bridge deliberately serves only the read verbs the UI
+        # calls; registering a solver is not one of them.)
+        sname = args.get("name")
+        listed = ws.effective().solvers
+        if sname is None:
+            return text("\n".join(f"[{s.name}]"
+                        + (f" ({s.medium})" if s.medium != "wasm" else "")
+                        + f" reads: {', '.join(s.reads) or '(nothing)'}"
+                        + (f" — {s.description}" if s.description else "") for s in listed)
+                        or "no solvers.")
+        s = next((x for x in listed if x.name == sname), None)
+        if s is None:
+            return text(f"no solver '{sname}'")
+        how = "native" if s.native else f"{s.medium} blob {s.blob[:12]}…"
+        return text(f"[{s.name}] {how} reads: {s.reads} params: {s.params_doc} — {s.description}")
+
     if name == "tree_check":
         results = treemod.run_rules(ws.effective(), args.get("path", ""))
         if not results:

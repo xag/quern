@@ -412,6 +412,44 @@ def build() -> Quern:
         ),
 
         Node(
+            id="tree-solver-reads-the-effective-tree-writes-the-stored-one",
+            kind="decision",
+            name="tree_solver inspects the effective tree and authors the stored one — the "
+                 "two are not the same tree",
+            payload={
+                "rationale":
+                    "A solver reaches a tree two ways: authored into it (tree_solver register, "
+                    "landing in the writable stored tree) or pinned from a package (arriving "
+                    "in the effective tree, immutable). Every semantics slice lists BOTH — "
+                    "`semantics_at` reads effective — but tree_solver's inspect and list paths "
+                    "read only `ws.quern`, the stored tree. So a package-pinned solver was "
+                    "shown in a slice and then, asked about itself, answered 'no artifact'. "
+                    "The read paths now consult effective, and the caller can inspect any "
+                    "solver it can see. The write paths — register, remove — still act on "
+                    "`ws.quern` alone, because a pin is content addressed by digest and this "
+                    "verb has no business editing it; removing a pinned solver says so rather "
+                    "than failing blankly.",
+                "note":
+                    "Surfaced by the navigator's Solvers panel: its 'how to call' fetches a "
+                    "descriptor on click (the manual this substrate keeps off the navigation "
+                    "path), and every solver it could show was pinned, so every fetch missed. "
+                    "The dev bridge mirrors the same read-only shape.",
+            },
+            children=[
+                Node(id="alt-tree-solver-stays-on-the-stored-tree", kind="alternative",
+                     name="Keep tree_solver entirely on ws.quern; pinned solvers are "
+                          "inspected some other way",
+                     payload={"why":
+                              "Leaves the tool that names itself the solver surface unable to "
+                              "describe most solvers in a tree, and invents a second inspect "
+                              "path for the pinned majority. The read/write split is the "
+                              "smaller seam: one verb, two trees, each for the thing it is "
+                              "for — authoring writes what is editable, inspection reads what "
+                              "is there."}),
+            ],
+        ),
+
+        Node(
             id="a-slice-says-what-may-run-on-it-not-how-to-call-it",
             kind="decision",
             name="Solvers reach the viewer with their scope and how they run; the contract "

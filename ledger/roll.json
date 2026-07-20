@@ -203,5 +203,15 @@
     "path": "the-working-set-is-computed/alt-summarize-with-a-model",
     "kind": "alternative",
     "digest": "7ce33fbb37a8"
+  },
+  {
+    "path": "tree-solver-reads-the-effective-tree-writes-the-stored-one",
+    "kind": "decision",
+    "digest": "d5e631edcbff"
+  },
+  {
+    "path": "tree-solver-reads-the-effective-tree-writes-the-stored-one/alt-tree-solver-stays-on-the-stored-tree",
+    "kind": "alternative",
+    "digest": "f68df6f77f7e"
   }
 ]
