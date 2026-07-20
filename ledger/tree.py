@@ -412,6 +412,100 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-outline-groups-by-kind-and-refuses-to-nest-by-link",
+            kind="decision",
+            name="The navigator's outline buckets top-level entries by kind and carries the "
+                 "brief's markers — and never nests by links",
+            payload={
+                "rationale":
+                    "A ledger is a WIDE, SHALLOW tree: quern's own is 14 entries over 21 "
+                    "children and exactly zero grandchildren, so the outline pane could "
+                    "draw at most one level of indentation and correctly rendered a long "
+                    "flat list. Faithful, and the least informative axis available — the "
+                    "structure a ledger actually carries is in its LINKS (supersedes, "
+                    "rests_on, admits), a graph laid over a deliberately flat index.\n\n"
+                    "Two changes, both vocabulary-blind. Kinds become collapsible groups, "
+                    "which is the only grouping a flat tree has and turns forty rows into "
+                    "four. And each row now carries what the CLI brief has always put on "
+                    "its line — `!ungrounded` params and RED rules — so the outline stops "
+                    "being strictly less informative than the one-liner it mirrors.",
+                "note":
+                    "Group order is first-appearance, never alphabetical: authoring order "
+                    "is information in a roughly chronological record, and re-sorting would "
+                    "be a vocabulary-blind viewer asserting a precedence among kinds it is "
+                    "forbidden to know. Rule verdicts come from parsing tree_check's report, "
+                    "which is the weak seam — tree_get says nothing about red, and making it "
+                    "would cost a full rule evaluation on every navigation.",
+            },
+            children=[
+                Node(id="alt-nest-the-outline-by-rests-on", kind="alternative",
+                     name="Give the outline real depth by nesting entries under what they "
+                          "rest on",
+                     payload={"why":
+                              "The tempting one, and it forces a graph into a tree. Links "
+                              "cycle, and one entry can be named by several — so a node "
+                              "either appears many times or is silently dropped under one "
+                              "arbitrary parent. An outline that duplicates or hides nodes "
+                              "to look deeper is an outline that lies about the shape of "
+                              "the record. Depth is the wrong instrument; the link panel "
+                              "already navigates the graph in both directions."}),
+                Node(id="alt-put-red-in-tree-get", kind="alternative",
+                     name="Return rule verdicts from tree_get so the outline need parse "
+                          "nothing",
+                     payload={"why":
+                              "Cleaner to consume and wrong to pay for: tree_get is the "
+                              "navigation primitive, called on every click, and folding "
+                              "run_rules into it would make browsing cost a check on a "
+                              "tree whose rules may call solvers. The verdicts are fetched "
+                              "once and refreshed when the user runs one."}),
+            ],
+        ),
+
+        Node(
+            id="the-working-set-is-a-tool-not-only-a-command",
+            kind="decision",
+            name="tree_brief puts the brief on the model surface, and returns the rendered "
+                 "lines rather than structured data",
+            payload={
+                "rationale":
+                    "The brief was reachable only from the CLI, so the one reader whose "
+                    "cost the decision beneath this was written about — a model context — "
+                    "was the one reader who could not get it. A model on the MCP surface "
+                    "had to `tree_find(current_only=True)` and then `tree_get` each hit: "
+                    "more round-trips and more tokens than the argument for the brief "
+                    "implies. `tree_brief` is the same `brief()`, resolved over the "
+                    "workspace's EFFECTIVE tree like every other read verb.\n\n"
+                    "It returns TEXT, unlike tree_get and tree_find. The line is the "
+                    "artifact: kind, path, name, links, ungrounded params and red rules, "
+                    "already composed into the one line a reader pays for. Handing back "
+                    "the same facts as JSON would ship the assembly instructions instead "
+                    "of the assembly, and cost more tokens to say less — which is the "
+                    "precise failure the brief exists to avoid.",
+                "note":
+                    "Scope held deliberately narrow: no `under` parameter. `brief()` walks "
+                    "top-level entries, and giving the tool a branch scope means changing "
+                    "what the brief IS, which is a bigger question than exposing it.",
+            },
+            children=[
+                Node(id="alt-brief-returns-structured-output", kind="alternative",
+                     name="Return matches as JSON, like tree_get and tree_find",
+                     payload={"why":
+                              "Consistent with its neighbours and wrong for this verb. The "
+                              "brief's value is the RENDERING — one line, already reduced; "
+                              "a model handed the fields back would have to re-render them "
+                              "to read them, paying twice for the reduction that was the "
+                              "point."}),
+                Node(id="alt-leave-the-brief-on-the-cli", kind="alternative",
+                     name="Leave it a CLI command; models can compose tree_find and tree_get",
+                     payload={"why":
+                              "That composition is what the brief was built to replace, and "
+                              "it costs a round-trip per entry. Leaving it CLI-only serves "
+                              "the human reader while the argument for it was written about "
+                              "the model one."}),
+            ],
+        ),
+
+        Node(
             id="the-substrate-records-its-own-runs",
             kind="decision",
             name="quern declares a nondeterminism boundary and records every CLI run, "

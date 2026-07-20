@@ -100,6 +100,21 @@
     "digest": "ec92043486da"
   },
   {
+    "path": "the-outline-groups-by-kind-and-refuses-to-nest-by-link",
+    "kind": "decision",
+    "digest": "0bfdf295a0d6"
+  },
+  {
+    "path": "the-outline-groups-by-kind-and-refuses-to-nest-by-link/alt-nest-the-outline-by-rests-on",
+    "kind": "alternative",
+    "digest": "1faf7cfd6623"
+  },
+  {
+    "path": "the-outline-groups-by-kind-and-refuses-to-nest-by-link/alt-put-red-in-tree-get",
+    "kind": "alternative",
+    "digest": "a41c412bacd9"
+  },
+  {
     "path": "the-red-ledger-ships-red",
     "kind": "decision",
     "digest": "eacbab36991c"
@@ -143,6 +158,21 @@
     "path": "the-substrate-records-its-own-runs/alt-no-recorder-quern-is-deterministic",
     "kind": "alternative",
     "digest": "40e3efc167c7"
+  },
+  {
+    "path": "the-working-set-is-a-tool-not-only-a-command",
+    "kind": "decision",
+    "digest": "4204ab08aed4"
+  },
+  {
+    "path": "the-working-set-is-a-tool-not-only-a-command/alt-brief-returns-structured-output",
+    "kind": "alternative",
+    "digest": "8c106bbd4ce3"
+  },
+  {
+    "path": "the-working-set-is-a-tool-not-only-a-command/alt-leave-the-brief-on-the-cli",
+    "kind": "alternative",
+    "digest": "ab1788d89e24"
   },
   {
     "path": "the-working-set-is-computed",

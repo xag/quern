@@ -10,9 +10,11 @@ next. One endpoint can host several by resolving a different Workspace per call 
 same code, no shared datastore.
 
 Rendering is a domain concern, not a generic verb: a spatial domain draws PNGs of
-shapes, a mind map draws a graph. So the geometry tools (`tree_render`, `tree_measure`)
-live in `quern.geometry_host.register_geometry_tools`, which a shape-carrying domain
-opts into alongside this — the generic surface here stays geometry-free.
+shapes, a mind map draws a graph. So verbs like `tree_render` and `tree_measure` are
+registered by the DOMAIN's own host module, alongside this one and shipped with the
+domain — quern carries no geometry, and the generic surface here stays geometry-free.
+(Geometry reaches the tree the way every domain does: as a package, through the rule
+language's one bridge, `solve('geometry/…', …)`.)
 
 Importing this needs the MCP SDK: install `quern[host]`.
 """
@@ -26,7 +28,7 @@ from typing import Any, Callable, Protocol
 
 from mcp.server.fastmcp import FastMCP
 
-from . import library as librarymod, solver as solvermod, tree as treemod
+from . import brief as briefmod, library as librarymod, solver as solvermod, tree as treemod
 from .library import Library
 from .tree import Quern, KindDef
 
@@ -252,6 +254,23 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
              "links": {k: v for k, v in n.links.items()} or None}
             for p, n in hits],
             "truncated": len(hits) >= limit}
+
+    @mcp.tool()
+    def tree_brief(all: bool = False, fat: bool = False) -> str:
+        """The working set — one line per current top-level entry: kind, path, name,
+        the links it declares, the params still ungrounded, the rules red on it.
+        START HERE on an unfamiliar tree. This is the table of contents and tree_get
+        is the chapter: reading a tree by tree_get('') costs its whole history to
+        find the dozen claims that still bind, which is the cost this exists to
+        refuse. What is settled is counted in a trailer rather than spent on —
+        `all=True` shows superseded entries instead of omitting them, `fat=True`
+        appends each entry's word count and sorts by it (the curation view: the
+        first line is the first thing to tighten). Vocabulary-blind, like every
+        verb here — kinds are labels, and nothing in it knows what a debt is."""
+        ws = get_ws()
+        if isinstance(ws, str):
+            return ws
+        return briefmod.brief(ws.effective(), all=all, fat=fat)
 
     @mcp.tool()
     def tree_delete(path: str) -> str:

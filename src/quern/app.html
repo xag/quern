@@ -46,7 +46,7 @@ header { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
 #hits .hit { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--line); }
 #hits .hit:hover { background: var(--bg3); }
 main { flex: 1; display: flex; min-height: 0; }
-#tree { width: 270px; flex: none; overflow: auto; border-right: 1px solid var(--line);
+#tree { width: 300px; flex: none; overflow: auto; border-right: 1px solid var(--line);
   padding: 8px 4px; }
 .tnode { user-select: none; }
 .trow { display: flex; align-items: center; gap: 4px; padding: 2px 6px;
@@ -54,9 +54,25 @@ main { flex: 1; display: flex; min-height: 0; }
 .trow:hover { background: var(--bg3); }
 .trow.sel { background: var(--bg3); outline: 1px solid var(--line); }
 .twist { width: 14px; flex: none; color: var(--fg2); font-size: 10px; text-align: center; }
-.tid { overflow: hidden; text-overflow: ellipsis; }
+/* The id takes whatever the markers don't, so `!ungrounded` and RED land in a column at
+   the right edge instead of chasing each id's length — a scan down the pane reads the
+   flags without reading the names. */
+.tid { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
 .tkind { font-size: 10px; color: var(--accent); }
 .tkids { margin-left: 14px; }
+/* Kind groups: the outline's one concession to there being a lot of one thing.
+   The header is a label, never a node — clicking it collapses, it never navigates. */
+.tgrouphead { display: flex; align-items: center; gap: 6px; padding: 3px 6px;
+  margin-top: 4px; cursor: pointer; border-radius: 6px; font-size: 11px;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--fg2); }
+.tgrouphead:hover { background: var(--bg3); }
+.tgrouphead .gname { color: var(--accent); }
+.tgrouphead .gcount { margin-left: auto; }
+/* Row markers, read off the node exactly as the CLI brief reads them: `!x` is an
+   ungrounded param (--inferred is the palette's not-yet-measured amber), RED is a
+   failing rule. */
+.tflag { font-size: 10px; color: var(--inferred); flex: none; }
+.tred { font-size: 10px; color: var(--bad); flex: none; font-weight: 600; }
 #node { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
 #side { width: 320px; flex: none; overflow: auto; border-left: 1px solid var(--line);
   background: var(--bg2); display: flex; flex-direction: column; }
@@ -133,8 +149,9 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
 .stale { opacity: .5; }
 .stalebanner { background: var(--bg2); border-left: 3px solid var(--fg2);
   padding: 6px 10px; margin: 8px 0; font-size: 12px; color: var(--fg2); }
-.treebar { display: block; font-size: 11px; color: var(--fg2); padding: 4px 6px;
-  cursor: pointer; user-select: none; }
+.treebar { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 11px;
+  color: var(--fg2); padding: 4px 6px; user-select: none; }
+.treebar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .linkmeaning { font-size: 11px; margin: 1px 0 4px 12px; }
 </style>
 </head>
@@ -185,6 +202,9 @@ const cache = new Map();     // path -> node slice (depth 2)
 const expanded = new Set([""]);
 let staleSet = new Set();    // paths some node supersedes — not current belief
 let hideStale = false;       // the "current only" outline toggle
+let groupKinds = true;       // the "group by kind" outline toggle
+const collapsedKinds = new Set();   // kind -> folded away in the outline
+let redByPath = new Map();   // path -> [failing rule names]
 
 function norm(r) {
   if (!r) return null;
@@ -262,23 +282,88 @@ function childPath(base, id) { return base ? base + "/" + id : id; }
 
 /* ---------- left pane: outline ---------- */
 
+/* The reds, for the outline's markers. tree_get says nothing about rule verdicts — it
+   is a read, and evaluating every rule on every navigation would make browsing cost a
+   check. So the verdicts are fetched once, here, and parsed out of tree_check's report
+   (`FAIL <rule> @ <path> (detail)`). Parsing a human report is the weak seam in this;
+   it is contained to this one function, and a format change costs the markers, never
+   the outline. */
+async function refreshReds() {
+  const r = await call("tree_check", { path: "" });
+  const text = r?.text ?? "";
+  const next = new Map();
+  for (const line of String(text).split("\n")) {
+    const m = /^FAIL\s+(\S+)\s+@\s+(\S+)/.exec(line.trim());
+    if (m) next.set(m[2], [...(next.get(m[2]) || []), m[1]]);
+  }
+  redByPath = next;
+}
+
 function renderTree() {
   const rootSlice = cache.get("") || (current.path === "" ? current.node : null);
   const el = $("#tree"); el.innerHTML = "";
   if (!rootSlice) return;
-  if (staleSet.size) {
-    const bar = document.createElement("label");
-    bar.className = "treebar";
-    bar.title = "hide entries another node supersedes — the archaeology stays in the tree";
-    bar.innerHTML = `<input type="checkbox" id="curonly" ${hideStale ? "checked" : ""}>
-      current only <span class="muted">(${staleSet.size} superseded)</span>`;
-    bar.querySelector("input").onchange = e => { hideStale = e.target.checked; renderTree(); };
-    el.appendChild(bar);
-  }
-  el.appendChild(outline(rootSlice, ""));
+
+  const bar = document.createElement("div");
+  bar.className = "treebar";
+  bar.innerHTML =
+    `<label title="fold entries of the same kind together — a ledger is a wide, shallow
+      tree, so the kinds are the only grouping it has">
+       <input type="checkbox" id="bykind" ${groupKinds ? "checked" : ""}> group by kind</label>` +
+    (staleSet.size
+      ? `<label title="hide entries another node supersedes — the archaeology stays in the tree">
+           <input type="checkbox" id="curonly" ${hideStale ? "checked" : ""}>
+           current only <span class="muted">(${staleSet.size})</span></label>`
+      : "");
+  bar.querySelector("#bykind").onchange = e => { groupKinds = e.target.checked; renderTree(); };
+  const cur = bar.querySelector("#curonly");
+  if (cur) cur.onchange = e => { hideStale = e.target.checked; renderTree(); };
+  el.appendChild(bar);
+
+  // Grouping applies to the TOP level only. Deeper, an entry has a handful of children
+  // and grouping them would add a layer of chrome to hide two rows behind.
+  el.appendChild(groupKinds ? grouped(rootSlice, "") : outline(rootSlice, ""));
 }
 
-function outline(node, path) {
+/* Top-level children, bucketed by kind. Order is first-appearance, not alphabetical:
+   authoring order is information (a ledger is roughly chronological), and re-sorting it
+   would be the viewer asserting a precedence among kinds it is not allowed to know. */
+function grouped(node, path) {
+  const wrap = document.createElement("div"); wrap.className = "tnode";
+  const buckets = new Map();
+  for (const c of node.children || []) {
+    const p = childPath(path, c.id);
+    if (staleSet.has(p) && hideStale) continue;
+    const k = c.kind || "—";
+    if (!buckets.has(k)) buckets.set(k, []);
+    buckets.get(k).push(c);
+  }
+  if (!buckets.size) return wrap;
+  if (buckets.size === 1) return outline(node, path);  // one kind: grouping buys nothing
+
+  for (const [kind, kids] of buckets) {
+    const folded = collapsedKinds.has(kind);
+    const reds = kids.filter(c => (redByPath.get(childPath(path, c.id)) || []).length).length;
+    const head = document.createElement("div");
+    head.className = "tgrouphead";
+    head.innerHTML = `<span class="twist">${folded ? "▸" : "▾"}</span>
+      <span class="gname">${esc(kind)}</span>
+      <span class="gcount">${kids.length}${reds ? ` · <span class="tred">${reds} RED</span>` : ""}</span>`;
+    head.onclick = () => {
+      folded ? collapsedKinds.delete(kind) : collapsedKinds.add(kind);
+      renderTree();
+    };
+    wrap.appendChild(head);
+    if (!folded) wrap.appendChild(outline({ children: kids }, path, true));
+  }
+  return wrap;
+}
+
+/* `hideKind` drops the per-row kind chip when a group header already names it. It is an
+   argument rather than a read of `groupKinds` because grouping is a TOP-LEVEL device:
+   nested rows (a decision's alternatives, a debt's discharge) are never grouped, so
+   their chip is the only thing telling them apart and must survive the toggle. */
+function outline(node, path, hideKind = false) {
   const kinds = current.semantics.kinds || {};
   const wrap = document.createElement("div"); wrap.className = "tnode";
   for (const c of node.children || []) {
@@ -289,9 +374,17 @@ function outline(node, path) {
     row.className = "trow" + (p === current.path ? " sel" : "") + (stale ? " stale" : "");
     if (stale) row.title = "superseded — no longer current belief";
     const hasKids = (c.children || []).length || cache.get(p)?.children?.length;
+    // The same two markers the CLI brief puts on every line, so the outline carries the
+    // signal without a click: an ungrounded param is the unsound value an entry carries,
+    // and it is exactly what a gate reads to refuse.
+    const hollow = Object.entries(c.params || {})
+      .filter(([, q]) => q && q.grounded === false).map(([k]) => k).sort();
+    const red = redByPath.get(p) || [];
     row.innerHTML = `<span class="twist">${hasKids ? (expanded.has(p) ? "▾" : "▸") : ""}</span>
       <span class="tid mono">${esc(c.id)}</span>
-      ${c.kind ? `<span class="tkind" title="${esc(kinds[c.kind]?.description || "")}">${esc(c.kind)}</span>` : ""}`;
+      ${c.kind && !hideKind ? `<span class="tkind" title="${esc(kinds[c.kind]?.description || "")}">${esc(c.kind)}</span>` : ""}
+      ${hollow.length ? `<span class="tflag" title="ungrounded — the unsound value this entry carries">!${esc(hollow.join(","))}</span>` : ""}
+      ${red.length ? `<span class="tred" title="${esc(red.join(", "))}">RED</span>` : ""}`;
     row.onclick = async e => {
       if (e.target.classList.contains("twist") && hasKids) {
         expanded.has(p) ? expanded.delete(p) : expanded.add(p);
@@ -542,6 +635,10 @@ $("#runcheck").onclick = async () => {
     const cls = l.startsWith("PASS") ? "PASS" : l.startsWith("FAIL") ? "FAIL" : "";
     return `<div class="line ${cls} mono">${esc(l)}</div>`;
   }).join("");
+  // The report the user just ran is the freshest verdict there is; fold it back into
+  // the outline's markers rather than letting the two views disagree on screen.
+  await refreshReds();
+  renderTree();
 };
 
 /* ---------- header: crumbs + search ---------- */
@@ -596,6 +693,11 @@ function boot(rootSlice) {
   cache.set("", rootSlice);
   current = { path: "", node: rootSlice, semantics: rootSlice.semantics || {} };
   renderAll();
+  // Verdicts arrive after the first paint, deliberately: a tree with expensive rules
+  // should show its outline immediately and gain the RED markers a moment later, not
+  // hold the whole view hostage to a check. A failure here costs the markers and is
+  // swallowed — the outline is not worth losing to a red-marker fetch.
+  refreshReds().then(renderTree).catch(() => {});
 }
 
 await initBridge();

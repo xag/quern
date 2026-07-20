@@ -17,7 +17,8 @@ serves that UI two ways over one Workspace:
 
 Deliberately not geometric: no shapes, no 3D — this is the *meaning* view
 (kinds with their prose, params with provenance and grounding, links, rules
-with pass/fail). Rendering shapes stays a domain concern (quern.geometry_host).
+with pass/fail). Rendering shapes stays a domain concern, registered by the
+domain's own host module; quern ships none.
 
 Importing this needs the MCP SDK: install `quern[host]`.
 """

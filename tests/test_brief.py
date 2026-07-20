@@ -72,3 +72,91 @@ def test_the_brief_is_rule_aware_or_says_it_is_not():
     out = brief(ledger())
     assert "RED(" not in out
     assert "rules not evaluated" not in out
+
+
+# --- the host surface ------------------------------------------------------------
+
+def _call(ws, args: dict) -> str:
+    """Reach tree_brief the way a model does — through the registered MCP tool, not
+    by calling brief() again. What is under test is the WIRING: that the tool exists,
+    resolves a workspace, reads the EFFECTIVE tree, and passes its flags through."""
+    import asyncio
+
+    from mcp.server.fastmcp import FastMCP
+
+    from quern.host import register_tree_tools
+
+    mcp = FastMCP("t")
+    register_tree_tools(mcp, lambda: ws)
+    res = asyncio.run(mcp.call_tool("tree_brief", args))
+    out = res[1] if isinstance(res, tuple) else res
+    # A str-returning FastMCP tool comes back as {'result': <text>}. Assert the shape
+    # rather than str()-ing whatever arrives: a repr of the wrong object still contains
+    # the text, so a fallback here would quietly turn a broken return into a green test.
+    assert isinstance(out, dict) and "result" in out, f"unexpected tool return: {out!r}"
+    return out["result"]
+
+
+class _Ws:
+    """The Workspace protocol, minimally. `effective()` returns a DIFFERENT tree from
+    `quern` on purpose: the brief must read the composed view — overlays and pinned
+    packages folded in — exactly as tree_get and tree_check do, and a tool that read
+    the bare stored tree would pass every other assertion here."""
+
+    label = "test-ws"
+
+    def __init__(self, tree: Quern):
+        self._composed = tree
+        self._stored = Quern()  # deliberately empty: reading this would show nothing
+
+    @property
+    def quern(self) -> Quern:
+        return self._stored
+
+    def effective(self) -> Quern:
+        return self._composed
+
+    def assert_editable(self, path):
+        pass
+
+    def save(self):
+        pass
+
+    @property
+    def blob_dir(self):
+        from pathlib import Path
+        return Path(".")
+
+    @property
+    def library(self):
+        return None
+
+    def starter_vocabulary(self):
+        return []
+
+
+def test_tree_brief_serves_the_working_set_over_mcp():
+    out = _call(_Ws(ledger()), {})
+    assert "[debt]  cache-size-is-a-guess" in out
+    assert "!entries" in out                       # structure survives the round-trip
+    assert "omitted as no longer current: 1 decision" in out
+    assert "\n[decision]  cache-the-parse" not in out
+
+
+def test_tree_brief_reads_the_effective_tree_not_the_stored_one():
+    """The regression that would be invisible otherwise: a brief off ws.quern renders
+    an empty tree, and 'no entries' looks like a clean ledger rather than a bug."""
+    out = _call(_Ws(ledger()), {})
+    assert "0 entr" not in out
+    assert "cache-size-is-a-guess" in out
+
+
+def test_tree_brief_passes_its_flags_through():
+    shown = _call(_Ws(ledger()), {"all": True})
+    assert "cache-the-parse" in shown and "superseded by" in shown
+    assert "omitted as no longer current" not in shown
+
+    fat = _call(_Ws(ledger()), {"fat": True})
+    weights = [int(l.rsplit("~", 1)[1].rstrip("w"))
+               for l in fat.splitlines() if l.startswith("[")]
+    assert weights == sorted(weights, reverse=True)
