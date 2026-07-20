@@ -412,6 +412,55 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-slice-says-what-may-run-on-it-not-how-to-call-it",
+            kind="decision",
+            name="Solvers reach the viewer with their scope and how they run; the contract "
+                 "detail stays off the navigation path",
+            payload={
+                "rationale":
+                    "`semantics_at` had composed solvers into every slice since it existed, "
+                    "and the navigator destructured `{kinds, rules, undefined_kinds}` and "
+                    "dropped them — so the viewer rendered two of the three things the host "
+                    "hands it, and no project's solvers were visible anywhere in the UI. "
+                    "That is a plain contradiction of the navigator's own claim to serve "
+                    "whatever build() composed. There is now a Solvers tab.\n\n"
+                    "Making it useful meant deciding what a solver's ENTRY is, versus its "
+                    "manual. `reads` and native-vs-wasm are the entry: they answer what a "
+                    "solver may see and where it runs, which is what makes it comprehensible "
+                    "at a glance and, for native, is the exact distinction the compute "
+                    "boundary turns on. `params_doc`, `fuel` and the blob sha are the manual "
+                    "— and this dict rides on EVERY tree_get, which is the hot path for "
+                    "navigation. Paying for documentation on every click to save one "
+                    "tree_solver call is the wrong trade, so the manual is fetched, never "
+                    "carried.",
+                "note":
+                    "A consequence worth stating because it reads as a bug: the host lists a "
+                    "solver where it may RUN, filtering by `reads`, so one scoped to a branch "
+                    "is absent at the root and appears on the way down. The empty state "
+                    "distinguishes 'none reads this branch' from 'none exist' — the panel is "
+                    "the only place a reader could tell those apart.",
+            },
+            children=[
+                Node(id="alt-send-the-whole-solver-descriptor", kind="alternative",
+                     name="Put the full SolverDef in every slice — params_doc, fuel, blob",
+                     payload={"why":
+                              "The tempting completeness, paid on every navigation click by "
+                              "every consumer, to spare a caller one tree_solver. A slice's "
+                              "semantics are for ORIENTATION; the moment they become "
+                              "documentation they are a payload nobody reads and everybody "
+                              "transfers."}),
+                Node(id="alt-leave-solvers-out-of-the-viewer", kind="alternative",
+                     name="Keep the viewer to kinds and rules; solvers are an authoring concern",
+                     payload={"why":
+                              "The status quo, and it was silent rather than deliberate — "
+                              "nothing recorded a choice, the field was simply not "
+                              "destructured. And it is false on its own terms: a rule "
+                              "predicate may CALL a solver (this ledger's own gate does), so "
+                              "a reader who cannot see solvers cannot see why a gate is red."}),
+            ],
+        ),
+
+        Node(
             id="the-outline-groups-by-kind-and-refuses-to-nest-by-link",
             kind="decision",
             name="The navigator's outline buckets top-level entries by kind and carries the "

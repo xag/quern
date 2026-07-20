@@ -664,8 +664,15 @@ def semantics_at(tree: Quern | TreeStore, path: str, depth: int | None = None) -
         out["kinds"] = voc
     if rules:
         out["rules"] = rules
+    # `reads` and how it runs travel with the name: a solver's scope is the first thing
+    # that makes it comprehensible ("what may this see?"), and native-vs-wasm is the
+    # distinction the whole compute boundary turns on. Deliberately NOT here: params_doc,
+    # fuel and the blob sha. This dict rides on every tree_get, which is the hot path for
+    # navigation, so it carries what identifies a solver and not what documents it — the
+    # contract detail is a tree_solver call away.
     solvers = [{"name": s.name,
-                **({"description": s.description} if s.description else {})}
+                **({"description": s.description} if s.description else {}),
+                "native": s.native, "medium": s.medium, "reads": s.reads}
                for s in tree.solvers if path_allowed(s.reads, path)]
     if solvers:
         out["solvers"] = solvers

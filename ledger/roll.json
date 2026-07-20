@@ -20,6 +20,21 @@
     "digest": "afd20699655c"
   },
   {
+    "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it",
+    "kind": "decision",
+    "digest": "a9699a22af63"
+  },
+  {
+    "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it/alt-leave-solvers-out-of-the-viewer",
+    "kind": "alternative",
+    "digest": "27eda8387cb2"
+  },
+  {
+    "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it/alt-send-the-whole-solver-descriptor",
+    "kind": "alternative",
+    "digest": "972347453192"
+  },
+  {
     "path": "a-solver-blob-records-opaquely",
     "kind": "debt",
     "digest": "d063fc3e4e1c"

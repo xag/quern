@@ -125,6 +125,8 @@ button.danger { color: var(--bad); }
 .kindcard dt { font-weight: 600; font-size: 12px; }
 .kindcard dd { margin: 0 0 4px 10px; color: var(--fg2); }
 .rulecard { border-bottom: 1px solid var(--line); padding: 8px 2px; }
+.solverreads { font-size: 11px; color: var(--fg2); margin-top: 5px; }
+.solverreads .chip { font-size: 10px; }
 .rulecard code { display: block; background: var(--bg3); border-radius: 6px;
   padding: 6px 8px; margin-top: 4px; white-space: pre-wrap; word-break: break-word; }
 #checkout .line { padding: 2px 4px; border-radius: 4px; }
@@ -171,10 +173,12 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
     <div class="tabs">
       <button data-tab="kindstab" class="on">Kinds</button>
       <button data-tab="rulestab">Rules</button>
+      <button data-tab="solverstab">Solvers</button>
       <button data-tab="checktab">Check</button>
     </div>
     <div id="kindstab" class="tab on"></div>
     <div id="rulestab" class="tab"></div>
+    <div id="solverstab" class="tab"></div>
     <div id="checktab" class="tab">
       <button id="runcheck">run rules on this branch</button>
       <div id="checkout"></div>
@@ -622,7 +626,7 @@ function childDialog() {
 /* ---------- right pane: semantics ---------- */
 
 function renderSide() {
-  const { kinds = {}, rules = [], undefined_kinds = [] } = current.semantics;
+  const { kinds = {}, rules = [], solvers = [], undefined_kinds = [] } = current.semantics;
   $("#kindstab").innerHTML =
     (undefined_kinds.length ? `<div class="err">no meaning written yet for:
        ${undefined_kinds.map(esc).join(", ")} — declare with tree_vocabulary</div>` : "") +
@@ -643,6 +647,24 @@ function renderSide() {
       <div class="muted">${esc(r.description || "")}</div>
       <code>${esc(r.expr)}</code>
     </div>`).join("") : `<p class="muted">no rules apply here</p>`;
+
+  // A solver is listed where it may RUN, not where it happens to be registered: the host
+  // filters by `reads`, so a solver scoped to a branch is absent at the root and appears
+  // on the way down. The empty state says which of those two it is, because "none here"
+  // and "none at all" are very different facts and the panel is the only place to tell
+  // them apart.
+  $("#solverstab").innerHTML = solvers.length ? solvers.map(s => `
+    <div class="rulecard">
+      <b class="mono">${esc(s.name)}</b>
+      <span class="chip">${esc(s.native ? "native" : s.medium || "wasm")}</span>
+      <div class="muted">${esc(s.description || "")}</div>
+      <div class="solverreads">reads ${(s.reads || []).length
+        ? (s.reads || []).map(r => `<span class="chip mono">${esc(r || "/")}</span>`).join(" ")
+        : `<span class="muted">nothing declared — it can see no branch</span>`}</div>
+    </div>`).join("")
+    : `<p class="muted">no solver reads this branch.${current.path
+        ? " One scoped to another branch will not appear here."
+        : " A solver scoped to a branch appears when you open that branch, not at the root."}</p>`;
 }
 
 $("#runcheck").onclick = async () => {
