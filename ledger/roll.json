@@ -85,6 +85,21 @@
     "digest": "419185908e92"
   },
   {
+    "path": "the-dev-bridge-is-the-tool-surface-not-a-copy-of-it",
+    "kind": "decision",
+    "digest": "8afebe3895be"
+  },
+  {
+    "path": "the-dev-bridge-is-the-tool-surface-not-a-copy-of-it/alt-drop-the-dev-server",
+    "kind": "alternative",
+    "digest": "031a70a3fbc6"
+  },
+  {
+    "path": "the-dev-bridge-is-the-tool-surface-not-a-copy-of-it/alt-keep-a-hand-written-bridge",
+    "kind": "alternative",
+    "digest": "76d3e8112f0b"
+  },
+  {
     "path": "the-history-ships-as-is",
     "kind": "decision",
     "digest": "2a36550d28b6"

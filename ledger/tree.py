@@ -412,6 +412,58 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-dev-bridge-is-the-tool-surface-not-a-copy-of-it",
+            kind="decision",
+            name="serve_dev registers the real tree_* tools and calls them; it no longer "
+                 "re-implements the verbs it serves",
+            payload={
+                "rationale":
+                    "The navigator runs over two transports — an MCP App, where the page "
+                    "calls the genuine tools, and a localhost dev server for a plain "
+                    "browser. The dev server used to answer `POST /rpc` from a hand-written "
+                    "`_dispatch` that re-implemented each verb against the Workspace. Two "
+                    "implementations of one surface, and the drift was not hypothetical: "
+                    "`tree_solver` was added to the host and was simply ABSENT over HTTP, so "
+                    "a panel that worked for the model hit 'unknown tool' in the browser; "
+                    "and the two slice builders pruned differently, so the UI's "
+                    "'has children' test answered differently depending which tool it "
+                    "asked. Both were found by using the thing, which is the expensive way.\n\n"
+                    "`serve_dev` now builds an in-process FastMCP, registers the real tools "
+                    "on it, and dispatches into them. A verb the model can call is a verb "
+                    "the browser can call, by construction rather than by diligence. What "
+                    "remains transport-specific is one envelope adapter, which is the only "
+                    "thing that ever differed honestly.",
+                "note":
+                    "The collapse exposed a bug in the OTHER direction, which is the "
+                    "argument for it: FastMCP gives a `-> str` tool an output schema of "
+                    "`{result: string}` and sends that wrapper as structuredContent, so over "
+                    "a REAL MCP host the page — which reads `.text` — got nothing. The Check "
+                    "tab rendered raw JSON and the outline's RED markers never appeared, in "
+                    "the transport nobody was testing. `norm()` unwraps it now. Two "
+                    "implementations do not merely drift; they make one of them the only one "
+                    "anybody exercises.",
+            },
+            children=[
+                Node(id="alt-keep-a-hand-written-bridge", kind="alternative",
+                     name="Keep _dispatch and add the missing verbs to it as they appear",
+                     payload={"why":
+                              "The status quo, and it is a standing tax paid by whoever adds "
+                              "a tool — payable in a place they have no reason to look, with "
+                              "a failure that shows up only in the transport they did not "
+                              "run. Every instance of this drift so far was found by a user, "
+                              "not a test."}),
+                Node(id="alt-drop-the-dev-server", kind="alternative",
+                     name="Serve the navigator only as an MCP App and delete serve_dev",
+                     payload={"why":
+                              "Removes the duplication by removing the capability, and the "
+                              "capability earns its keep: verifying the UI in a plain browser "
+                              "is how it gets tested at all, and it needs no Apps-capable "
+                              "client. Note which transport had the undetected bug — the one "
+                              "this alternative would have kept."}),
+            ],
+        ),
+
+        Node(
             id="tree-solver-reads-the-effective-tree-writes-the-stored-one",
             kind="decision",
             name="tree_solver inspects the effective tree and authors the stored one — the "

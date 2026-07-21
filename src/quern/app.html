@@ -218,7 +218,14 @@ let redByPath = new Map();   // path -> [failing rule names]
 
 function norm(r) {
   if (!r) return null;
-  if (r.structuredContent) return r.structuredContent;
+  const s = r.structuredContent;
+  // A `-> str` tool is given an output schema of {result: string} by the server, and the
+  // wrapper arrives as structuredContent over a real MCP host. Unwrap it to {text}, the
+  // shape every text-reading caller here expects — without this, `.text` is undefined and
+  // the Check tab renders raw JSON while the outline's RED markers silently never appear.
+  if (s && typeof s.result === "string" && Object.keys(s).length === 1)
+    return { text: s.result };
+  if (s) return s;
   const t = r.content?.[0]?.text;
   if (t !== undefined) { try { return JSON.parse(t); } catch { return { text: t }; } }
   return r;

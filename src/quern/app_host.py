@@ -31,8 +31,7 @@ from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
-from . import tree as treemod
-from .host import Resolver
+from .host import Resolver, register_tree_tools, slice_at
 
 APP_URI = "ui://quern/navigator.html"
 APP_MIME = "text/html;profile=mcp-app"
@@ -99,123 +98,59 @@ def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
-        composed = ws.effective()
-        data = composed.root.model_dump(exclude_none=True)
-        _prune(data, 2)
-        semantics = treemod.semantics_at(composed, "", 2)
-        if semantics:
-            data["semantics"] = semantics
+        # The root slice tree_get would return, plus the one thing the app needs and a
+        # tree read has no business carrying: whose workspace this is. Shared with
+        # tree_get rather than rebuilt — the two copies had already drifted apart in
+        # how they pruned.
+        data = slice_at(ws, "", 2)
         data["label"] = ws.label
         return data
 
 
-def _prune(data: dict[str, Any], depth: int) -> None:
-    if depth <= 0:
-        data.pop("children", None)
-        return
-    for child in data.get("children", []):
-        _prune(child, depth - 1)
-
-
 # --- the dev bridge: the same verbs over plain HTTP, for a plain browser ------
 
-def _dispatch(ws, name: str, args: dict[str, Any]) -> dict[str, Any]:
-    """Serve the five verbs the app uses, in the MCP result envelope
-    ({structuredContent} or {content: [{type: 'text', text}]}), so the HTML
-    normalizes both transports identically."""
+def _bridge_tools(get_ws: Resolver) -> FastMCP:
+    """A private FastMCP carrying the REAL tool surface, so the dev server serves the
+    same code the model calls.
 
-    def text(t: str) -> dict[str, Any]:
-        return {"content": [{"type": "text", "text": t}]}
+    This used to be a hand-written `_dispatch` that re-implemented each verb over the
+    Workspace. Two implementations of one surface is one too many, and the drift was not
+    hypothetical: a tool added to the host was simply absent over HTTP until someone
+    noticed (`tree_solver`), and the two slice builders pruned differently. Registering
+    the genuine tools costs one in-process server object and removes the entire class of
+    bug — a verb that works for the model now works for the browser by construction.
+    """
+    mcp = FastMCP("quern-navigator")
+    register_tree_tools(mcp, get_ws)
+    register_app(mcp, get_ws)
+    return mcp
 
-    def structured(d: dict[str, Any]) -> dict[str, Any]:
-        return {"structuredContent": d}
 
-    if name == "tree_app":
-        composed = ws.effective()
-        data = composed.root.model_dump(exclude_none=True)
-        _prune(data, 2)
-        semantics = treemod.semantics_at(composed, "", 2)
-        if semantics:
-            data["semantics"] = semantics
-        data["label"] = ws.label
-        return structured(data)
+def _envelope(structured: Any, content: Any) -> dict[str, Any]:
+    """A tool result in the shape the page's `norm()` reads, for either transport.
 
-    if name == "tree_get":
-        composed = ws.effective()
-        node = treemod.get_node(composed, args.get("path", ""))
-        if node is None:
-            return structured({"error": f"no node at '{args.get('path', '')}'"})
-        data = node.model_dump(exclude_none=True)
-        if args.get("depth") is not None:
-            _prune(data, int(args["depth"]))
-        semantics = treemod.semantics_at(composed, args.get("path", ""),
-                                         args.get("depth"))
-        if semantics:
-            data["semantics"] = semantics
-        return structured(data)
+    FastMCP gives a `-> str` tool an output schema of `{result: <string>}` and sends the
+    wrapper as structuredContent. The page wants text tools as `{text: ...}`, so the
+    wrapper is unwrapped here — and, more importantly, in `norm()` itself, because the
+    real MCP transport delivers that same wrapper and the page was reading `.text` off
+    it and finding nothing.
+    """
+    if isinstance(structured, dict) and list(structured) == ["result"]             and isinstance(structured["result"], str):
+        return {"content": [{"type": "text", "text": structured["result"]}]}
+    if structured is not None:
+        return {"structuredContent": structured}
+    text = getattr((content or [None])[0], "text", None)
+    return {"content": [{"type": "text", "text": text}]} if text is not None else {}
 
-    if name == "tree_find":
-        hits = treemod.find_nodes(
-            ws.effective(), query=args.get("query"), kind=args.get("kind"),
-            has_param=args.get("has_param"), links_to=args.get("links_to"),
-            under=args.get("under", ""), current_only=args.get("current_only", False),
-            limit=int(args.get("limit", 20)))
-        return structured({"matches": [
-            {"path": p, "kind": n.kind or None, "name": n.name or None,
-             "params": sorted(n.params) or None}
-            for p, n in hits]})
 
-    if name == "tree_set":
-        path = args["path"]
-        ws.assert_editable(path)
-        treemod.set_node(ws.quern, path, args.get("node") or {})
-        ws.save()
-        return text(f"set '{path}'.")
+def _dispatch(mcp: FastMCP, name: str, args: dict[str, Any]) -> dict[str, Any]:
+    """Call a real registered tool and hand back its MCP result envelope."""
+    import asyncio
 
-    if name == "tree_delete":
-        path = args["path"]
-        ws.assert_editable(path)
-        treemod.delete_node(ws.quern, path)
-        ws.save()
-        return text(f"deleted '{path}'.")
+    res = asyncio.run(mcp.call_tool(name, args))
+    content, structured = res if isinstance(res, tuple) else (None, res)
+    return _envelope(structured, content)
 
-    if name == "tree_commit":
-        from .host import commit_changes
-        return structured(commit_changes(ws, args.get("changes") or [],
-                                         args.get("acknowledge")))
-
-    if name == "tree_solver":
-        # Read-only here: the navigator inspects a solver's descriptor, it does not author
-        # one. Effective, so a pinned package solver is inspectable — the same lookup the
-        # host tool does. (The dev bridge deliberately serves only the read verbs the UI
-        # calls; registering a solver is not one of them.)
-        sname = args.get("name")
-        listed = ws.effective().solvers
-        if sname is None:
-            return text("\n".join(f"[{s.name}]"
-                        + (f" ({s.medium})" if s.medium != "wasm" else "")
-                        + f" reads: {', '.join(s.reads) or '(nothing)'}"
-                        + (f" — {s.description}" if s.description else "") for s in listed)
-                        or "no solvers.")
-        s = next((x for x in listed if x.name == sname), None)
-        if s is None:
-            return text(f"no solver '{sname}'")
-        how = "native" if s.native else f"{s.medium} blob {s.blob[:12]}…"
-        return text(f"[{s.name}] {how} reads: {s.reads} params: {s.params_doc} — {s.description}")
-
-    if name == "tree_check":
-        results = treemod.run_rules(ws.effective(), args.get("path", ""))
-        if not results:
-            return text("no rules apply — register some with tree_rule.")
-        lines = []
-        for r in results:
-            state = "PASS" if r.ok else "FAIL"
-            where = f" @ {r.node}" if r.node else ""
-            detail = f" ({r.detail})" if r.detail else ""
-            lines.append(f"{state} {r.rule}{where}{detail}")
-        return text("\n".join(lines))
-
-    return structured({"error": f"unknown tool '{name}'"})
 
 
 def serve_dev(get_ws: Resolver, port: int = 8765, open_browser: bool = True) -> None:
@@ -224,17 +159,23 @@ def serve_dev(get_ws: Resolver, port: int = 8765, open_browser: bool = True) -> 
     import webbrowser
     from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
-    html = app_html().encode("utf-8")
+    mcp = _bridge_tools(get_ws)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *a):  # keep the console quiet
             pass
 
         def do_GET(self):
+            # Read per request, not once at startup. The page is a file on disk that a
+            # developer is editing WHILE this serves it, and a snapshot taken at boot
+            # silently serves stale HTML — an edit appears to have no effect, which is
+            # a far more expensive minute than the file read it saves.
+            body = app_html().encode("utf-8")
             self.send_response(200)
             self.send_header("content-type", "text/html; charset=utf-8")
+            self.send_header("cache-control", "no-store")
             self.end_headers()
-            self.wfile.write(html)
+            self.wfile.write(body)
 
         def do_POST(self):
             if self.path != "/rpc":
@@ -243,11 +184,10 @@ def serve_dev(get_ws: Resolver, port: int = 8765, open_browser: bool = True) -> 
             body = self.rfile.read(int(self.headers.get("content-length", 0)))
             try:
                 req = json.loads(body or b"{}")
-                ws = get_ws()
-                if isinstance(ws, str):
-                    out = {"structuredContent": {"error": ws}}
-                else:
-                    out = _dispatch(ws, req.get("name", ""), req.get("arguments") or {})
+                # The workspace is resolved by the tools themselves (each calls get_ws),
+                # exactly as it is under a real MCP host — no pre-resolution here, or the
+                # bridge would be making a decision the tool surface owns.
+                out = _dispatch(mcp, req.get("name", ""), req.get("arguments") or {})
             except Exception as e:  # surface, never crash the server
                 out = {"structuredContent": {"error": str(e)}}
             payload = json.dumps(out).encode("utf-8")

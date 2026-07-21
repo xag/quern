@@ -207,27 +207,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
-        composed = ws.effective()
-        node = treemod.get_node(composed, path)
-        if node is None:
-            return {"error": f"no node at '{path}'"}
-        data = node.model_dump(exclude_none=True)
-        if depth is not None:
-            _prune(data, depth)
-        semantics = treemod.semantics_at(composed, path, depth)
-        if semantics:
-            data["semantics"] = semantics
-        # The relational envelope: what names this node (links are navigable in
-        # both directions), and which paths are no longer current belief - so a
-        # viewer can dim the archaeology without a second round-trip.
-        if path:
-            rev = treemod.linked_from(composed, path)
-            if rev:
-                data["linked_from"] = rev
-        stale = treemod.superseded_paths(composed)
-        if stale:
-            data["superseded"] = stale
-        return data
+        return slice_at(ws, path, depth)
 
     @mcp.tool(structured_output=True)
     def tree_find(query: str | None = None, kind: str | None = None,
@@ -730,6 +710,40 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                 lines.append(f"CLOSURE BROKEN: {e}")
         return "\n".join(lines) if lines else \
             "the library is empty — publish the first package with publish={...}"
+
+
+def slice_at(ws: "Workspace", path: str = "",
+             depth: int | None = None) -> dict[str, Any]:
+    """One slice of a workspace's effective tree, with the semantics and the relational
+    envelope that make it readable on its own.
+
+    Module-level and public because it has two callers that must not drift: `tree_get`,
+    and the navigator's `tree_app` entry tool, which is the same read plus a label. They
+    had a slice builder each, and the copies had already diverged in how they pruned —
+    one dropped the children past `depth`, the other left a count in their place, so the
+    UI's "has children" test answered differently depending on which tool it asked.
+    """
+    composed = ws.effective()
+    node = treemod.get_node(composed, path)
+    if node is None:
+        return {"error": f"no node at '{path}'"}
+    data = node.model_dump(exclude_none=True)
+    if depth is not None:
+        _prune(data, depth)
+    semantics = treemod.semantics_at(composed, path, depth)
+    if semantics:
+        data["semantics"] = semantics
+    # The relational envelope: what names this node (links are navigable in both
+    # directions), and which paths are no longer current belief - so a viewer can dim
+    # the archaeology without a second round-trip.
+    if path:
+        rev = treemod.linked_from(composed, path)
+        if rev:
+            data["linked_from"] = rev
+    stale = treemod.superseded_paths(composed)
+    if stale:
+        data["superseded"] = stale
+    return data
 
 
 def _prune(data: dict[str, Any], depth: int) -> None:
