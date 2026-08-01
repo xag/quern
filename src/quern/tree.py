@@ -123,6 +123,59 @@ class Rule(BaseModel):
     path: str | None = None
 
 
+class Demonstration(BaseModel):
+    """A contract called on a stated tree state, with the answer it MUST give.
+
+    Rules have examples and counter-examples; solvers had nothing. A contract shipped
+    with prose and no worked case is the same vacuity a `1 == 1` rule is — worse, in
+    fact, because a gate reading `solve('grounding/untrusted', self) == 0` cannot tell
+    a contract that counts guesses from one that returns 0 unconditionally, and the
+    gate goes green either way. This is the missing evidence: the state, the call, the
+    answer.
+
+    `nodes` is a tree state, not one node, for the same reason a counter-example's is
+    — most contracts are relational, and a call staged without what it reads answers
+    the wrong question convincingly.
+
+    `args` are the arguments after the tree, exactly as a rule's `solve(name, ...)`
+    passes them: the path first for most contracts, then whatever the contract's
+    `params_doc` names.
+
+    The answer is `expect` for a contract that counts or measures, `expect_proposals`
+    for one that proposes values, `expect_error` for a state it must REFUSE to answer
+    for — a substring its complaint has to contain. Refusal is an answer and the one
+    most often left to chance: a gate pointed at a node that no longer exists should
+    say so, and whether it says so or quietly returns zero is the difference between a
+    red gate and a green one that means nothing. Exactly one, because a demonstration
+    that states none proves nothing and one that states two is two demonstrations
+    wearing one coat.
+
+    `because` names the scenario. It is what the proof log reports and what a later
+    reader checks the contract against, and it is how a demonstration set is read as
+    what it should be: the scenarios someone anticipated, listed, so the next reader
+    can see which ones they did not.
+    """
+
+    contract: str
+    nodes: list[Node] = Field(default_factory=list)
+    args: list[Any] = Field(default_factory=list)
+    expect: float | None = None
+    expect_proposals: list[dict[str, Any]] | None = None
+    expect_error: str | None = None
+    because: str = ""
+
+    @model_validator(mode="after")
+    def _exactly_one_expectation(self) -> "Demonstration":
+        stated = (self.expect is not None) + (self.expect_proposals is not None) \
+            + (self.expect_error is not None)
+        if stated != 1:
+            raise ValueError(
+                f"demonstration of '{self.contract}' must state exactly one of "
+                "`expect` (a number it answers), `expect_proposals` (the values it "
+                f"proposes) or `expect_error` (a state it refuses); it states {stated}")
+        return self
+
+
 class PackageRef(BaseModel):
     """A pin on a library package: this tree uses `name` at exactly `version`.
     Frozen deployments stay coherent because the pin, not the library head,
@@ -735,14 +788,126 @@ def _coerce(model: type[BaseModel], field: str, value: Any) -> Any:
 # contract. The grammar never grows a domain function again.
 
 NATIVE: dict[str, Any] = {}  # name -> callable(tree, *args): standard implementations
+NATIVE_SPEC: dict[str, list["Demonstration"]] = {}  # ...and what each must answer
 
 
-def register_native(name: str, fn) -> None:
+def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = ()) -> None:
     """Install a first-class implementation of a solver contract. The name is the
     contract (e.g. 'geometry/volume'); the callable takes (tree, *args). Natives
     are an optimisation of content, never a semantics of their own: if a native
-    disagrees with the contract's reference module, the native is wrong."""
+    disagrees with the contract's reference module, the native is wrong.
+
+    `spec` is the demonstrations this implementation must satisfy, and it is
+    registered HERE — beside the code — rather than carried in the package that
+    declares the contract. A native is the host's own code running outside the
+    sandbox; if its proof travelled in the package, whoever republished the package
+    could soften the proof of code they do not ship. Same asymmetry as the rest of
+    the boundary: meaning is data, safety is code, and the evidence for trusted code
+    is code-side too. The publish gate reads this registry and refuses a native
+    contract it cannot see satisfied.
+    """
     NATIVE[name] = fn
+    if spec:
+        NATIVE_SPEC[name] = list(spec)
+
+
+def solve_contract(tree: "Quern | TreeStore", name: str, args: list[Any],
+                   solver_runner=None) -> Any:
+    """The one bridge from an expression to meaning, callable outside one.
+
+    A rule's `solve(...)` and a demonstration's call are the SAME call — natives
+    first, then the caller's runner — because a demonstration that proved a contract
+    through some other door would prove something no rule ever asks for.
+    """
+    fn = NATIVE.get(name)
+    if fn is not None:
+        return fn(tree, *args)
+    if solver_runner is not None:
+        return solver_runner(tree, name, list(args))
+    raise ValueError(f"no implementation for solver '{name}' — register a "
+                     "native or install a package that carries it")
+
+
+def _answer_of(result: Any) -> float | None:
+    """The number a contract answered, or None if it answered in another shape."""
+    if isinstance(result, bool):
+        return float(result)
+    if isinstance(result, (int, float)):
+        return float(result)
+    if isinstance(result, dict) and isinstance(result.get("value"), (int, float)):
+        return float(result["value"])
+    return None
+
+
+def _proposals_of(result: Any) -> list[tuple[str, str, float]] | None:
+    if not isinstance(result, dict) or not isinstance(result.get("proposals"), list):
+        return None
+    out = []
+    for p in result["proposals"]:
+        if not isinstance(p, dict):
+            return None
+        out.append((str(p.get("path", "")), str(p.get("param", "")),
+                    float(p.get("value", 0.0))))
+    return sorted(out)
+
+
+def run_demonstration(dem: "Demonstration", base: "Quern | None" = None,
+                      solver_runner=None) -> str | None:
+    """Stage the demonstration's tree state, make its call, compare. `None` when the
+    contract answered what it must; the discrepancy, in words, when it did not.
+
+    The state is staged ALONE — the demonstration's own nodes and nothing else — so a
+    contract has to answer for the case named, and cannot borrow a right answer from
+    fixtures that happened to be lying around.
+    """
+    tree = base.model_copy(deep=True) if base is not None else Quern()
+    tree.root.children = [n.model_copy(deep=True) for n in dem.nodes]
+    try:
+        result = solve_contract(tree, dem.contract, list(dem.args), solver_runner)
+    except Exception as e:
+        if dem.expect_error is not None:
+            if dem.expect_error.lower() in str(e).lower():
+                return None
+            return (f"expected a refusal mentioning {dem.expect_error!r}, "
+                    f"got one saying: {e}")
+        return f"the call raised: {e}"
+    if dem.expect_error is not None:
+        return (f"expected the contract to refuse this state (mentioning "
+                f"{dem.expect_error!r}); it answered {result!r}")
+
+    if dem.expect is not None:
+        got = _answer_of(result)
+        if got is None:
+            return (f"expected the number {dem.expect:g} but the contract answered "
+                    f"in another shape ({type(result).__name__}) — demonstrate a "
+                    "proposing contract with `expect_proposals`")
+        if abs(got - dem.expect) > 1e-9:
+            return f"expected {dem.expect:g}, answered {got:g}"
+        return None
+
+    want = sorted((str(p.get("path", "")), str(p.get("param", "")),
+                   float(p.get("value", 0.0))) for p in (dem.expect_proposals or []))
+    got_props = _proposals_of(result)
+    if got_props is None:
+        return ("expected proposals but the contract did not answer in the "
+                f"{{diagnostics, proposals}} shape ({type(result).__name__})")
+    if got_props != want:
+        return f"expected proposals {want}, got {got_props}"
+    return None
+
+
+def check_demonstrations(spec: "list[Demonstration]", base: "Quern | None" = None,
+                         solver_runner=None) -> list[str]:
+    """Every failure in `spec`, named by scenario. Empty means the contract holds
+    against every case anyone anticipated — which is a claim about the cases, not
+    about the contract, and reads honestly only because `because` says what each is."""
+    out: list[str] = []
+    for dem in spec:
+        bad = run_demonstration(dem, base, solver_runner)
+        if bad is not None:
+            scenario = dem.because or f"args={dem.args!r}"
+            out.append(f"{dem.contract} ({scenario}): {bad}")
+    return out
 
 
 class RuleResult(BaseModel):
@@ -760,8 +925,10 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
     `context` is the caller-supplied evaluation payload (feeds, series windows,
     anything) exposed through ctx('key') — the rules see it and nothing else,
     which is what makes an evaluation deterministic and replayable. solve() runs
-    against the NATIVE registry first, then `solver_runner(name, args)` if the
-    caller wires one (e.g. to the sandboxed WASM machinery)."""
+    against the NATIVE registry first, then `solver_runner(tree, name, args)` if
+    the caller wires one (e.g. to the sandboxed WASM machinery) — the tree is
+    handed over because a sandboxed module is fed a *slice*, and a runner that
+    could not see the tree could not cut one."""
     out: list[RuleResult] = []
     env = _env(tree, context or {}, solver_runner)
     for rule in tree.rules:
@@ -806,13 +973,7 @@ def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
     context = context or {}
 
     def solve(name: str, *args):
-        fn = NATIVE.get(name)
-        if fn is not None:
-            return fn(tree, *args)
-        if solver_runner is not None:
-            return solver_runner(name, list(args))
-        raise ValueError(f"no implementation for solver '{name}' — register a "
-                         "native or install a package that carries it")
+        return solve_contract(tree, name, list(args), solver_runner)
 
     def nodes(kind: str | None = None, under: str = "") -> list[str]:
         anchor = "/".join(_segs(under))

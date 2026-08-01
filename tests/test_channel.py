@@ -6,7 +6,14 @@ import pytest
 
 from quern import Quern, PackageRef
 from quern.cli import main
-from quern.library import Library, Package, lock_refs, package_digest, sync
+from quern.library import (
+    CounterExample,
+    Library,
+    Package,
+    lock_refs,
+    package_digest,
+    sync,
+)
 from quern.solver import load_blob
 from quern.tree import KindDef, Node, Rule
 
@@ -22,7 +29,10 @@ def fasteners(min_mass: str = "0") -> Package:
         vocabulary=[KindDef(kind="bolt", description="a threaded fastener",
                             params={"mass": "grams"})],
         rules=[Rule(name="bolt-has-mass", kind="bolt", expr=f"mass > {min_mass}")],
-        examples=[bolt("proof-bolt")])
+        examples=[bolt("proof-bolt")],
+        counter_examples=[CounterExample(
+            rule="bolt-has-mass", node=bolt("weightless", mass=0.0),
+            because="a bolt weighing nothing")])
 
 
 def assemblies() -> Package:
@@ -33,7 +43,11 @@ def assemblies() -> Package:
         rules=[Rule(name="pack-of-two", kind="pack",
                     expr="tally(self, 'bolt', 'qty') == 2")],
         examples=[Node(id="proof-pack", kind="pack",
-                       children=[bolt("b1"), bolt("b2")])])
+                       children=[bolt("b1"), bolt("b2")])],
+        counter_examples=[CounterExample(
+            rule="pack-of-two", nodes=[Node(id="short-pack", kind="pack",
+                                            children=[bolt("only-one")])],
+            because="a pack sold as a pair with one bolt in it")])
 
 
 def registry(tmp_path) -> Library:

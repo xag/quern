@@ -23,8 +23,8 @@ code; this module is the code half, and the substrate otherwise knows no domain.
 
 from __future__ import annotations
 
-from .provenance import Quantity
-from .tree import Quern, Node, get_node, register_native
+from .provenance import Quantity, derived, inferred, measured
+from .tree import Demonstration, Quern, Node, get_node, register_native
 
 
 def _params_under(node: Node, path: str) -> list[tuple[str, str, Quantity]]:
@@ -115,9 +115,171 @@ GROUNDING_NATIVES = {
 }
 
 
+# --- the spec ----------------------------------------------------------------------
+#
+# These three run outside the sandbox, on the host's own clock, and they are what a
+# gate asks before it calls work safe to act on. Prose said what they do; nothing said
+# it twice in a form that could disagree with the code. Below is that second saying.
+#
+# It is written as SCENARIOS, not as coverage. The interesting cases are the ones where
+# a wrong answer is still a plausible answer — an empty branch, a tolerance nobody
+# stated, a link pointing at a node that was deleted — because those are the ones that
+# turn a gate green while meaning nothing, and a green gate is exactly what nobody
+# re-reads. Each entry says which scenario it is; the list is therefore also a record
+# of what was anticipated, and the next reader can see what was not.
+
+_SOUND_WALL = Node(id="wall", kind="wall", params={"width": measured(2400.0, 1.0)})
+_GUESSED_WALL = Node(id="wall", kind="wall", params={"width": inferred(2400.0)})
+_LOOSE_WALL = Node(id="wall", kind="wall", params={"width": measured(2400.0, 5.0)})
+_UNTOLERANCED_WALL = Node(id="wall", kind="wall", params={
+    "width": Quantity(value=2400.0, unit="mm", provenance="measured", grounded=True)})
+_DESIGN = Node(id="shelf", kind="design", params={"depth": measured(300.0, 1.0)},
+               links={"fits_against": ["wall"]})
+
+
+UNTRUSTED_SPEC = [
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_SOUND_WALL], args=["wall"], expect=0,
+        because="a branch whose every number is an observation"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_GUESSED_WALL], args=["wall"], expect=1,
+        because="one guess in the branch is one count"),
+    Demonstration(
+        contract="grounding/untrusted", args=["wall"], expect=2,
+        nodes=[Node(id="wall", kind="wall", params={"width": inferred(2400.0),
+                                                    "height": inferred(2000.0)})],
+        because="it counts, it does not flag: two guesses answer 2, so a rule may "
+                "read the number and not only compare it to zero"),
+    Demonstration(
+        contract="grounding/untrusted", args=["wall"], expect=1,
+        nodes=[Node(id="wall", kind="wall", params={"width": measured(2400.0, 1.0)},
+                    children=[Node(id="recess", kind="recess",
+                                   params={"depth": inferred(120.0)})])],
+        because="a guess on a child is in its parent's branch — the question is asked "
+                "of everything under the path, not of the node alone"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_LOOSE_WALL], args=["wall", 2.0],
+        expect=1,
+        because="grounded, but measured looser than the work needs: trusted is a "
+                "question about tightness too, not only about provenance"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_LOOSE_WALL], args=["wall", 10.0],
+        expect=0,
+        because="the same observation against a tolerance it does meet"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_LOOSE_WALL], args=["wall"], expect=0,
+        because="omitting the tolerance asks only whether it is an observation at "
+                "all — the loose wall passes, and a caller who meant to ask about "
+                "tightness and forgot gets a green that is answering another question"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_UNTOLERANCED_WALL], args=["wall", 2.0],
+        expect=1,
+        because="an observation that never said how tight it is cannot answer a "
+                "tolerance: unstated is not zero, and is not 'good enough'"),
+    Demonstration(
+        contract="grounding/untrusted", args=["wall"], expect=0,
+        nodes=[Node(id="wall", kind="wall")],
+        because="an empty branch answers 0 — nothing to doubt is not the same as "
+                "checked, and a gate reading `== 0` over an empty branch goes green "
+                "on the absence of evidence. Recorded because it is the contract's "
+                "sharpest edge, not because it is a defect"),
+    Demonstration(
+        contract="grounding/untrusted", nodes=[_SOUND_WALL], args=["ghost"],
+        expect_error="no node at",
+        because="a branch that is not there is refused, never answered 0 — the one "
+                "way this contract could silently pass a gate over nothing"),
+]
+
+UNTRUSTED_VIA_SPEC = [
+    Demonstration(
+        contract="grounding/untrusted_via", nodes=[_DESIGN, _SOUND_WALL],
+        args=["shelf", "fits_against"], expect=0,
+        because="a design fitted against a wall somebody measured"),
+    Demonstration(
+        contract="grounding/untrusted_via", nodes=[_DESIGN, _GUESSED_WALL],
+        args=["shelf", "fits_against"], expect=1,
+        because="the same design fitted against a wall somebody eyeballed — the "
+                "design's own numbers are sound and that is not the question"),
+    Demonstration(
+        contract="grounding/untrusted_via", nodes=[_DESIGN, _GUESSED_WALL],
+        args=["shelf", "rests_on"], expect=0,
+        because="no link of that name is nothing to doubt: the green that means "
+                "least, and the one a typo in the link name produces"),
+    Demonstration(
+        contract="grounding/untrusted_via", args=["shelf", "fits_against"], expect=2,
+        nodes=[Node(id="shelf", kind="design", links={"fits_against": ["wall", "floor"]}),
+               _GUESSED_WALL,
+               Node(id="floor", kind="floor", params={"level": inferred(0.0)})],
+        because="every target of the link is counted, not just the first"),
+    Demonstration(
+        contract="grounding/untrusted_via", nodes=[_DESIGN, _LOOSE_WALL],
+        args=["shelf", "fits_against", 2.0], expect=1,
+        because="the tolerance asked reaches through the link to what it points at"),
+    Demonstration(
+        contract="grounding/untrusted_via", nodes=[_DESIGN],
+        args=["shelf", "fits_against"], expect_error="no node at",
+        because="fitted against a wall that no longer exists: refused, not passed. "
+                "A design outlives the thing it was measured against, and this is "
+                "the day that happens"),
+]
+
+DEPENDS_UNTRUSTED_SPEC = [
+    Demonstration(
+        contract="grounding/depends_untrusted", args=["cut"], expect=0,
+        nodes=[Node(id="cut", kind="cut", params={
+                    "length": derived(2380.0, "fit solver", ["wall/width"])}),
+               _SOUND_WALL],
+        because="a computed value whose input was measured"),
+    Demonstration(
+        contract="grounding/depends_untrusted", args=["cut"], expect=1,
+        nodes=[Node(id="cut", kind="cut", params={
+                    "length": derived(2380.0, "fit solver", ["wall/width"])}),
+               _GUESSED_WALL],
+        because="a computed value resting on a guess is a guess wearing a number's "
+                "clothes — and it is the computed value that looks trustworthy"),
+    Demonstration(
+        contract="grounding/depends_untrusted", args=["cut"], expect=1,
+        nodes=[Node(id="cut", kind="cut", params={
+                    "length": derived(2380.0, "fit solver", ["wall/width"]),
+                    "margin": derived(20.0, "fit solver", ["wall/width"])}),
+               _GUESSED_WALL],
+        because="two values computed from one guess: a diamond counts once, so the "
+                "number is how many doubtful inputs there are and not how often they "
+                "were used"),
+    Demonstration(
+        contract="grounding/depends_untrusted", args=["cut"], expect=2,
+        nodes=[Node(id="cut", kind="cut", params={
+                    "length": derived(2380.0, "fit solver", ["mid/length"])}),
+               Node(id="mid", kind="cut", params={
+                    "length": derived(2390.0, "rough solver", ["wall/width"])}),
+               _GUESSED_WALL],
+        because="lineage is followed all the way, and the intermediate counts too: a "
+                "derived value is itself never grounded, so a two-step chain off one "
+                "guess answers 2"),
+    Demonstration(
+        contract="grounding/depends_untrusted", args=["cut"], expect=0,
+        nodes=[Node(id="cut", kind="cut", params={
+                    "length": derived(2380.0, "fit solver", ["ghost/width"])})],
+        because="a lineage ref pointing at nothing is a broken ref, not a grounding "
+                "claim — deliberately the OPPOSITE of untrusted_via's dangling link, "
+                "which refuses. Lineage is a record of what happened and may name "
+                "what is gone; a link is a dependency that must still be there"),
+    Demonstration(
+        contract="grounding/depends_untrusted", nodes=[_SOUND_WALL], args=["wall"],
+        expect=0,
+        because="a value with no lineage claims nothing upstream"),
+]
+
+GROUNDING_SPEC = {
+    "grounding/untrusted": UNTRUSTED_SPEC,
+    "grounding/untrusted_via": UNTRUSTED_VIA_SPEC,
+    "grounding/depends_untrusted": DEPENDS_UNTRUSTED_SPEC,
+}
+
+
 def register_standard() -> None:
     for name, fn in GROUNDING_NATIVES.items():
-        register_native(name, fn)
+        register_native(name, fn, GROUNDING_SPEC[name])
 
 
 register_standard()

@@ -1,11 +1,6 @@
 # quern
 
-quern is a tree of typed objects where the types, the rules and the solvers are **data**,
-authored at runtime — not code, not schema migrations. You register what a kind of node
-*means* (in prose), write rules against that meaning in a small safe expression language,
-and watch them go red on the exact node that violates them. What proves out gets published
-as a versioned, digest-pinned package — and publication is **proof-gated**: a rule that no
-example exercises and no counter-example refutes does not enter.
+quern is a tree of typed objects where the types, the rules and the solvers are **data**, authored at runtime — not code, not schema migrations. You register what a kind of node *means* (in prose), write rules against that meaning in a small safe expression language, and watch them go red on the exact node that violates them. What proves out gets published as a versioned, digest-pinned package — and publication is **proof-gated**: a rule no example exercises does not enter, nor one no counter-example refutes, nor a contract that has never been shown answering anything.
 
 ```bash
 git clone https://github.com/xag/quern && cd quern && uv sync
@@ -182,18 +177,17 @@ that taught it to you without a new release cycle. So the capitalization loop on
 knowledge, modeling and best practice runs slow: semantics are fixed in the code,
 models are fixed, solvers are fixed. Innovation waits for the next version.
 
-AI dissolves that. Semantics, models and solvers can now be **authored on the go**,
-while the design is happening, by the intelligence sitting *at* the work. Not
-centralized in the heads of the people who once designed the PLM system, and not
-frozen in its code — distributed, like a squid whose intelligence lives in its arms
-and can regrow, rather than commanded from a single brain. Meaning is written at the
-node that needs it, the moment it is needed, and kept.
+The answer the field reached for was the shared model: one ontology, one PLM schema, one canonical vocabulary, authored up front by the people who own it and handed to everyone else. It works where a permanent institution maintains it over a bounded domain — SNOMED CT, the Gene Ontology. It fails wherever the vocabulary is itself part of what is being designed, and it fails for a reason that has nothing to do with formalism: authoring meaning was expensive, so it had to be centralized, so it had to be agreed before use, so it had to be *finished* — and a model that must be finished before it is useful is never either.
 
-That is the premise this substrate is built on. **In quern, all three are data**, not
-code — vocabulary you register as you navigate, rules you write against it, solvers
-you install behind one bridge — authored at runtime, per tree, by whoever designs
-there, and capitalized into versioned packages the next design pins and refines. The
-core interprets none of it; it is mechanics and safety only. Innovation and
+AI dissolves the cost that forced all of that. Semantics, models and solvers can now be **authored on the go**, while the design is happening, by the intelligence sitting *at* the work. Not centralized in the heads of the people who once designed the PLM system, and not frozen in its code — distributed, like a squid whose intelligence lives in its arms and can regrow, rather than commanded from a single brain. Meaning is written at the node that needs it, the moment it is needed, and kept.
+
+Which buys a new failure, and it is the obvious objection: cheap local meaning is a thousand private vocabularies that never converge — everyone inventing words, nobody able to read anyone else's tree. **The proof gate is the answer to it, and it is the load-bearing part of the design.** Local content costs nothing and binds nobody: invent whatever word the work needs. Leaving the local tree costs evidence. A rule enters a package only if the package's own examples exercise it and pass, and only if a counter-example staged alone makes it fire — because every rule here passes its examples, and so does `1 == 1`. A contract enters only if it has been shown answering worked cases, at least two of them expecting different answers, since a gate reading `solve(…) == 0` cannot otherwise tell a contract that counts from one that returns zero. What ships is pinned by digest at an exact version, so adopting it is a fork rather than a negotiation, and the diamond that would force one is refused at pin time.
+
+So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **In quern, all three are data**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable. `ledger@0.5.0`, the vocabulary this repo's own brief is written in, is one of them; it is pinned in `quern.lock` like any other content.
+
+One kind of knowledge escapes the gate, and the ledger says so rather than the README glossing it: a package's **vocabulary** ships on trust. Prose is judged by a reader and no gate can pretend otherwise — but whether any example *is* a node of a declared kind is mechanical and goes unchecked, so the failure the gate exists to prevent, inventing words, is the one case it does not catch. It is recorded as a debt with the condition that discharges it (`quern brief` prints it as `a-kind-may-ship-with-nothing-that-is-one !demonstrated`), which is the only honest place for a hole in an argument about proof.
+
+The core interprets none of it; it is mechanics and safety only. Innovation and
 capitalization become **organic by design**: every endeavor is a research project
 that is operative on the go, and the boundary between research and operations
 disappears — the model you reason with *is* the model you run. Knowledge no longer
@@ -235,14 +229,12 @@ everything that *means* something is content:
   data on the descriptor, and only `wasm` output may enter the tree as
   `derived`. The purity boundary is the point: replayability survives exactly
   because only the sandboxed, content-addressed medium can propose values.
-- **Library**: versioned, immutable packages `{requires, vocabulary, rules,
-  solvers, examples}` — publication is proof-gated (rules must be exercised by
-  the package's own examples and pass, with the `requires` closure staged
-  beneath; modules must meet the ABI). A package extends others by requiring
-  them — exact versions only, no ranges, fork-or-republish over resolver
-  algebra — and a `Quern` pin pulls the whole closure, nearer layers winning;
-  local content always wins over packages. Two versions of one name in a
-  closure is a diamond conflict, refused at pin time.
+  A contract also carries **demonstrations** — the worked cases it must answer,
+  as data — because a gate reading `solve(…) == 0` cannot tell a contract that
+  counts from one that returns zero. A blob's travel in its package; a
+  **native**'s register beside the implementation (`register_native(…, spec=…)`),
+  since a package must not be able to soften the proof of code it does not ship.
+- **Library**: versioned, immutable packages `{requires, vocabulary, rules, solvers, examples, counter_examples, demonstrations}` — publication is proof-gated, once per kind of knowledge that can be checked. Every rule must be exercised by the package's own examples and pass (with the `requires` closure staged beneath, so a package proves itself in the semantics it will actually live in) **and** be refused by a counter-example staged alone. Every executable contract must hold against demonstrations — a tree state, the call, the answer it must give — including two that expect *different* answers, since one expected number is satisfied by a contract that returns it and computes nothing. A package extends others by requiring them — exact versions only, no ranges, fork-or-republish over resolver algebra — and a `Quern` pin pulls the whole closure, nearer layers winning; local content always wins over packages. Two versions of one name in a closure is a diamond conflict, refused at pin time.
 - **The roll** (`quern.roll`): every rule runs against the tree as it is now, so no rule
   can see what was *removed*. The roll is the smallest artifact that makes absence
   mechanical — each node's path, kind, and a digest of what it says, committed beside

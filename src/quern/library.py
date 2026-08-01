@@ -2,10 +2,20 @@
 
 A package is the unit of capitalization — everything a use case learned, as data:
 what its kinds mean (vocabulary), what must hold (rules), what computes (solvers,
-as content-addressed blobs) and example subtrees that *prove* it all. Publishing
-is gated on that proof: every rule must be exercised by the package's own examples
-and pass, and every solver blob must exist and meet the ABI. A package that can't
-demonstrate itself doesn't enter the library.
+as content-addressed blobs) and the subtrees and worked cases that *prove* it all.
+Publishing is gated on that proof, and the gate is the whole argument for authoring
+meaning locally: cheap local semantics without one is a thousand private vocabularies
+nobody can trust, so nothing leaves a tree on its author's word.
+
+Three obligations, one per kind of knowledge that can be checked:
+  - every rule is exercised by the package's own examples and passes on them,
+  - every rule is refused by a counter-example, so a rule that guards nothing is
+    told apart from one that guards,
+  - every executable contract holds against demonstrations — a tree state, the call,
+    the answer — including two that expect *different* answers, so a contract that
+    returns a constant is told apart from one that computes.
+Vocabulary is the exception, and deliberately: prose is judged by a reader, and a
+gate that pretended to check it would be the only dishonest thing here.
 
 Versions are immutable: republishing name@version with different content is
 refused, so a pin (`Quern.packages`) means the same thing forever — packaged
@@ -26,8 +36,26 @@ from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
 
-from .tree import KindDef, Node, PackageRef, Rule, Quern, run_rules
-from .solver import SolverDef, SolverError, load_blob, save_blob
+from .tree import (
+    NATIVE,
+    NATIVE_SPEC,
+    Demonstration,
+    KindDef,
+    Node,
+    PackageRef,
+    Rule,
+    Quern,
+    check_demonstrations,
+    get_node,
+    run_rules,
+)
+from .solver import (
+    SolverDef,
+    SolverError,
+    load_blob,
+    run_solver,
+    save_blob,
+)
 
 
 class CounterExample(BaseModel):
@@ -77,6 +105,11 @@ class Package(BaseModel):
 
     `examples` prove the rules pass on sound data; `counter_examples` prove they
     fire on unsound data. A guard must ship the evidence that it guards.
+
+    `demonstrations` are the same obligation for the third kind of knowledge:
+    a contract called on a stated tree state, with the answer it must give.
+    Vocabulary is prose a reader judges; rules and solvers are claims a machine
+    can check, and nothing that can be checked ships here unchecked.
     """
 
     name: str
@@ -89,6 +122,12 @@ class Package(BaseModel):
     solvers: list[SolverDef] = Field(default_factory=list)
     examples: list[Node] = Field(default_factory=list)
     counter_examples: list[CounterExample] = Field(default_factory=list)
+    # None, not []: `_canonical` excludes None, so a package published before this
+    # field existed serializes byte-identically and keeps its digest. A schema
+    # addition must not silently re-hash content nobody edited — every lock in every
+    # consumer pins these bytes, and "the meaning drifted" is the one thing a digest
+    # exists to say. Every read is `package.demonstrations or []`.
+    demonstrations: list[Demonstration] | None = None
 
 
 def package_digest(package: Package) -> str:
@@ -364,7 +403,16 @@ def validate_package(package: Package, blob_dir: Path,
     guards nothing passes them identically to one that guards everything, so a
     `counter_examples` entry — a node the named rule MUST reject — is the evidence
     that the guard guards. Each is staged alone, so the rule has to fail *on that
-    node*: a defect elsewhere in the package cannot stand in for the proof.
+    node*: a defect elsewhere in the package cannot stand in for the proof. Every
+    rule needs one: an unrefuted rule is a claim nothing has ever contradicted.
+
+    Solvers carry the same obligation in the shape their answers take. Every
+    executable contract must hold against demonstrations — a tree state, the call,
+    the answer — and against at least two that expect *different* answers, since one
+    expected number is satisfied by a contract that returns it and nothing else. A
+    blob's demonstrations travel in the package; a native's are registered beside its
+    implementation (`register_native(..., spec=...)`), because a package cannot be
+    allowed to state the proof of code it does not ship.
 
     Raises ValueError with the first failure; returns the proof log when
     everything holds.
@@ -426,22 +474,125 @@ def validate_package(package: Package, blob_dir: Path,
                    + ", ".join(refuted))
     unproven = sorted(named - {ce.rule for ce in package.counter_examples})
     if unproven:
-        log.append(f"{len(unproven)} rule(s) carry no counter-example, so nothing "
-                   f"shows they reject anything: {', '.join(unproven)}")
+        raise ValueError(
+            f"{len(unproven)} rule(s) carry no counter-example, so nothing shows they "
+            f"reject anything: {', '.join(unproven)}. Every rule here passes its "
+            "examples; so does '1 == 1'. Ship the node each one must refuse")
 
+    # --- the third kind of knowledge -------------------------------------------------
+    #
+    # Rules answer to examples and counter-examples. Solvers answered to nothing: a
+    # contract shipped on its prose, and every gate reading `solve(...) == 0` trusted
+    # it. These are the worked cases that make a contract checkable, and the split is
+    # the boundary's, not a convenience: a blob is content, so its proof travels with
+    # it in the package; a native is the host's own code, so its proof is registered
+    # beside that code and no republication of the package can soften it.
+    by_contract: dict[str, list[Demonstration]] = {}
+    for dem in (package.demonstrations or []):
+        by_contract.setdefault(dem.contract, []).append(dem)
+    declared = {s.name for s in package.solvers}
+    for contract in by_contract:
+        if contract not in declared:
+            raise ValueError(f"demonstration names contract '{contract}', which this "
+                             "package does not declare")
+
+    runner = _blob_runner({s.name: s for s in package.solvers}, blob_dir)
     for s in package.solvers:
-        if s.native:
-            log.append(f"solver '{s.name}' is a native contract — trusted server "
-                       "code, outside the sandbox gate")
-            continue
-        blob = load_blob(blob_dir, s.blob)  # exists + hashes true
-        if s.medium == "wasm":
-            _check_abi(blob, s.name)
-            log.append(f"solver '{s.name}' @ {s.blob[:12]}… meets the ABI")
-        else:  # presentation or instructions: content-addressed, never executed here
+        if s.medium != "wasm":
+            # Presentation or instructions: content-addressed, never executed here, and
+            # never a source of derived values. There is no answer to demonstrate.
+            load_blob(blob_dir, s.blob)  # exists + hashes true
             log.append(f"artifact '{s.name}' ({s.medium}) @ {s.blob[:12]}… stored — "
                        "serves experience/guidance, never derived values")
+            continue
+
+        if s.native:
+            if s.name not in NATIVE:
+                raise ValueError(
+                    f"'{s.name}' is declared native but nothing is registered under "
+                    "that name in this process — the package claims a capability this "
+                    "install does not have. Import the module that registers it, or "
+                    "ship the contract as wasm")
+            spec = NATIVE_SPEC.get(s.name, [])
+            if not spec:
+                raise ValueError(
+                    f"native contract '{s.name}' registers no spec — it runs outside "
+                    "the sandbox on the host's own clock and answers gates that decide "
+                    "whether work is safe to act on, on nothing but its description. "
+                    "Pass `spec=` to register_native")
+            cases = spec + by_contract.get(s.name, [])
+            _demonstrate(s.name, cases, stage, runner, log,
+                         source=f"{len(spec)} registered beside the implementation"
+                                + (f" + {len(by_contract[s.name])} from the package"
+                                   if s.name in by_contract else ""))
+            continue
+
+        blob = load_blob(blob_dir, s.blob)  # exists + hashes true
+        _check_abi(blob, s.name)
+        cases = by_contract.get(s.name, [])
+        if not cases:
+            raise ValueError(
+                f"solver '{s.name}' meets the ABI and demonstrates nothing — the ABI "
+                "says it is callable, not that it is right. Ship a demonstration: a "
+                "tree state, the call, and the answer it must give")
+        _demonstrate(s.name, cases, stage, runner, log,
+                     source=f"{len(cases)} from the package")
     return log
+
+
+def _demonstrate(contract: str, cases: list[Demonstration], stage: Quern,
+                 runner, log: list[str], source: str) -> None:
+    """Run one contract's demonstrations, refusing vacuity first.
+
+    A single expected answer is no evidence: a contract returning that number
+    unconditionally satisfies it exactly as well as one that computes. Two distinct
+    answers is the least that can tell them apart — the same argument counter-examples
+    make for rules, one level down."""
+    distinct = {_expectation_key(d) for d in cases}
+    if len(distinct) < 2:
+        only = cases[0].expect if cases[0].expect is not None else cases[0].expect_proposals
+        raise ValueError(
+            f"every demonstration of '{contract}' expects the same answer ({only!r}) — "
+            "a contract that returns it unconditionally passes all of them. Demonstrate "
+            "a case that answers differently")
+    failures = check_demonstrations(cases, stage, runner)
+    if failures:
+        raise ValueError(f"contract '{contract}' fails its own demonstration — "
+                         + "; ".join(failures))
+    scenarios = ", ".join(d.because for d in cases if d.because)
+    log.append(f"contract '{contract}': {len(cases)} demonstration(s) hold ({source})"
+               + (f" — {scenarios}" if scenarios else ""))
+
+
+def _expectation_key(dem: Demonstration):
+    if dem.expect is not None:
+        return ("n", round(dem.expect, 9))
+    if dem.expect_error is not None:
+        return ("e", dem.expect_error)
+    return ("p", tuple(sorted(
+        (str(p.get("path", "")), str(p.get("param", "")), float(p.get("value", 0.0)))
+        for p in (dem.expect_proposals or []))))
+
+
+def _blob_runner(solvers: dict[str, SolverDef], blob_dir: Path):
+    """Call a packaged wasm contract the way the host does — same payload, same fuel,
+    same output validation — so a demonstration proves the module a caller will meet.
+
+    A demonstration's `args` reach it as the host's two: the path first, then an
+    optional dict of the named params `params_doc` documents."""
+    def run(tree, name: str, args: list[Any]) -> dict[str, Any]:
+        s = solvers.get(name)
+        if s is None or s.medium != "wasm" or not s.blob:
+            raise SolverError(f"no runnable wasm module for contract '{name}'")
+        path = str(args[0]) if args else ""
+        params = args[1] if len(args) > 1 and isinstance(args[1], dict) else {}
+        node = get_node(tree, path)
+        if node is None:
+            raise SolverError(f"no node at '{path}' to slice for '{name}'")
+        return run_solver(load_blob(blob_dir, s.blob),
+                          {"path": path, "slice": node.model_dump(exclude_none=True),
+                           "params": params}, fuel=s.fuel)
+    return run
 
 
 def _check_abi(wasm: bytes, name: str) -> None:

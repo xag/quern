@@ -45,10 +45,18 @@ def test_a_vacuous_rule_cannot_be_proven(tmp_path):
     with pytest.raises(ValueError, match="is not refuted"):
         validate_package(vacuous, tmp_path, Library(tmp_path))
 
-    # ...and without the counter-example it still publishes, indistinguishably.
-    log = validate_package(pkg("1 == 1"), tmp_path, Library(tmp_path))
-    assert any("exercised by" in line for line in log)
-    assert any("no counter-example" in line for line in log)  # but it is called out
+    # ...and it cannot dodge the question by shipping no counter-example: that used to
+    # publish with a log line nobody read, which left the vacuous rule and the real one
+    # indistinguishable in the library for exactly the packages that skipped the proof.
+    with pytest.raises(ValueError, match="carry no counter-example"):
+        validate_package(pkg("1 == 1"), tmp_path, Library(tmp_path))
+
+
+def test_a_real_rule_must_also_ship_its_counter_example(tmp_path):
+    """The obligation is on every rule, not only on suspicious ones — a gate that
+    exempts rules that look fine is a gate that reads rules, and it cannot."""
+    with pytest.raises(ValueError, match="carry no counter-example"):
+        validate_package(pkg("mass > 0"), tmp_path, Library(tmp_path))
 
 
 def test_a_rule_that_does_not_bind_to_the_node_is_not_proven(tmp_path):

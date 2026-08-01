@@ -10,6 +10,16 @@
     "digest": "ec6fa669552b"
   },
   {
+    "path": "a-kind-may-ship-with-nothing-that-is-one",
+    "kind": "debt",
+    "digest": "a6cc49e1b87a"
+  },
+  {
+    "path": "a-kind-may-ship-with-nothing-that-is-one/let-a-kind-say-it-is-a-convention",
+    "kind": "discharge",
+    "digest": "c9bdda60a1d2"
+  },
+  {
     "path": "a-native-contract-is-unmetered",
     "kind": "debt",
     "digest": "bde53ac0b6ff"
@@ -43,6 +53,21 @@
     "path": "a-solver-blob-records-opaquely/record-blobs-by-digest",
     "kind": "discharge",
     "digest": "a906a3c2859f"
+  },
+  {
+    "path": "every-checkable-claim-ships-with-its-proof",
+    "kind": "decision",
+    "digest": "775ef1a75241"
+  },
+  {
+    "path": "every-checkable-claim-ships-with-its-proof/alt-keep-the-warning-in-the-proof-log",
+    "kind": "alternative",
+    "digest": "566522e4bad1"
+  },
+  {
+    "path": "every-checkable-claim-ships-with-its-proof/alt-the-package-carries-a-natives-proof",
+    "kind": "alternative",
+    "digest": "0435d58a4c13"
   },
   {
     "path": "heavy-compute-is-a-proposer-never-a-judge",

@@ -3,7 +3,7 @@
 import pytest
 
 from quern import Quern, PackageRef
-from quern.library import Library, Package, package_digest
+from quern.library import CounterExample, Library, Package, package_digest
 from quern.tree import KindDef, Node, Rule
 
 
@@ -20,7 +20,10 @@ def fasteners(version: str = "1", min_mass: str = "0") -> Package:
                             params={"mass": "grams"})],
         rules=[Rule(name="bolt-has-mass", kind="bolt",
                     expr=f"mass > {min_mass}")],
-        examples=[bolt("proof-bolt")])
+        examples=[bolt("proof-bolt")],
+        counter_examples=[CounterExample(
+            rule="bolt-has-mass", node=bolt("weightless", mass=0.0),
+            because="a bolt weighing nothing")])
 
 
 def assemblies(examples: list[Node]) -> Package:
@@ -31,7 +34,11 @@ def assemblies(examples: list[Node]) -> Package:
         vocabulary=[KindDef(kind="pack", description="bolts sold together")],
         rules=[Rule(name="pack-of-two", kind="pack",
                     expr="tally(self, 'bolt', 'qty') == 2")],
-        examples=examples)
+        examples=examples,
+        counter_examples=[CounterExample(
+            rule="pack-of-two", nodes=[Node(id="short-pack", kind="pack",
+                                            children=[bolt("only-one")])],
+            because="a pack sold as a pair with one bolt in it")])
 
 
 def test_publish_with_requires_stages_the_closure(tmp_path):

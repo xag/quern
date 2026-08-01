@@ -764,6 +764,78 @@ def build() -> Quern:
         ),
 
         Node(
+            id="every-checkable-claim-ships-with-its-proof",
+            kind="decision",
+            name="Publication refuses a rule with no counter-example, and a contract "
+                 "with no demonstrations",
+            payload={"why":
+                     "The proof gate is what answers the objection against authoring "
+                     "meaning locally at all — that cheap semantics is a thousand private "
+                     "vocabularies nobody can trust. It was not carrying that weight. An "
+                     "unrefuted rule published with a log line, and a solver published on "
+                     "its prose alone: the same vacuity twice. A gate reading "
+                     "`solve('grounding/untrusted', self) == 0` cannot tell a contract "
+                     "that counts guesses from one that returns 0, and reads green either "
+                     "way. Every rule now needs the node it must refuse; every executable "
+                     "contract needs demonstrations, at least two expecting DIFFERENT "
+                     "answers, which is what tells a computation from a constant.",
+                     "consequence":
+                     "Cost nothing in the registry - every published package already had "
+                     "full counter-example coverage, so the discipline existed and only "
+                     "the enforcement was missing. It cost the test fixtures, which is "
+                     "the tell: the toy packages were the ones skipping the proof."},
+            children=[
+                Node(id="alt-keep-the-warning-in-the-proof-log", kind="alternative",
+                     name="Leave it as it was: a log line counting the rules that carry "
+                          "no counter-example",
+                     payload={"why":
+                              "A warning is read by whoever already cares, and a package "
+                              "that skipped the proof is precisely one whose log nobody "
+                              "reads. It also made the README false, which is how it was "
+                              "found."}),
+                Node(id="alt-the-package-carries-a-natives-proof", kind="alternative",
+                     name="Let the package declaring a native contract ship that "
+                          "contract's demonstrations, like a blob's",
+                     payload={"why":
+                              "Symmetric, and wrong for the reason a gate cannot be handed "
+                              "its own grounding: a native is the host's own code running "
+                              "outside the sandbox, and whoever republished the package "
+                              "could soften the proof of code they do not ship. The spec "
+                              "registers beside the implementation; a package may ADD "
+                              "scenarios, never replace them."}),
+            ],
+        ),
+
+        Node(
+            id="a-kind-may-ship-with-nothing-that-is-one",
+            kind="debt",
+            name="Vocabulary is the one kind of knowledge publication still takes on "
+                 "trust",
+            params={"demonstrated": _unsound(
+                0, "kind",
+                "Nothing requires a package's kinds to appear in its own examples: a "
+                "word can enter the library with no referent.")},
+            payload={"note":
+                     "Prose genuinely cannot be gated - a reader judges what a kind "
+                     "MEANS. But whether any example IS a node of that kind is "
+                     "mechanical, and it goes unchecked, so the failure the whole gate "
+                     "exists to prevent - inventing words - is the one it does not "
+                     "catch. Not closed now because grounding@ ships a kind that is "
+                     "explicitly a convention pack and not a node kind at all; requiring "
+                     "an instance would mean authoring a lie to satisfy a gate.",
+                     "found": "2026-08-01, while making the other two obligations bind."},
+            children=[Node(
+                id="let-a-kind-say-it-is-a-convention", kind="discharge",
+                name="Give KindDef a way to declare itself a convention rather than a "
+                     "node kind, then require an instance of every kind that is not",
+                payload={"who":
+                         "anyone adding the field to KindDef - the check is a few lines "
+                         "once a kind can say which sort it is, and the only reason it "
+                         "is not written is that today it would refuse a package that "
+                         "is correct"})],
+        ),
+
+        Node(
             id="the-host-surface",
             kind="gate",
             name="What quern's MCP host exposes to a caller",

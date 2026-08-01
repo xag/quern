@@ -13,7 +13,7 @@ from quern import (
     run_rules,
     set_node,
 )
-from quern.library import Library, Package
+from quern.library import CounterExample, Library, Package
 from quern.tree import KindDef, Node
 
 
@@ -83,7 +83,14 @@ def test_a_behavioral_spec_ships_as_a_proof_gated_package(tmp_path):
                     KindDef(kind="charge", description="money moves")],
         rules=[Rule(name="email-before-charge", kind="charge",
                     expr="len(preceding(self, 'email')) >= 1")],
-        examples=[scenario])
+        examples=[scenario],
+        counter_examples=[CounterExample(
+            rule="email-before-charge",
+            nodes=[Node(id="purchase", kind="scenario", children=[
+                Node(id="checkout", kind="checkout"),
+                Node(id="charge", kind="charge"),
+                Node(id="email-conf", kind="email")])],
+            because="the card is charged before the confirmation goes out")])
     log = lib.publish(spec, {})
     assert any("all pass" in line for line in log)
 
