@@ -7,15 +7,17 @@ Publishing is gated on that proof, and the gate is the whole argument for author
 meaning locally: cheap local semantics without one is a thousand private vocabularies
 nobody can trust, so nothing leaves a tree on its author's word.
 
-Three obligations, one per kind of knowledge that can be checked:
+One obligation per kind of knowledge, each the checkable half of a claim:
+  - every kind is instantiated by an example, or declares itself a `convention` and
+    is then held to naming nothing — what a kind MEANS stays prose a reader judges,
+    but whether anything IS one is mechanical, and that is the word-with-no-referent
+    the whole gate exists against,
   - every rule is exercised by the package's own examples and passes on them,
   - every rule is refused by a counter-example, so a rule that guards nothing is
     told apart from one that guards,
   - every executable contract holds against demonstrations — a tree state, the call,
     the answer — including two that expect *different* answers, so a contract that
     returns a constant is told apart from one that computes.
-Vocabulary is the exception, and deliberately: prose is judged by a reader, and a
-gate that pretended to check it would be the only dishonest thing here.
 
 Versions are immutable: republishing name@version with different content is
 refused, so a pin (`Quern.packages`) means the same thing forever — packaged
@@ -399,6 +401,11 @@ def validate_package(package: Package, blob_dir: Path,
     so a package that extends another proves itself in the semantics it will
     actually live in, and its examples must satisfy the layers beneath too.
 
+    Vocabulary is checked for the one thing about it that is not prose: every kind
+    must be instantiated by an example, or declare `convention=True` and then be
+    instantiated by nothing at all. The flag is a claim, not an exemption — held both
+    ways, because an opt-out anyone could flip reads like a check while being none.
+
     Examples alone prove only that a rule does not fire on sound data. A rule that
     guards nothing passes them identically to one that guards everything, so a
     `counter_examples` entry — a node the named rule MUST reject — is the evidence
@@ -418,6 +425,46 @@ def validate_package(package: Package, blob_dir: Path,
     everything holds.
     """
     log: list[str] = []
+
+    # --- the first kind of knowledge ---------------------------------------------
+    #
+    # What a kind MEANS is prose and a reader judges it; no gate can pretend to. What
+    # is mechanical is whether anything in the package IS one — and that is the exact
+    # failure the whole gate exists against, a word entering the library with no
+    # referent. A namespace entry says so with `convention`, and pays for the licence
+    # by being held to it: say a kind is a convention and nothing may be one.
+    instantiated: set[str] = set()
+    for node in package.examples:
+        _collect_kinds(node, instantiated)
+    in_counter: set[str] = set()
+    for ce in package.counter_examples:
+        for node in ce.nodes:
+            _collect_kinds(node, in_counter)
+
+    conventions = [k.kind for k in package.vocabulary if k.convention]
+    for kind in conventions:
+        where = ("an example" if kind in instantiated else
+                 "a counter-example" if kind in in_counter else None)
+        if where:
+            raise ValueError(
+                f"kind '{kind}' is declared a convention — a namespace its contracts "
+                f"hang prose on, which no node is — but {where} in this package is one. "
+                "Either it is a node kind and the flag is wrong, or the node is")
+    undemonstrated = sorted({k.kind for k in package.vocabulary
+                             if not k.convention} - instantiated)
+    if undemonstrated:
+        raise ValueError(
+            f"{len(undemonstrated)} kind(s) that no example is: "
+            f"{', '.join(undemonstrated)}. A word with no referent is what a private "
+            "vocabulary is made of — ship a node that is one, or mark the entry "
+            "`convention=True` if nothing ever should be")
+    if package.vocabulary:
+        log.append(
+            f"{len(package.vocabulary) - len(conventions)} kind(s) instantiated by the "
+            f"package's examples"
+            + (f"; {len(conventions)} convention(s) held to naming nothing: "
+               + ", ".join(conventions) if conventions else ""))
+
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
 
@@ -562,6 +609,12 @@ def _demonstrate(contract: str, cases: list[Demonstration], stage: Quern,
     scenarios = ", ".join(d.because for d in cases if d.because)
     log.append(f"contract '{contract}': {len(cases)} demonstration(s) hold ({source})"
                + (f" — {scenarios}" if scenarios else ""))
+
+
+def _collect_kinds(node: Node, acc: set[str]) -> None:
+    acc.add(node.kind)
+    for child in node.children:
+        _collect_kinds(child, acc)
 
 
 def _expectation_key(dem: Demonstration):

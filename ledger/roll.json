@@ -10,6 +10,26 @@
     "digest": "ec6fa669552b"
   },
   {
+    "path": "a-kind-is-a-word-something-is",
+    "kind": "decision",
+    "digest": "e1c1e7a6c1b3"
+  },
+  {
+    "path": "a-kind-is-a-word-something-is/alt-a-flag-that-only-exempts",
+    "kind": "alternative",
+    "digest": "d43e82d83887"
+  },
+  {
+    "path": "a-kind-is-a-word-something-is/alt-infer-the-convention-from-an-empty-shape",
+    "kind": "alternative",
+    "digest": "283781b55f34"
+  },
+  {
+    "path": "a-kind-is-a-word-something-is/alt-let-a-counter-example-count-as-an-instance",
+    "kind": "alternative",
+    "digest": "ef855161de8c"
+  },
+  {
     "path": "a-kind-may-ship-with-nothing-that-is-one",
     "kind": "debt",
     "digest": "a6cc49e1b87a"

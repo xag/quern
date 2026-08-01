@@ -121,9 +121,12 @@ def test_a_relational_defect_can_stage_the_world_it_needs(tmp_path):
     assert any("estimated from a photo" in line for line in log)
 
 
-def test_packages_without_rules_are_unaffected(tmp_path):
-    """geometry@1.0.0 ships kinds and solvers, no rules. It must still publish."""
+def test_packages_without_rules_owe_no_counter_example(tmp_path):
+    """A package of kinds and solvers with no rules has nothing to refute, and still
+    publishes — it owes its vocabulary an instance, which is a different debt."""
     log = validate_package(
-        Package(name="conventions", version="1", vocabulary=[BOLT]),
+        Package(name="conventions", version="1", vocabulary=[BOLT],
+                examples=[bolt("proof-bolt", mass=10.0)]),
         tmp_path, Library(tmp_path))
     assert not any("counter-example" in line for line in log)
+    assert any("1 kind(s) instantiated" in line for line in log)

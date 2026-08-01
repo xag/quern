@@ -46,7 +46,7 @@ import os
 from pathlib import Path
 
 import quern.grounding  # noqa: F401 — the natives; the package itself arrives by pin
-from quern import Quern, Node, Quantity
+from quern import SUPERSEDES, Quern, Node, Quantity
 from quern.library import consume
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -833,6 +833,59 @@ def build() -> Quern:
                          "once a kind can say which sort it is, and the only reason it "
                          "is not written is that today it would refuse a package that "
                          "is correct"})],
+        ),
+
+        Node(
+            id="a-kind-is-a-word-something-is",
+            kind="decision",
+            name="A package's kinds must be instantiated by its own examples, and a "
+                 "namespace entry says so and is held to naming nothing",
+            links={SUPERSEDES: ["a-kind-may-ship-with-nothing-that-is-one"]},
+            payload={"why":
+                     "The debt above was right that a kind's MEANING cannot be gated - "
+                     "prose is judged by a reader. It was wrong that this left nothing "
+                     "to check. Whether anything in the package IS one is mechanical, "
+                     "and it is precisely the failure the gate exists against: a word "
+                     "entering the library with no referent. KindDef gains `convention`, "
+                     "for an entry that names a namespace its contracts hang prose on. "
+                     "The flag is held BOTH ways - a kind that is not a convention must "
+                     "be instantiated, a kind that says it is one must be instantiated "
+                     "by nothing - because an exemption anybody could flip would read "
+                     "as a check while being none.",
+                     "consequence":
+                     "Measured before it was written: of the packages in the registry "
+                     "carrying vocabulary, all but the namespace-only ones already "
+                     "complied, so the flag is not a workaround for the check but the "
+                     "shape the content already had. Versions are immutable, so the "
+                     "packages that predate the field are republished rather than "
+                     "edited, and every tree pinning the old ones repins when it takes "
+                     "this revision of the substrate. That cost is the doctrine working, "
+                     "not a surprise: exact versions, fork-or-republish, no ranges."},
+            children=[
+                Node(id="alt-infer-the-convention-from-an-empty-shape", kind="alternative",
+                     name="Treat a kind that declares no params, no links and no "
+                          "operations, and that nothing instantiates, as a namespace",
+                     payload={"why":
+                              "Needs no new field and would have cost no republication. "
+                              "Rejected because it is inference, and it excuses exactly "
+                              "the case being caught: a real node kind that happens to "
+                              "document nothing would be silently forgiven, which is the "
+                              "hole wearing the shape of a check."}),
+                Node(id="alt-let-a-counter-example-count-as-an-instance", kind="alternative",
+                     name="Accept a kind demonstrated only by the node a rule must reject",
+                     payload={"why":
+                              "A defect is not a referent. A kind whose only appearance "
+                              "in the package is the thing a rule refuses has never been "
+                              "shown sound, and sound is what a consumer of the "
+                              "vocabulary is being handed."}),
+                Node(id="alt-a-flag-that-only-exempts", kind="alternative",
+                     name="Let `convention=True` simply switch the check off for that kind",
+                     payload={"why":
+                              "The obvious shape, and the reason the debt sat open: it "
+                              "makes the gate advisory for anyone willing to type the "
+                              "flag. Holding the claim both ways costs nothing and makes "
+                              "the declaration falsifiable."}),
+            ],
         ),
 
         Node(

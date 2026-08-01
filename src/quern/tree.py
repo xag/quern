@@ -96,6 +96,16 @@ class KindDef(BaseModel):
     expected to carry ("depth: how deep, in mm", "separates: the two it divides").
     `operations` binds the kind to capabilities — what can be computed wherever a
     node means this, discovered with the slice like the rest of the vocabulary.
+
+    `convention` says this entry names a namespace and not a shape a node can have:
+    it exists so a package's contracts have somewhere to hang their prose, and no
+    node is ever one. It is the one thing about a kind that publication can check,
+    and it is checked BOTH ways — a kind that is not a convention must be
+    instantiated by an example, and a kind that says it is one must be instantiated
+    by nothing. That symmetry is the whole point: an escape hatch anybody could flip
+    would be worth less than no check, because it would read as a check. None rather
+    than False so a package that predates the field serializes unchanged and keeps
+    its digest.
     """
 
     kind: str
@@ -103,6 +113,7 @@ class KindDef(BaseModel):
     params: dict[str, str] = Field(default_factory=dict)
     links: dict[str, str] = Field(default_factory=dict)
     operations: dict[str, OperationDef] = Field(default_factory=dict)
+    convention: bool | None = None
 
 
 class Rule(BaseModel):

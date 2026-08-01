@@ -14,7 +14,7 @@ import pytest
 
 import quern.grounding  # noqa: F401 -- registers the standard natives and their spec
 from quern.grounding import GROUNDING_SPEC
-from quern.library import Library, Package, validate_package
+from quern.library import CounterExample, Library, Package, validate_package
 from quern.solver import SolverDef
 from quern.tree import (
     NATIVE,
@@ -23,6 +23,7 @@ from quern.tree import (
     KindDef,
     Node,
     Quern,
+    Rule,
     check_demonstrations,
     register_native,
 )
@@ -45,6 +46,8 @@ def scratch_native():
 
 
 def pkg(**kw) -> Package:
+    # a kind the package declares is a kind something in it has to be
+    kw.setdefault("examples", [Node(id="c0", kind="crate")])
     return Package(name="counting", version="1",
                    vocabulary=[KindDef(kind="crate", description="holds things")],
                    **kw)
@@ -310,3 +313,87 @@ def test_a_contract_answering_the_wrong_shape_says_so():
     got = check_demonstrations(
         [dem], tree, lambda t, name, args: {"diagnostics": [], "proposals": []})
     assert "answered in another shape" in got[0]
+
+
+# --- the first kind of knowledge ----------------------------------------------------
+#
+# A kind's MEANING is prose and a reader judges it. Whether anything IS one is
+# mechanical, and it is the word-with-no-referent the whole gate exists against.
+
+CRATE = KindDef(kind="crate", description="holds things")
+NAMESPACE = KindDef(kind="counting", description="Convention pack, not a node kind: "
+                                                 "somewhere for the contracts to hang.",
+                    convention=True)
+
+
+def test_a_kind_nothing_is_cannot_be_published(tmp_path):
+    with pytest.raises(ValueError, match=r"1 kind\(s\) that no example is: crate"):
+        validate_package(Package(name="counting", version="1", vocabulary=[CRATE]),
+                         tmp_path, Library(tmp_path))
+
+
+def test_a_kind_is_demonstrated_anywhere_in_an_example_tree(tmp_path):
+    """Nested counts: a kind that only ever appears as somebody's child is still a
+    kind something is."""
+    log = validate_package(
+        Package(name="counting", version="1", vocabulary=[CRATE],
+                examples=[Node(id="yard", kind="yard",
+                               children=[Node(id="c0", kind="crate")])]),
+        tmp_path, Library(tmp_path))
+    assert any("1 kind(s) instantiated" in line for line in log)
+
+
+def test_a_convention_may_name_nothing_and_publish(tmp_path):
+    log = validate_package(Package(name="counting", version="1", vocabulary=[NAMESPACE]),
+                           tmp_path, Library(tmp_path))
+    assert any("1 convention(s) held to naming nothing: counting" in line for line in log)
+
+
+def test_the_convention_flag_is_a_claim_and_not_an_escape_hatch(tmp_path):
+    """The half that makes the flag worth having. If declaring `convention=True` only
+    ever bought an exemption, anyone could flip it and the check would read as a check
+    while being none — so a kind that says nothing is one is held to it."""
+    with pytest.raises(ValueError, match="declared a convention.*but an example"):
+        validate_package(
+            Package(name="counting", version="1", vocabulary=[NAMESPACE],
+                    examples=[Node(id="oops", kind="counting")]),
+            tmp_path, Library(tmp_path))
+
+
+def test_a_counter_example_does_not_demonstrate_a_kind(tmp_path):
+    """A defect is not a referent. A kind whose only appearance is in the node a rule
+    must REJECT has never been shown as something sound, which is what a consumer of
+    the vocabulary is being asked to build with."""
+    with pytest.raises(ValueError, match="no example is: crate"):
+        validate_package(
+            Package(name="counting", version="1", vocabulary=[CRATE],
+                    rules=[Rule(name="crate-is-labelled", kind="crate",
+                                expr="param(self, 'label') > 0")],
+                    examples=[Node(id="yard", kind="yard")],
+                    counter_examples=[CounterExample(
+                        rule="crate-is-labelled", node=Node(id="bare", kind="crate"),
+                        because="a crate with no label")]),
+            tmp_path, Library(tmp_path))
+
+
+def test_a_convention_caught_by_a_counter_example_is_refused_too(tmp_path):
+    with pytest.raises(ValueError, match="declared a convention.*but a counter-example"):
+        validate_package(
+            Package(name="counting", version="1", vocabulary=[NAMESPACE, CRATE],
+                    rules=[Rule(name="crate-is-labelled", kind="crate",
+                                expr="param(self, 'label') > 0")],
+                    examples=[Node(id="c0", kind="crate",
+                                   params={"label": {"value": 1.0}})],
+                    counter_examples=[CounterExample(
+                        rule="crate-is-labelled",
+                        nodes=[Node(id="bare", kind="crate"),
+                               Node(id="sneaky", kind="counting")],
+                        because="a crate with no label")]),
+            tmp_path, Library(tmp_path))
+
+
+def test_the_shipped_grounding_package_declares_its_namespace(tmp_path):
+    """The package this substrate's own gates lean on is the case the flag was added
+    for: one entry, naming a namespace its three contracts hang prose on."""
+    voc = Library(".quern/library").get("grounding", "1.2.0").vocabulary
+    assert [(k.kind, k.convention) for k in voc] == [("grounding", True)]
