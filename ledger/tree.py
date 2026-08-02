@@ -889,6 +889,59 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-recorder-is-upstream-and-the-circle-is-not-closed",
+            kind="decision",
+            name="quern depends on the recorder at runtime, and the recorder's own checkout "
+                 "therefore cannot install quern - which is correct, not a defect",
+            links={"rests_on": ["the-substrate-records-its-own-runs"]},
+            payload={"why":
+                     "The decision above makes recording a runtime dependency: a recorder that "
+                     "only runs in development is absent from the run somebody reports. That "
+                     "puts xag-flight-recorder under quern permanently, and in exactly ONE "
+                     "checkout - the recorder's own - the dependency comes back around. uv "
+                     "needs one URL per distribution and is offered two, the editable root and "
+                     "quern's git pin, so it refuses. Nothing is wrong. A recorder cannot "
+                     "record itself, any more than an eye can see itself: the recorder is the "
+                     "sensory system, this substrate is the cortex, and the arrow points one "
+                     "way. The resolver error is that fact arriving as a diagnostic.",
+                     "consequence":
+                     "The recorder keeps its own quern-authored ledger and runs the check OUT "
+                     "of its project environment, where the root package is not installed and "
+                     "there is nothing to collide with. It costs that repo one unusual command "
+                     "and costs this one nothing. Recorded here rather than there because the "
+                     "constraint is created by THIS package's dependency, and a reader who "
+                     "meets the error will look for its cause upstream."},
+            children=[
+                Node(id="alt-make-the-recorder-an-extra", kind="alternative",
+                     name="Ship recording as an optional extra so nothing depends on it by "
+                          "default",
+                     payload={"why":
+                              "Dissolves the circle completely, and guts the reason for it. "
+                              "Recording that a consumer opts into is recording that was off "
+                              "on the run that mattered - the same argument that makes "
+                              "QUERN_FLIGHT default to on. Trading the guarantee for a "
+                              "resolver's convenience in one checkout is the wrong way round."}),
+                Node(id="alt-delete-the-recorders-ledger", kind="alternative",
+                     name="Let the recorder drop its design ledger, since it cannot install "
+                          "the thing that checks it",
+                     payload={"why":
+                              "It is not a stub: it carries that project's six-runtime "
+                              "decisions with the alternatives they rejected, behind gates "
+                              "that can go red. Deleting a record to silence a resolver is the "
+                              "trade this whole substrate exists to refuse."}),
+                Node(id="alt-declare-a-workspace-member", kind="alternative",
+                     name="Point the recorder's dependency at its own workspace member so uv "
+                          "sees one source",
+                     payload={"why":
+                              "Tried, and it does not work: this package's git pin travels "
+                              "inside its metadata, so no source declaration downstream can "
+                              "outrank it. The variant uv does accept resolves by dropping "
+                              "quern from the group entirely - a green command that installs "
+                              "nothing, which is worse than the error it replaced."}),
+            ],
+        ),
+
+        Node(
             id="the-host-surface",
             kind="gate",
             name="What quern's MCP host exposes to a caller",

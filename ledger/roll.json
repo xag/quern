@@ -190,6 +190,26 @@
     "digest": "a41c412bacd9"
   },
   {
+    "path": "the-recorder-is-upstream-and-the-circle-is-not-closed",
+    "kind": "decision",
+    "digest": "72e6f2ada4cc"
+  },
+  {
+    "path": "the-recorder-is-upstream-and-the-circle-is-not-closed/alt-declare-a-workspace-member",
+    "kind": "alternative",
+    "digest": "f3e1fc1d05d5"
+  },
+  {
+    "path": "the-recorder-is-upstream-and-the-circle-is-not-closed/alt-delete-the-recorders-ledger",
+    "kind": "alternative",
+    "digest": "963be9596163"
+  },
+  {
+    "path": "the-recorder-is-upstream-and-the-circle-is-not-closed/alt-make-the-recorder-an-extra",
+    "kind": "alternative",
+    "digest": "aeffe4797007"
+  },
+  {
     "path": "the-red-ledger-ships-red",
     "kind": "decision",
     "digest": "eacbab36991c"
