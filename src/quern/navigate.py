@@ -94,7 +94,10 @@ def _import_ledger_module(path: Path) -> Any:
     for name in [n for n in sys.modules if n == top or n.startswith(f"{top}.")]:
         del sys.modules[name]
     sys.path.insert(0, str(d))
-    import importlib
+    # No local `import importlib` here: it would make the name local to the whole
+    # function, and the standalone branch above would then hit an unbound local
+    # before ever reaching this line. The top-level `import importlib.util`
+    # already binds `importlib`.
     return importlib.import_module(dotted)
 
 
