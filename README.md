@@ -38,9 +38,9 @@ A **Quern** is a tree of nodes, plus the semantics that give it meaning: a vocab
 
 That is the whole model. [The detail is below](#the-model-in-detail); everything between here and there is what it looks like in use.
 
-## What a tree can be
+## What people build with it
 
-A quern tree is whatever a domain needs it to be, because the domain supplies the words. The same three ingredients — kinds, rules, contracts — arrive in very different clothes:
+Four trees that sit about as far apart as they can, each the same three ingredients in different clothes — because the domain supplies the words, and the substrate supplies none of them:
 
 - **A design ledger.** Kinds: decision, debt, hypothesis, gate. Rules: a decision names at least one alternative it rejected; a debt names how it is discharged; nothing unsound passes a gate. This is the tree quern keeps about itself, and the one shown below.
 - **A research notebook.** Kinds: thesis, kill-criterion, confirming-signal. Rules: a belief carries at least one observation that would falsify it; a conviction is a probability. Contracts compute over a data window, so a criterion is watched rather than remembered.
