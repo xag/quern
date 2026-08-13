@@ -24,9 +24,19 @@ That is why this substrate interprets none of it. What must be mechanical is kep
 
 Which buys a new failure, and it is the obvious objection: cheap local meaning is a thousand private vocabularies that never converge — everyone inventing words, nobody able to read anyone else's tree. **The proof gate is the answer to it, and it is the load-bearing part of the design.** Local content costs nothing and binds nobody: invent whatever word the work needs. Leaving the local tree costs evidence. A rule enters a package only if the package's own examples exercise it and pass, and only if a counter-example staged alone makes it fire — because every rule here passes its examples, and so does `1 == 1`. A contract enters only if it has been shown answering worked cases, at least two of them expecting different answers, since a gate reading `solve(…) == 0` cannot otherwise tell a contract that counts from one that returns zero. What ships is pinned by digest at an exact version, so adopting it is a fork rather than a negotiation, and the diamond that would force one is refused at pin time.
 
-So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **All three are data here**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable.
+So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong: **small, local, provable and disposable**, in place of central, permanent and therefore unreachable. Innovation and capitalization become organic by design — every endeavor is a research project that is operative on the go, and the boundary between research and operations disappears, because the model you reason with *is* the model you run.
 
-The core interprets none of it; it is mechanics and safety only. Innovation and capitalization become **organic by design**: every endeavor is a research project that is operative on the go, and the boundary between research and operations disappears — the model you reason with *is* the model you run.
+## What quern is
+
+A **Quern** is a tree of nodes, plus the semantics that give it meaning: a vocabulary saying what each kind of node means, rules that must hold over it, and solvers that compute across it. All three are data — registered at runtime, per tree, by whoever designs there — which is why the code can interpret none of them and be mechanics and safety only.
+
+- **A node** carries a free-text `kind`, params where every number is a `Quantity` (its unit, where it came from, and whether it is grounded), named links, an opaque payload, and children.
+- **A vocabulary entry** is a name and a paragraph of prose. Nothing parses it.
+- **A rule** is one expression in a small safe language, bound to a kind or to a path, which goes red on the exact node that violates it.
+- **A solver** is a sandboxed module that *proposes* values, stamped with the hash of the code that produced them, and never writes the tree itself.
+- **A package** is all of that, versioned and pinned by digest — and it can only be published through the proof gate.
+
+That is the whole model. [The detail is below](#the-model-in-detail); everything between here and there is what it looks like in use.
 
 ## What a tree can be
 
@@ -178,9 +188,9 @@ uv run python -m quern.replay .quern/flight/<tape>.jsonl --call 0   # play it
 
 Set `QUERN_FLIGHT=0` to turn it off. It is on by default because a recorder you have to remember to switch on is a recorder that was off on the run that mattered — and the point of a bug report is that nobody knew it was coming.
 
-## What quern is
+## The model in detail
 
-The **Quern**: a tree of typed-by-data objects with a vocabulary that rules are written against (the pattern BRMS engines call a "Business Object Model"), generalized so **semantics are data**, not code. The `Quern` type is the model — vocabulary, rules, solvers, packages, and a `root` node tree. The code here is mechanics and safety only; everything that *means* something is content:
+Everything above in full. The `Quern` type is the model — vocabulary, rules, solvers, packages, and a `root` node tree — a tree of typed-by-data objects with a vocabulary that rules are written against (the pattern BRMS engines call a "Business Object Model"), generalized so **semantics are data**, not code. The code here is mechanics and safety only; everything that *means* something is content:
 
 - **Nodes**: free-text `kind`, params (every number is a Quantity: `value`, `unit`, `tolerance`, a free-text `provenance` label the domain names, the fixed `grounded` predicate — is this an observation you may act on? — plus `source` and `derived_from` lineage), named links, an opaque payload, children. Path-addressed, partially updatable.
 - **Vocabulary**: what kinds mean — prose, registered at runtime, discovered with each node you read (`semantics_at`). An entry that names a namespace rather than a shape a node can have says `convention=True`, which publication holds it to. A kind may also declare `operations` — name → `{contract, description, params_doc, medium}` — binding it to solver contracts that make sense on it, so every read answers "what is this, what must hold, what can be computed here". Capability attaches to what a node *means*, as data: nodes get affordances everywhere the kind appears, the tool surface stays closed, and the core never branches on an operation name.
