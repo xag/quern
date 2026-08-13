@@ -100,7 +100,15 @@ def main(argv: list[str] | None = None) -> None:
     import argparse
     from pathlib import Path
 
+    from .cli import _utf8_streams
     from .navigate import load_build, project_label
+
+    # The brief prints en-dashes and RED markers from ledger prose; a Windows console
+    # defaults to cp1252 and dies on the first one. `quern brief` (the CLI entry) already
+    # reconfigures the streams; this module entry point crashed on the estate's biggest
+    # ledger until it did the same — found by a reader following the skill's own first
+    # instruction.
+    _utf8_streams()
 
     ap = argparse.ArgumentParser(
         prog="quern brief",
