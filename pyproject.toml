@@ -17,7 +17,14 @@ dependencies = [
 # quern.host registers the tree_* MCP tools over a Workspace; only a server needs it.
 # (The geometry extra is gone with the geometry module: shapes are a domain package now,
 # and a shape-carrying host installs that package instead.)
-host = ["mcp[cli]>=1.2"]
+# CAPPED BELOW 2, and the cap is load-bearing. mcp 2.0.0 no longer exposes
+# `mcp.server.fastmcp`, which host.py imports at module scope — so an unbounded pin
+# breaks every consumer of `quern[host]` (invest, home, spec-studio, the navigator)
+# the next time any of them resolves fresh. It broke korean-gpt-coach's production on
+# 2026-08-12, and this repo's first-ever CI run caught the same thing here on
+# 2026-08-13: a local venv holding 1.x passes forever while a fresh resolve does not.
+# Lift it by porting to the 2.x import path, never by widening the range.
+host = ["mcp[cli]>=1.2,<2"]
 
 [project.scripts]
 quern = "quern.cli:main"
