@@ -1,14 +1,43 @@
 # quern
 
-quern is a tree of typed objects where the types, the rules and the solvers are **data**, authored at runtime — not code, not schema migrations. You register what a kind of node *means* (in prose), write rules against that meaning in a small safe expression language, and watch them go red on the exact node that violates them. What proves out gets published as a versioned, digest-pinned package — and publication is **proof-gated**: a kind no example is does not enter, nor a rule no example exercises, nor one no counter-example refutes, nor a contract that has never been shown answering anything.
+**A tree whose meaning is data.** The kinds of thing in it, the rules that must hold between them, and the code that computes over them are all authored at runtime — not compiled in, not migrated. You write down what a kind of node *means*, in prose; you write rules against that meaning; they go red on the exact node that violates them. What proves out is published as a versioned, digest-pinned package that the next tree pins and refines.
+
+## Why: knowledge that moves as fast as the work
+
+Designing anything takes three kinds of knowledge — **semantics** (what the things mean), **models** (what must hold between them), **solvers** (what computes over them). In the old world all three are frozen into software the moment a programme is built. You learn something while designing — a better word for what you are looking at, a rule you should have had, a smarter way to compute an answer — and you cannot apply it to the very programme that taught it to you without a new release cycle. So the capitalization loop on knowledge, modeling and best practice runs slow: semantics are fixed in the code, models are fixed, solvers are fixed. Innovation waits for the next version.
+
+The answer the field reached for was the shared model: one ontology, one canonical schema, one vocabulary authored up front by the people who own it and handed to everyone else. Sometimes that works, and it is worth being precise about when. SNOMED CT and the Gene Ontology are maintained by permanent institutions over domains whose subject matter exists independently of any project — a disease and a gene are there whether or not you are modelling them today — and both are load-bearing infrastructure for entire fields.
+
+The failures share the opposite shape, and they are not small. HL7 v3 spent a decade building a canonical Reference Information Model for health information; implementers largely would not adopt it, and FHIR exists because the industry needed something it could actually build against. Cyc spent forty years encoding common sense into one consistent ontology and never reached the general reasoning it was for. The Semantic Web's vision of universal linked ontologies produced, in the end, mostly schema.org — small, pragmatic, and nothing like the plan. In each case the ambition was to finish the vocabulary before the work, and in each case the vocabulary was itself part of what was being worked out.
+
+The reason has nothing to do with formalism. Authoring meaning was expensive, so it had to be centralized; centralized, it had to be agreed before use; agreed before use, it had to be *finished* — and a model that must be finished before it is useful is never either.
+
+AI dissolves the cost that forced all of that. Semantics, models and solvers can now be **authored on the go**, while the design is happening, by the intelligence sitting *at* the work. Not centralized in the heads of the people who once specified the system, and not frozen in its code — distributed, like a squid whose intelligence lives in its arms and can regrow, rather than commanded from a single brain. Meaning is written at the node that needs it, the moment it is needed, and kept.
+
+Which buys a new failure, and it is the obvious objection: cheap local meaning is a thousand private vocabularies that never converge — everyone inventing words, nobody able to read anyone else's tree. **The proof gate is the answer to it, and it is the load-bearing part of the design.** Local content costs nothing and binds nobody: invent whatever word the work needs. Leaving the local tree costs evidence. A rule enters a package only if the package's own examples exercise it and pass, and only if a counter-example staged alone makes it fire — because every rule here passes its examples, and so does `1 == 1`. A contract enters only if it has been shown answering worked cases, at least two of them expecting different answers, since a gate reading `solve(…) == 0` cannot otherwise tell a contract that counts from one that returns zero. What ships is pinned by digest at an exact version, so adopting it is a fork rather than a negotiation, and the diamond that would force one is refused at pin time.
+
+So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **All three are data here**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable.
+
+The core interprets none of it; it is mechanics and safety only. Innovation and capitalization become **organic by design**: every endeavor is a research project that is operative on the go, and the boundary between research and operations disappears — the model you reason with *is* the model you run.
+
+## What a tree can be
+
+A quern tree is whatever a domain needs it to be, because the domain supplies the words. The same three ingredients — kinds, rules, contracts — arrive in very different clothes:
+
+- **A design ledger.** Kinds: decision, debt, hypothesis, gate. Rules: a decision names at least one alternative it rejected; a debt names how it is discharged; nothing unsound passes a gate. This is the tree quern keeps about itself, and the one shown below.
+- **A research notebook.** Kinds: thesis, kill-criterion, confirming-signal. Rules: a belief carries at least one observation that would falsify it; a conviction is a probability. Contracts compute over a data window, so a criterion is watched rather than remembered.
+- **A survey of a place.** Kinds: space, opening, boundary. Every dimension carries whether it was measured or estimated, so a rule can refuse to let anything be cut against a guess, and contracts solve the geometry the measurements leave under-determined.
+- **A specification of a running system.** Kinds: promise, and the evidence that enforces it. Rules: a promise claiming to be proven must name what proves it — so a sheet of claims can be checked against the artifacts underneath instead of believed.
+
+None of those vocabularies is quern's, and the substrate knows nothing of any of them. They are shapes, not products: each is a package of kinds, rules and contracts, authored in its own repository and pinned by digest like any other content.
+
+## Read a tree
 
 ```bash
 git clone https://github.com/xag/quern && cd quern && uv sync
 ```
 
 The core needs only pydantic and wasmtime. The MCP host and the navigator need one extra: `uv sync --extra host`.
-
-## Read a tree
 
 The tree most projects meet first is a **design ledger**: the decisions a codebase rests on with the alternatives they rejected, the debts it carries on purpose, the hypotheses still open, and the gates that refuse to go green while a debt is unpaid. Two commands open one, and neither needs any per-project wiring.
 
@@ -56,19 +85,6 @@ uv run python -m ledger.check   # exit 1 while any rule is red
 ```
 
 This repo's own ledger is **red today, on purpose**: the host's compute boundary carries two open debts, recorded as data a gate can see, refusing to call the surface sound until the work is done. A caveat that fires is the pitch.
-
-None of that vocabulary is quern's. `decision`, `debt`, `hypothesis`, `gate` and the rules that judge them arrive as a package pinned by digest in `quern.lock`, like any other content. quern supplies the mechanics — the tree, the rule evaluator, the proof gate, the roll, the viewer — and interprets none of it.
-
-## Every run is recorded
-
-quern declares its nondeterminism boundary — text on disk, the registry listing, solver blobs, `$QUERN_REGISTRY` — and writes one small JSONL *tape* per invocation into `.quern/flight/`. A tape is that run, compressed: replay it and the real code re-executes with the recorded answers fed back, every internal variable observable.
-
-```bash
-uv run python -m quern.replay .quern/flight/<tape>.jsonl            # what does it hold?
-uv run python -m quern.replay .quern/flight/<tape>.jsonl --call 0   # play it
-```
-
-Set `QUERN_FLIGHT=0` to turn it off. It is on by default because a recorder you have to remember to switch on is a recorder that was off on the run that mattered — and the point of a bug report is that nobody knew it was coming.
 
 ## Five minutes
 
@@ -141,21 +157,18 @@ Library("registry").publish(Package(
 
 That is the whole loop: meaning is authored where the work happens, checked where it stands, and only what demonstrates itself becomes something others can build on.
 
-## Why: knowledge that moves as fast as the work
-
-Designing anything takes three kinds of knowledge — **semantics** (what the things mean), **models** (what must hold between them), **solvers** (what computes over them). In the old world all three are frozen into software the moment a programme is built. You learn something while designing — a better word for what you are looking at, a rule you should have had, a smarter way to compute an answer — and you cannot apply it to the very programme that taught it to you without a new release cycle. So the capitalization loop on knowledge, modeling and best practice runs slow: semantics are fixed in the code, models are fixed, solvers are fixed. Innovation waits for the next version.
-
-The answer the field reached for was the shared model: one ontology, one canonical schema, one vocabulary authored up front by the people who own it and handed to everyone else. It works where a permanent institution maintains it over a bounded domain — SNOMED CT, the Gene Ontology. It fails wherever the vocabulary is itself part of what is being designed, and it fails for a reason that has nothing to do with formalism: authoring meaning was expensive, so it had to be centralized, so it had to be agreed before use, so it had to be *finished* — and a model that must be finished before it is useful is never either.
-
-AI dissolves the cost that forced all of that. Semantics, models and solvers can now be **authored on the go**, while the design is happening, by the intelligence sitting *at* the work. Not centralized in the heads of the people who once specified the system, and not frozen in its code — distributed, like a squid whose intelligence lives in its arms and can regrow, rather than commanded from a single brain. Meaning is written at the node that needs it, the moment it is needed, and kept.
-
-Which buys a new failure, and it is the obvious objection: cheap local meaning is a thousand private vocabularies that never converge — everyone inventing words, nobody able to read anyone else's tree. **The proof gate is the answer to it, and it is the load-bearing part of the design.** Local content costs nothing and binds nobody: invent whatever word the work needs. Leaving the local tree costs evidence. A rule enters a package only if the package's own examples exercise it and pass, and only if a counter-example staged alone makes it fire — because every rule here passes its examples, and so does `1 == 1`. A contract enters only if it has been shown answering worked cases, at least two of them expecting different answers, since a gate reading `solve(…) == 0` cannot otherwise tell a contract that counts from one that returns zero. What ships is pinned by digest at an exact version, so adopting it is a fork rather than a negotiation, and the diamond that would force one is refused at pin time.
-
-So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **In quern, all three are data**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable. `ledger@0.6.0`, the vocabulary this repo's own brief is written in, is one of them; it is pinned in `quern.lock` like any other content.
-
 Vocabulary is checked for the one thing about it that is not prose. What a kind *means* is judged by a reader and no gate can pretend otherwise — but whether anything in the package *is* one is mechanical, and that is the failure the gate exists against: a word entering the library with no referent. So every kind must be instantiated by an example, or declare `convention=True` for an entry that names a namespace its contracts hang prose on. The flag is held **both** ways — say a kind is a convention and nothing in the package may be one — because an exemption anyone could flip would read as a check while being none.
 
-The core interprets none of it; it is mechanics and safety only. Innovation and capitalization become **organic by design**: every endeavor is a research project that is operative on the go, and the boundary between research and operations disappears — the model you reason with *is* the model you run. Knowledge no longer sits still while operations move around it; the two evolve together. With AI at every node, that is simply the new normal.
+## Every run is recorded
+
+quern declares its nondeterminism boundary — text on disk, the registry listing, solver blobs, `$QUERN_REGISTRY` — and writes one small JSONL *tape* per invocation into `.quern/flight/`. A tape is that run, compressed: replay it and the real code re-executes with the recorded answers fed back, every internal variable observable.
+
+```bash
+uv run python -m quern.replay .quern/flight/<tape>.jsonl            # what does it hold?
+uv run python -m quern.replay .quern/flight/<tape>.jsonl --call 0   # play it
+```
+
+Set `QUERN_FLIGHT=0` to turn it off. It is on by default because a recorder you have to remember to switch on is a recorder that was off on the run that mattered — and the point of a bug report is that nobody knew it was coming.
 
 ## What quern is
 
@@ -172,7 +185,7 @@ The **Quern**: a tree of typed-by-data objects with a vocabulary that rules are 
 
 Domains are authored in their own repositories and travel the registry as data. A domain package may be nothing but vocabulary and rules; it may also carry native implementations of its contracts, registered when its Python is imported — a native is an optimisation of content, never a semantics of its own, and a plain `import quern` pulls in no domain at all. The one asymmetry is deliberate: the contracts every gate leans on are authored as content like anything else, while their implementations ship here in `quern.grounding`, because a gate that could be handed its own grounding is not a gate. Meaning is data, safety is code.
 
-The substrate knows nothing of its consumers. A domain lives entirely outside this library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding `quern` — and domain safety invariants stay in that consumer code.
+The substrate knows nothing of its consumers. A domain lives entirely outside this library — as a package (vocabulary, rules, solvers) plus a `Workspace` embedding `quern` — and domain safety invariants stay in that consumer code. `ledger@0.6.0`, the vocabulary this repo's own brief is written in, is one such package; it is pinned in `quern.lock` like any other content.
 
 Canonical repo: `xag/quern`. Depend on it by git rev, never a range; a consumer that vendors it instead (e.g. via `git subtree` under some `<prefix>`) syncs with:
 
