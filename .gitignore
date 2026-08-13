@@ -14,5 +14,11 @@ uv.lock
 .idea/
 .vscode/
 
-# quern's own synced package cache (quern.lock is the source of truth)
-.quern/
+# quern's own synced package cache. `.quern/library` is TRACKED, the rest ignored:
+# the test suite builds this repo's own ledger, which consumes ledger@0.6.0 by pin, and
+# a CI runner has neither a registry checkout nor a credential. It used to be ignored
+# wholesale, so those tests passed only on a machine that had synced once - the suite was
+# not hermetic and nobody could tell, which is the same failure as having no CI at all.
+# quern.lock stays the source of truth; `consume` verifies every digest against it.
+.quern/*
+!.quern/library/

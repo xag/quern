@@ -11,6 +11,7 @@ These tests build real ledgers on disk both ways round, because that difference 
 whole bug: a mock of the import machinery would have reproduced neither branch.
 """
 
+import os
 from pathlib import Path
 
 import pytest
@@ -137,12 +138,29 @@ class TestTheViewerCannotWrite:
             getattr(self._ws(), attr)
 
 
+@pytest.mark.skipif(os.name != "nt", reason="only a Windows path carries a drive colon")
 def test_an_absolute_path_is_not_split_at_its_drive_letter(tmp_path):
     r"""The bug the first test of this module found. `--module C:\proj\ledger\tree.py`
     was partitioned at the DRIVE colon, so the launcher looked for a ledger at `C` and
     reported it missing — every absolute path on Windows, which is where this estate runs.
-    Both forms must read the same file, with and without an explicit attribute."""
+
+    Windows-only by construction: a POSIX path has no drive, so this asserted nothing
+    there and failed on its own precondition the first time CI ran it on ubuntu. The
+    platform-independent half of the same rule is the test below.
+    """
     path = _ledger(tmp_path, package=False)
     assert path.is_absolute() and ":" in str(path)          # the shape that broke it
     assert load_build(tmp_path, str(path))().root.children[0].id == "only"
     assert load_build(tmp_path, f"{path}:other")().root.children == []
+
+
+def test_a_colon_that_is_not_an_attribute_name_belongs_to_the_path():
+    """The rule underneath the drive-letter bug, checkable on any platform: the LAST
+    colon separates an attribute only when what follows could be one. `C:\\proj\\tree.py`
+    and `/tmp/a:b/tree.py` are both paths; `mymod:PACKAGE` is not."""
+    for spec, is_split in ((r"C:\proj\ledger\tree.py", False),
+                           (r"C:\proj\ledger\tree.py:build", True),
+                           ("/tmp/odd:name/tree.py", False),
+                           ("mymod:PACKAGE", True)):
+        head, sep, tail = spec.rpartition(":")
+        assert bool(sep and tail.isidentifier()) is is_split, spec
