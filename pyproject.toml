@@ -1,7 +1,7 @@
 [project]
 name = "quern"
 version = "0.1.0"
-description = "quern: a generic node tree whose semantics (vocabulary, rules, solvers) are data, registered at runtime and versioned as packages; private while it hardens, built to be open-sourced"
+description = "A tree whose semantics — vocabulary, rules and solvers — are data, authored at runtime and published as digest-pinned packages through a proof gate"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2",
