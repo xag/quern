@@ -28,7 +28,8 @@ quern - ledger brief
 ...
 [gate]  the-host-surface  —  What quern's MCP host exposes to a caller  admits->a-native-contract-is-unmetered,a-host-tool-runs-on-the-event-loop  RED(nothing-unsound-passes-a-gate)
 
-10 entr(y/ies), ~2066 words of prose.
+21 entr(y/ies), ~5546 words of prose.
+omitted as no longer current: 1 debt (the tree keeps them; --all shows them).
 ```
 
 Every marker on a line is read off the node, never annotated by hand. `!meter` names a param that is **not grounded** — the unsound value the entry is carrying, and precisely what a gate reads to refuse. `admits->…` are the node's links, `{2 alternative}` counts its children by kind, and `RED(…)` names the rule failing on it.
@@ -77,35 +78,41 @@ Set `QUERN_FLIGHT=0` to turn it off. It is on by default because a recorder you 
 from quern import KindDef, Node, Quantity, Quern, Rule, run_rules
 
 tree = Quern(
-    vocabulary=[KindDef(kind="tank",
-                        description="A storage tank. Params: level and capacity, in litres.")],
-    rules=[Rule(name="never-over-capacity", kind="tank",
-                description="a tank's level stays within its capacity",
-                expr="param(self, 'level') <= param(self, 'capacity')")],
+    vocabulary=[KindDef(kind="task",
+                        description="A piece of work. Params: spent and budget, in hours.")],
+    rules=[Rule(name="never-over-budget", kind="task",
+                description="a task's spent hours stay within its budget",
+                expr="param(self, 'spent') <= param(self, 'budget')")],
 )
 ```
 
 **Add a node that violates it, and watch the rule fire** — every number is a `Quantity` carrying its unit, where it came from, and whether it is grounded enough to act on:
 
 ```python
-tree.root.children = [Node(id="t1", kind="tank", params={
-    "level": Quantity(value=120, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
-    "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+tree.root.children = [Node(id="migration", kind="task", params={
+    "spent": Quantity(value=120, unit="h", provenance="measured", grounded=True,
+                      source="the timesheet"),
+    # Ungrounded: a figure somebody said, that nobody has checked. It still computes —
+    # this is the value a gate refuses to let travel, and what `!budget` marks in a brief.
+    "budget": Quantity(value=100, unit="h", provenance="asserted", grounded=False,
+                       source="quoted in the kickoff, never agreed"),
 })]
 for r in run_rules(tree):
     print(("ok " if r.ok else "RED"), r.rule, "@", r.node)
-# RED never-over-capacity @ t1
+# RED never-over-budget @ migration
 ```
 
-**Try to publish it, and watch the proof gate refuse** — a rule nothing demonstrates is a claim nobody has to believe:
+**Try to publish it, and watch the proof gate refuse** — it asks for referents before anything else: a kind no node is, is a private word, and a rule nothing demonstrates is a claim nobody has to believe:
 
 ```python
 from quern.library import Library, Package
 
-Library("registry").publish(Package(name="tanks", version="0.1.0", description="tanks",
+Library("registry").publish(Package(name="work", version="0.1.0", description="tasks and budgets",
                                     publisher="you", vocabulary=tree.vocabulary,
                                     rules=tree.rules), {})
-# ValueError: a package with rules must carry examples that exercise them
+# ValueError: 1 kind(s) that no example is: task. A word with no referent is what a
+#             private vocabulary is made of — ship a node that is one, or mark the
+#             entry `convention=True` if nothing ever should be
 ```
 
 **Add the demonstration, and the same call publishes** — an example the rule passes, and a counter-example it must reject:
@@ -113,36 +120,38 @@ Library("registry").publish(Package(name="tanks", version="0.1.0", description="
 ```python
 from quern.library import CounterExample
 
+agreed = dict(provenance="measured", grounded=True, source="the agreed scope")
+
 Library("registry").publish(Package(
-    name="tanks", version="0.1.0", description="tanks", publisher="you",
+    name="work", version="0.1.0", description="tasks and budgets", publisher="you",
     vocabulary=tree.vocabulary, rules=tree.rules,
-    examples=[Node(id="sound", kind="tank", params={
-        "level": Quantity(value=80, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
-        "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+    examples=[Node(id="within", kind="task", params={
+        "spent": Quantity(value=80, unit="h", **agreed),
+        "budget": Quantity(value=100, unit="h", **agreed),
     })],
     counter_examples=[CounterExample(
-        rule="never-over-capacity", because="a tank fuller than its capacity",
-        node=Node(id="overfull", kind="tank", params={
-            "level": Quantity(value=120, unit="L", provenance="sensor", grounded=True, source="gauge 4"),
-            "capacity": Quantity(value=100, unit="L", provenance="spec", grounded=True, source="datasheet"),
+        rule="never-over-budget", because="a task that spent more than it was given",
+        node=Node(id="overrun", kind="task", params={
+            "spent": Quantity(value=120, unit="h", **agreed),
+            "budget": Quantity(value=100, unit="h", **agreed),
         }))],
 ), {})
-# registry/packages/tanks/0.1.0.json — versioned, immutable, pinned by digest
+# registry/packages/work/0.1.0.json — versioned, immutable, pinned by digest
 ```
 
 That is the whole loop: meaning is authored where the work happens, checked where it stands, and only what demonstrates itself becomes something others can build on.
 
 ## Why: knowledge that moves as fast as the work
 
-Designing anything takes three kinds of knowledge — **semantics** (what the parts mean), **models** (what must hold between them), **solvers** (what computes over them). In the old world all three are frozen into software the moment a programme is built. You learn something while designing — a better way to describe a part, a rule you should have had, a smarter way to compute a fit — and you cannot apply it to the very programme that taught it to you without a new release cycle. So the capitalization loop on knowledge, modeling and best practice runs slow: semantics are fixed in the code, models are fixed, solvers are fixed. Innovation waits for the next version.
+Designing anything takes three kinds of knowledge — **semantics** (what the things mean), **models** (what must hold between them), **solvers** (what computes over them). In the old world all three are frozen into software the moment a programme is built. You learn something while designing — a better word for what you are looking at, a rule you should have had, a smarter way to compute an answer — and you cannot apply it to the very programme that taught it to you without a new release cycle. So the capitalization loop on knowledge, modeling and best practice runs slow: semantics are fixed in the code, models are fixed, solvers are fixed. Innovation waits for the next version.
 
-The answer the field reached for was the shared model: one ontology, one PLM schema, one canonical vocabulary, authored up front by the people who own it and handed to everyone else. It works where a permanent institution maintains it over a bounded domain — SNOMED CT, the Gene Ontology. It fails wherever the vocabulary is itself part of what is being designed, and it fails for a reason that has nothing to do with formalism: authoring meaning was expensive, so it had to be centralized, so it had to be agreed before use, so it had to be *finished* — and a model that must be finished before it is useful is never either.
+The answer the field reached for was the shared model: one ontology, one canonical schema, one vocabulary authored up front by the people who own it and handed to everyone else. It works where a permanent institution maintains it over a bounded domain — SNOMED CT, the Gene Ontology. It fails wherever the vocabulary is itself part of what is being designed, and it fails for a reason that has nothing to do with formalism: authoring meaning was expensive, so it had to be centralized, so it had to be agreed before use, so it had to be *finished* — and a model that must be finished before it is useful is never either.
 
-AI dissolves the cost that forced all of that. Semantics, models and solvers can now be **authored on the go**, while the design is happening, by the intelligence sitting *at* the work. Not centralized in the heads of the people who once designed the PLM system, and not frozen in its code — distributed, like a squid whose intelligence lives in its arms and can regrow, rather than commanded from a single brain. Meaning is written at the node that needs it, the moment it is needed, and kept.
+AI dissolves the cost that forced all of that. Semantics, models and solvers can now be **authored on the go**, while the design is happening, by the intelligence sitting *at* the work. Not centralized in the heads of the people who once specified the system, and not frozen in its code — distributed, like a squid whose intelligence lives in its arms and can regrow, rather than commanded from a single brain. Meaning is written at the node that needs it, the moment it is needed, and kept.
 
 Which buys a new failure, and it is the obvious objection: cheap local meaning is a thousand private vocabularies that never converge — everyone inventing words, nobody able to read anyone else's tree. **The proof gate is the answer to it, and it is the load-bearing part of the design.** Local content costs nothing and binds nobody: invent whatever word the work needs. Leaving the local tree costs evidence. A rule enters a package only if the package's own examples exercise it and pass, and only if a counter-example staged alone makes it fire — because every rule here passes its examples, and so does `1 == 1`. A contract enters only if it has been shown answering worked cases, at least two of them expecting different answers, since a gate reading `solve(…) == 0` cannot otherwise tell a contract that counts from one that returns zero. What ships is pinned by digest at an exact version, so adopting it is a fork rather than a negotiation, and the diamond that would force one is refused at pin time.
 
-So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **In quern, all three are data**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable. `ledger@0.5.0`, the vocabulary this repo's own brief is written in, is one of them; it is pinned in `quern.lock` like any other content.
+So quern does not replace the shared model — it changes what one costs to make and what it costs to be wrong. **In quern, all three are data**, not code — vocabulary you register as you navigate, rules you write against it, solvers you install behind one bridge — authored at runtime, per tree, by whoever designs there, and capitalized into versioned packages the next design pins and refines. Small, local, provable and disposable, in place of central, permanent and therefore unreachable. `ledger@0.6.0`, the vocabulary this repo's own brief is written in, is one of them; it is pinned in `quern.lock` like any other content.
 
 Vocabulary is checked for the one thing about it that is not prose. What a kind *means* is judged by a reader and no gate can pretend otherwise — but whether anything in the package *is* one is mechanical, and that is the failure the gate exists against: a word entering the library with no referent. So every kind must be instantiated by an example, or declare `convention=True` for an entry that names a namespace its contracts hang prose on. The flag is held **both** ways — say a kind is a convention and nothing in the package may be one — because an exemption anyone could flip would read as a check while being none.
 
