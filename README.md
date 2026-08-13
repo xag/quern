@@ -1,6 +1,6 @@
 # quern
 
-**A tree whose meaning is data.** The kinds of thing in it, the rules that must hold between them, and the code that computes over them are all authored at runtime — not compiled in, not migrated. You write down what a kind of node *means*, in prose; you write rules against that meaning; they go red on the exact node that violates them. What proves out is published as a versioned, digest-pinned package that the next tree pins and refines.
+**Meaning does not have to be formal to be actionable.** quern is a Python substrate for trees whose semantics are written in prose, at the node that needs them, while the work is happening — where rules go red on the node that breaks them, and nothing reaches anybody else without the evidence for what it claims.
 
 ## Why: knowledge that moves as fast as the work
 
