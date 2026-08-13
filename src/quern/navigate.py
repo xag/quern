@@ -105,9 +105,16 @@ def load_build(project: Path, spec: str | None) -> Callable[[], Quern]:
     """Resolve the `build` callable. By convention `<project>/ledger/tree.py:build`;
     `spec` overrides it as `PATH[:ATTR]` (ATTR defaults to `build`)."""
     if spec:
-        modpart, sep, attr = spec.partition(":")
-        path = Path(modpart)
-        attr = attr if sep else "build"
+        # rpartition, and the identifier test, because a Windows path carries a colon
+        # of its own: `partition(":")` on `C:\proj\ledger\tree.py` splits at the DRIVE
+        # and looks for a ledger at `C`. Taking the LAST colon and requiring what
+        # follows to be an attribute name reads every form correctly — a bare path with
+        # a drive, that same path with `:build` after it, and `mymod:PACKAGE`.
+        head, sep, tail = spec.rpartition(":")
+        if sep and tail.isidentifier():
+            path, attr = Path(head), tail
+        else:
+            path, attr = Path(spec), "build"
     else:
         path = project / "ledger" / "tree.py"
         attr = "build"

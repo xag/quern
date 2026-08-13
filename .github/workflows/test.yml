@@ -1,0 +1,33 @@
+# The test suite, on every push and PR.
+#
+# There was none until 2026-08-13 (#40): the only workflow was the ledger gate, which
+# runs on `paths: ledger/**` and so never once ran the tests. 160 of them existed and no
+# machine had ever executed them — the suite was green on whichever laptop last looked.
+#
+# Two platforms, because this estate develops on Windows and deploys on Linux, and the
+# module that had no test at all turned out to hold a Windows-only defect: `--module`
+# split an absolute path at its DRIVE colon, so every `C:\...` argument named a ledger
+# at `C`. A Linux-only matrix would have run those tests green forever.
+name: tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false        # a Windows-only failure must not hide a Linux one
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        python: ["3.11", "3.13"]   # the floor pyproject claims, and the one CI deploys
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: ${{ matrix.python }}
+      - run: uv sync --all-extras --group dev
+      - run: uv run --no-sync pytest -q
