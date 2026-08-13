@@ -4,7 +4,9 @@
 
 ## Why: knowledge that moves as fast as the work
 
-Designing anything takes three kinds of knowledge — **semantics** (what the things mean), **models** (what must hold between them), **solvers** (what computes over them). In the old world all three are frozen into software the moment a programme is built. You learn something while designing — a better word for what you are looking at, a rule you should have had, a smarter way to compute an answer — and you cannot apply it to the very programme that taught it to you without a new release cycle. So the capitalization loop on knowledge, modeling and best practice runs slow: semantics are fixed in the code, models are fixed, solvers are fixed. Innovation waits for the next version.
+Designing anything takes three kinds of knowledge — **semantics** (what the things mean), **models** (what must hold between them), **solvers** (what computes over them). Conventionally all three are settled before the work and built into the tool: the vocabulary becomes a schema, the rules become code, the computation becomes a release.
+
+But the work is what teaches you them, and it teaches you while you are in the middle of it. You find a better name for the thing in front of you; you find the rule that would have caught what just went wrong; you find the short way to a number you have been working out by hand. None of it can go back into the tool you learned it in — not without a schema migration, a code change and a release — so the knowledge and the software it lives in move at different speeds, and the lesson waits for the version after next.
 
 The answer the field reached for was the shared model: one ontology, one canonical schema, one vocabulary authored up front by the people who own it and handed to everyone else. Sometimes that works, and it is worth being precise about when. SNOMED CT and the Gene Ontology are maintained by permanent institutions over domains whose subject matter exists independently of any project — a disease and a gene are there whether or not you are modelling them today — and both are load-bearing infrastructure for entire fields.
 
