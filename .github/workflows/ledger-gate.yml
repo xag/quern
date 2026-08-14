@@ -31,15 +31,21 @@
 # diff, and the erasure this exists to catch passes cleanly.
 #
 # The gate watches its own definition as well as the ledger: a change to HOW the check
-# runs is exactly as capable of blinding it as a change to what it checks.
+# runs is exactly as capable of blinding it as a change to what it checks. That is why
+# `src/quern/**` is in the paths and not only `ledger/**`. The verdict is no longer
+# computed in ledger/check.py - `run_rules`, `reckon` and the roll all live in the
+# library, so a commit touching only src/ can change what this gate concludes without
+# tripping it. It did, once, within an hour of `reckon` landing: aa3f256 rewrote which
+# reds are fatal and this workflow never ran. A gate blind to its own decision procedure
+# is the shape of defect the ledger keeps recording.
 name: ledger-gate
 
 on:
   push:
     branches: [main]
-    paths: ["ledger/**", ".github/workflows/ledger-gate.yml"]
+    paths: ["ledger/**", "src/quern/**", ".github/workflows/ledger-gate.yml"]
   pull_request:
-    paths: ["ledger/**", ".github/workflows/ledger-gate.yml"]
+    paths: ["ledger/**", "src/quern/**", ".github/workflows/ledger-gate.yml"]
   workflow_dispatch:
 
 jobs:
