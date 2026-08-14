@@ -94,3 +94,32 @@ def test_a_note_with_no_prose_is_still_a_note():
     ignoring it would be the worse failure."""
     news, carried, _ = judge(tree(expect={_RULE: ""}))
     assert not news and len(carried) == 1
+
+
+def global_tree(*, expect: dict[str, str] | None = None, sound: bool = False) -> Quern:
+    """A rule scoped to neither kind nor path: it reports against node "", the root."""
+    q = Quern(rules=[Rule(name=_RULE, expr="1 == 0" if not sound else "1 == 1")])
+    q.root.meta = {f"expected:{rule}": why for rule, why in (expect or {}).items()}
+    return q
+
+
+def test_a_global_red_can_be_accounted_for_on_the_root():
+    """`walk("")` yields children and not the root, and a global rule reports node "".
+    Miss that and a global red has nowhere to be accounted for, so it is permanently
+    fatal — this function's own failure, one case narrower."""
+    news, carried, stale = judge(global_tree(expect={_RULE: "the estate has not decided"}))
+    assert not news and not stale
+    assert [r.node for r in carried] == [""]
+
+
+def test_a_global_red_with_no_note_is_still_news():
+    news, carried, _ = judge(global_tree())
+    assert [r.node for r in news] == [""] and not carried
+
+
+def test_an_expectation_on_the_root_goes_stale_like_any_other():
+    """Or the one note that can excuse a global red would be the one note that never
+    expires — a standing licence at the top of the tree."""
+    news, carried, stale = judge(global_tree(expect={_RULE: "accounted"}, sound=True))
+    assert not news and not carried
+    assert len(stale) == 1 and "(root)" in stale[0]

@@ -1012,20 +1012,28 @@ def reckon(tree: Quern | TreeStore, results: Iterable[RuleResult],
     news: list[RuleResult] = []
     carried: list[RuleResult] = []
 
+    # tree.get("") is the ROOT, and a global rule reports node "". Skipping it would
+    # leave a global red with nowhere to be accounted for and therefore permanently
+    # fatal, which is the failure this function exists to end, one case narrower.
     for r in results:
         if r.ok:
             continue
-        node = tree.get(r.node) if r.node else None
+        node = tree.get(r.node)
         (carried if node is not None and r.rule in expectations(node) else news).append(r)
 
     # An expectation that no longer matches a red. Reported against the node so the
     # reader can go and delete it, and fatal, because the alternative is a permission
     # nobody ever revisits.
     red_at = {(r.node, r.rule) for r in results if not r.ok}
-    stale = [f"{path} expects {rule} to be RED and it is not - the note excused a red "
-             f"that is gone, so withdraw it ({why})" if why else
-             f"{path} expects {rule} to be RED and it is not - withdraw the note"
-             for path, node in tree.walk("")
+    # walk("") yields children and not the root, so the root is named separately - an
+    # expectation there must go stale like any other, or the one note that can excuse a
+    # global red would be the one note that never expires.
+    root = tree.get("")
+    bearers = list(tree.walk("")) + ([("", root)] if root is not None else [])
+    stale = [f"{path or '(root)'} expects {rule} to be RED and it is not - the note "
+             f"excused a red that is gone, so withdraw it ({why})" if why else
+             f"{path or '(root)'} expects {rule} to be RED and it is not - withdraw the note"
+             for path, node in bearers
              for rule, why in expectations(node).items()
              if (path, rule) not in red_at]
     return news, carried, sorted(stale)
