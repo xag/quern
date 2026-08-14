@@ -22,7 +22,7 @@ bill without changing a call site.
 
 from __future__ import annotations
 
-from typing import Any, Iterator, Protocol
+from typing import Any, Iterable, Iterator, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
@@ -36,6 +36,16 @@ _LEGACY_PAYLOAD_KEYS = ("shape", "transform")
 # The reserved structural verbs: link names the core reads (unlike every other link
 # name, whose meaning is domain data). They are *verbs a consumer branches on*, not
 # nouns a domain names — the only kind of meaning the substrate is allowed to fix.
+EXPECTED = "expected"          # meta KEY PREFIX: `expected:<rule>` -> why that rule is
+#                                RED here on purpose. The second reserved meta name,
+#                                beside roll.AMENDED, and the same discipline: it names
+#                                exactly what it excuses and goes stale the moment that
+#                                stops being true. The rule rides in the KEY, not the
+#                                value, where AMENDED puts its digest — because a node
+#                                has exactly one digest and can be red under several
+#                                rules at once, and because meta is str -> str, so a
+#                                list has nowhere to live.
+
 SUPERSEDES = "supersedes"      # A links supersedes->[B]: A replaces B; B is not current
 DERIVED_FROM = "derived_from"  # A links derived_from->[B]: A was computed from B (lineage)
 USES = "uses"                  # A links uses->[D]: A is a usage of definition D; A
@@ -951,6 +961,74 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
                                       detail=str(e)))
     return out
+
+
+def expectations(node: Node) -> dict[str, str]:
+    """The reds this node declares it expects, as {rule: why}.
+
+    `meta["expected:<rule>"] = "<why>"`, one key per rule. The key is read; the value is
+    prose for whoever is looking at the report, and the core assigns it no meaning — an
+    empty one is honoured, because a note that arrived without a reason has still been
+    written down by somebody, and silently ignoring it would be the worse failure."""
+    return {k[len(EXPECTED) + 1:]: v.strip()
+            for k, v in node.meta.items()
+            if k.startswith(EXPECTED + ":") and k[len(EXPECTED) + 1:]}
+
+
+def reckon(tree: Quern | TreeStore, results: Iterable[RuleResult],
+           ) -> tuple[list[RuleResult], list[RuleResult], list[str]]:
+    """Sort red results into (news, carried, stale) — the whole of what a gate needs.
+
+    A ledger with a permanent red cannot gate on red. Several in this estate ship red
+    BY DECISION: a debt is a red carried on purpose, and a gate that admits an ungrounded
+    param is a gate doing its job. Exiting non-zero on that means the check fails on every
+    run it will ever have, and then nobody can tell a newly-broken ledger from the usual
+    one. A gate that has never once passed carries exactly as much signal as one that
+    always passes, and the estate has now paid for that lesson twice — a README that
+    shipped red and stayed red for ten days because the new red arrived into noise, and a
+    target-size check that cried wolf until its readers learned to skip it.
+
+    So the question a gate must ask is not "is anything red" but "is anything red that
+    nobody has accounted for". The accounting is the node's own, and it names the rule:
+    `meta["expected:nothing-unsound-passes-a-gate"] = "<why>"`.
+
+    That is testimony rather than memory, which is the whole reason it is a note on the
+    node and not a baseline file listing yesterday's reds. A baseline says a red was there
+    before; it cannot say whether it was ever meant to be, so it launders an accident into
+    an expectation the moment it is regenerated, and it is an anonymous line to add when
+    you want a red to stop being news. A note has to be attached to the node that is red
+    and say why in the ledger's own diff.
+
+    It closes over itself, like the tombstone it is modelled on. An expectation naming a
+    rule that is NOT red at that node is STALE and complains — so it cannot be left behind
+    as a standing licence once the work is done, and discharging a debt makes the check
+    ask you to withdraw the note that excused it. The failure mode of a permission is that
+    it outlives its reason; this one cannot.
+
+    Domain-free, as ever: the core knows that a note acknowledges a red. WHAT earns the
+    acknowledgement — a debt with an ungrounded param, a gate shipping red as its pitch,
+    a probe nobody has run yet — is the vocabulary's business, and none of it is here."""
+    results = list(results)
+    news: list[RuleResult] = []
+    carried: list[RuleResult] = []
+
+    for r in results:
+        if r.ok:
+            continue
+        node = tree.get(r.node) if r.node else None
+        (carried if node is not None and r.rule in expectations(node) else news).append(r)
+
+    # An expectation that no longer matches a red. Reported against the node so the
+    # reader can go and delete it, and fatal, because the alternative is a permission
+    # nobody ever revisits.
+    red_at = {(r.node, r.rule) for r in results if not r.ok}
+    stale = [f"{path} expects {rule} to be RED and it is not - the note excused a red "
+             f"that is gone, so withdraw it ({why})" if why else
+             f"{path} expects {rule} to be RED and it is not - withdraw the note"
+             for path, node in tree.walk("")
+             for rule, why in expectations(node).items()
+             if (path, rule) not in red_at]
+    return news, carried, sorted(stale)
 
 
 def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):

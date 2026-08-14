@@ -8,6 +8,15 @@
 # gate. A red rule does not mean the code is broken - the test suite says whether the
 # code is broken. It means something unsound is being carried and has not been paid for.
 #
+# It fails on red that is UNACCOUNTED FOR, not on red. This ledger ships red by decision:
+# the compute boundary is unmetered, and the gate over it is red because it admits two
+# ungrounded debts, which is that gate working. Gating on red at all meant this workflow
+# failed on every run in its recorded history - and a check that has never once passed
+# says nothing when it fails, so a genuinely broken ledger would arrive into the noise
+# and look like Tuesday. A red is accounted for when the node it fires at names the rule
+# in meta['expected:<rule>'], and that note is refused the moment the rule goes green,
+# so it cannot outlive its reason. See issue #42.
+#
 # The ROLL asks the question no rule can. Every rule runs against the tree as it is
 # now, so an entry that was DELETED is not red - it is absent, and a gate counting the
 # ungrounded params on a debt that no longer exists counts zero and passes. The check

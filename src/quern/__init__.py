@@ -34,6 +34,7 @@ from .solver import (
 )
 from .tree import (
     DERIVED_FROM,
+    EXPECTED,
     SUPERSEDES,
     USES,
     Demonstration,
@@ -44,6 +45,8 @@ from .tree import (
     PackageRef,
     Rule,
     RuleResult,
+    expectations,
+    reckon,
     Quern,
     TreeStore,
     check_demonstrations,
@@ -96,7 +99,8 @@ __all__ = [
     "PackageRef", "Rule",
     "RuleResult", "Quern", "ArtifactDef", "SolverDef", "SolverError", "SqliteStore",
     "TreeStore",
-    "DERIVED_FROM", "SUPERSEDES", "USES",
+    "DERIVED_FROM", "EXPECTED", "SUPERSEDES", "USES",
+    "expectations", "reckon",
     "solver_blob", "validate_package",
     "check_demonstrations", "child_at", "child_index", "definition",
     "delete_node", "explode",

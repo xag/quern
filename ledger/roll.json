@@ -145,6 +145,26 @@
     "digest": "76d3e8112f0b"
   },
   {
+    "path": "the-gate-fails-on-unaccounted-red-not-on-red",
+    "kind": "decision",
+    "digest": "b45556c3b6ff"
+  },
+  {
+    "path": "the-gate-fails-on-unaccounted-red-not-on-red/a-committed-baseline-of-expected-reds",
+    "kind": "alternative",
+    "digest": "30271442a520"
+  },
+  {
+    "path": "the-gate-fails-on-unaccounted-red-not-on-red/reds-a-gate-admits-are-expected",
+    "kind": "alternative",
+    "digest": "b80cf0247915"
+  },
+  {
+    "path": "the-gate-fails-on-unaccounted-red-not-on-red/two-exit-codes",
+    "kind": "alternative",
+    "digest": "fefe7ec6461f"
+  },
+  {
     "path": "the-history-ships-as-is",
     "kind": "decision",
     "digest": "2a36550d28b6"

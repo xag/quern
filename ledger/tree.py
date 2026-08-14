@@ -240,6 +240,78 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-gate-fails-on-unaccounted-red-not-on-red",
+            kind="decision",
+            name="A red the ledger accounts for is not a failure: the gate exits 1 on red "
+                 "nobody expected, and on an expectation whose red has gone",
+            links={"rests_on": ["the-red-ledger-ships-red"]},
+            payload={
+                "rationale":
+                    "Shipping red by decision and gating on red are not compatible, and "
+                    "for a year this repo did both: `ledger-gate` failed on EVERY run in "
+                    "its recorded history. A check that has never once passed carries the "
+                    "same information as one that always does — none — so a genuinely "
+                    "broken ledger arrives into the noise and reads as Tuesday. That is "
+                    "not hypothetical here: flight-recorder's README gate shipped red on "
+                    "2026-08-03 and stayed red for ten days, because nobody could see a "
+                    "new red inside the old one. The exit code was carrying two claims at "
+                    "once — 'something is unsound' and 'something is WRONG' — and only "
+                    "the second is a gate's business. The first is the ledger's content.",
+                "consequence":
+                    "`reckon` sorts red into news, carried and stale. A red is carried "
+                    "when the node it fires at names the rule in "
+                    "meta['expected:<rule>'] — testimony where it is red, not a baseline "
+                    "file listing yesterday's reds. That distinction is the design: a "
+                    "baseline records that a red was there, never that it was meant to "
+                    "be, so it launders an accident into an expectation the moment it is "
+                    "regenerated, and it is an anonymous line to add when you want a red "
+                    "to stop being news. The note is refused the moment its rule goes "
+                    "green (`stale`, and fatal), so it cannot outlive its reason — "
+                    "discharging a debt makes the check ask you to withdraw the licence "
+                    "that excused it. Carried reds are still printed on a passing run, "
+                    "marked red*.",
+                "note":
+                    "This REVISES the consequence clause of the decision it rests on, "
+                    "which said a stranger's first meeting should be `ledger.check` "
+                    "exiting 1. It is now `red* the-host-surface` at the top of a passing "
+                    "report. The substance is untouched — the red still ships, still "
+                    "shows, and is still not scrubbed — but the demonstration moved from "
+                    "the exit code to the report, because the exit code had to be freed "
+                    "to mean something a gate can act on. Left standing rather than "
+                    "edited: a correction travels by supersession.",
+            },
+            children=[
+                Node(id="a-committed-baseline-of-expected-reds", kind="alternative",
+                     name="Record the red set in a file and fail when it differs",
+                     payload={"why":
+                              "Memory instead of testimony. It says a red was there "
+                              "before, not that anyone meant it — and since it is "
+                              "regenerated mechanically, the first run after an accident "
+                              "adopts the accident. Hiding a red costs one anonymous line "
+                              "in a generated file, where the note costs an edit to the "
+                              "node that is red, in the ledger's own diff, with a reason "
+                              "attached."}),
+                Node(id="reds-a-gate-admits-are-expected", kind="alternative",
+                     name="Derive the expectation from the tree: a red under a gate's "
+                          "`admits` is the system working",
+                     payload={"why":
+                              "Confuses a red of an expected KIND with a red that was "
+                              "expected. Every gate red in this estate is of that kind, "
+                              "including the ones that are news — so it would excuse the "
+                              "whole class and gate on nothing, which is where this "
+                              "started."}),
+                Node(id="two-exit-codes", kind="alternative",
+                     name="Exit 1 for red-as-designed, 2 for red-that-is-new; CI keys on 2",
+                     payload={"why":
+                              "Still needs to know which reds are designed, so it answers "
+                              "the reporting question and leaves the actual one open. And "
+                              "it makes every other caller — a hook, a human, a script "
+                              "wiring this into something else — learn a private "
+                              "convention to ask 'did this pass'."}),
+            ],
+        ),
+
+        Node(
             id="the-history-ships-as-is",
             kind="decision",
             name="The public flip keeps the full git history — scrubbed and found clean, "
@@ -947,6 +1019,12 @@ def build() -> Quern:
             name="What quern's MCP host exposes to a caller",
             links={"admits": ["a-native-contract-is-unmetered",
                               "a-host-tool-runs-on-the-event-loop"]},
+            # The prose below says this is red on purpose; this says it to the CHECK, by
+            # rule name, so a SECOND red arriving here is news instead of more of the
+            # same. It is refused the moment the two debts are discharged and the rule
+            # goes green — the note cannot outlive its reason and become a licence.
+            meta={"expected:nothing-unsound-passes-a-gate":
+                  "the two debts it admits are ungrounded, which is this gate doing its job"},
             payload={"note":
                      "RED, and correctly so. The host today hands any caller an unmetered "
                      "compute path that blocks the process it runs in. It goes green when "
