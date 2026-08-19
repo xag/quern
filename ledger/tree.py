@@ -1031,5 +1031,65 @@ def build() -> Quern:
                      "the two debts below it are discharged by doing the work — not by "
                      "editing this file."},
         ),
+
+        Node(
+            id="the-breadth-is-on-the-record",
+            kind="decision",
+            name="What each adopter domain demanded of the substrate, and what each "
+                 "worked around, surveyed across eleven repos and written down here — "
+                 "with every workaround filed as an issue instead of bending a domain",
+            payload={
+                "why":
+                    "2026-08-19. The breadth existed but the record did not, and "
+                    "external adoption of one adopter's vocabulary (craft-laws) must "
+                    "not freeze a core the other domains still pull on. What the "
+                    "domains demanded and GOT, without forking the core: invest — "
+                    "payload exprs as path-pinned rules over time-series windows; "
+                    "home — provenance as a cut gate, derived branches, an evidence "
+                    "integrator; geometry — relational contracts with refusal "
+                    "demonstrations; epure — a prover landing grounded artifacts a "
+                    "gate refuses; vigil — cadenced criteria with gap as an outcome; "
+                    "assay — ledger@'s gate refusing an ungrounded verdict from a "
+                    "vocabulary it never met; mindmap — a live writer with "
+                    "current-belief projection; transponder — a gate red on purpose. "
+                    "Vocabulary, packages, natives, gates and Quantity carried all of "
+                    "it: the domain-neutrality argument, checkable here.",
+                "worked_around":
+                    "Seven walls, each hit by more than one domain, each filed with "
+                    "its receipts: exprs not first-class (#44), payload unreadable by "
+                    "the grammar (#45), links untraversable (#46), natives by import "
+                    "side effect with implementations outside the digest (#47), no "
+                    "exported gate runner (#48), refusal-swallowing in-process "
+                    "publish (#49), kindless intermediates silently unbinding rules "
+                    "(#50). Already carried, so unfiled: the unmetered blocking "
+                    "native, and convention=True as the admission that event streams "
+                    "have no typed home.",
+                "weakest":
+                    "mindmap: no pin, no lock, no registry, no ledger, swallowed "
+                    "publish failures, central checks outside the substrate. Its own "
+                    "loudest demand is #46 — link traversal — and that, not an "
+                    "interface-law analogy, is the deepening it is owed next.",
+            },
+            children=[
+                Node(id="alt-survey-from-memory", kind="alternative",
+                     name="Write the breadth argument from what the maintainer recalls",
+                     payload={"why":
+                              "Memory produced the situation being corrected. Three "
+                              "readers swept the repos; every claim carries a "
+                              "file-level receipt in the issue it points to."}),
+                Node(id="alt-fix-instead-of-file", kind="alternative",
+                     name="Fix the seven walls in one pass instead of filing them",
+                     payload={"why":
+                              "Each is a substrate release with a pin cascade across "
+                              "a dozen adopters; seven at once is how a survey "
+                              "becomes an incident."}),
+                Node(id="alt-bend-the-domains", kind="alternative",
+                     name="Ask the domains to restate their demands in what the "
+                          "grammar already says",
+                     payload={"why":
+                              "The freeze this survey exists to prevent: the census "
+                              "shows the other domains already paying that tax."}),
+            ],
+        ),
     ]
     return quern

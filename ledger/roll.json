@@ -130,6 +130,26 @@
     "digest": "419185908e92"
   },
   {
+    "path": "the-breadth-is-on-the-record",
+    "kind": "decision",
+    "digest": "dda2f02daaea"
+  },
+  {
+    "path": "the-breadth-is-on-the-record/alt-bend-the-domains",
+    "kind": "alternative",
+    "digest": "bbcdc45b46cf"
+  },
+  {
+    "path": "the-breadth-is-on-the-record/alt-fix-instead-of-file",
+    "kind": "alternative",
+    "digest": "1d39e44e180c"
+  },
+  {
+    "path": "the-breadth-is-on-the-record/alt-survey-from-memory",
+    "kind": "alternative",
+    "digest": "4f21ad770e94"
+  },
+  {
     "path": "the-dev-bridge-is-the-tool-surface-not-a-copy-of-it",
     "kind": "decision",
     "digest": "8afebe3895be"
