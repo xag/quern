@@ -59,6 +59,63 @@ KINDDEF_FIELDS_EXEMPT = {
     "convention": "names a namespace, never a node; the matrix skips it whole",
 }
 
+# THE SECOND DENOMINATOR: the verb table. The channel walk above proves the
+# generator READS every declaration; it does not prove it emits every predicate
+# a declaration implies. What a declaration can imply is bounded by what the
+# grammar can ASK about it — the rule environment's verbs, an enumerable dict —
+# so every verb is classified here: `floor` (a trivially-safe assertion this
+# module emits), or an exemption with the reason no floor exists for it. A test
+# walks the live env against this table, so a verb landing in the grammar
+# (`linked` did, the day before this table) breaks the generator loudly until
+# somebody decides its floor — out loud — instead of the schema set staying a
+# judgment call nobody can audit.
+GRAMMAR_VERBS = {
+    # verb -> (disposition, why)
+    "states": ("floor", "presence of a declared param — emitted per owed cell"),
+    "dangling": ("floor", "no holes in a declared link — emitted per owed cell"),
+    "param": ("sharpening", "reads the value; any assertion about it (a range, "
+              "a bound) is the meaning the hint describes — the domain's"),
+    "params_of": ("sharpening", "the aggregate read; same reason as param"),
+    "linked": ("query", "returns paths and asserts nothing; assertions over it "
+               "encode what the link MEANS, which is the domain's"),
+    "linked_current": ("query", "same — currency-filtered traversal"),
+    "backlinked": ("query", "same — the symmetric read"),
+    "unsupported": ("domain-meaning", "whether a superseded target is a defect "
+                    "depends on the link: rests_on legitimately convicts, "
+                    "contradicts legitimately points at worked revisions — no "
+                    "floor holds for every link name"),
+    "superseded": ("covered-elsewhere", "current-belief hygiene is ledger@'s: "
+                   "its supersession rules own this verb's obvious laws"),
+    "uses": ("covered-elsewhere", "reuse hygiene is param resolution's own "
+             "semantics; a dangling uses target already refuses at param()"),
+    "where_used": ("query", "the symmetric read of uses; asserts nothing"),
+    "nodes": ("query", "structural enumeration; a count claim over it is a "
+              "domain cardinality, not a floor"),
+    "count": ("query", "same — children arity is the domain's to bound"),
+    "at": ("query", "positional read for trace rules"),
+    "index": ("query", "same"),
+    "parent": ("query", "path arithmetic"),
+    "before": ("query", "trace ordering; which orderings MUST hold is the "
+               "model's claim, generated from the semantic-model vocabulary "
+               "once its actions declare fields — the named next build"),
+    "preceding": ("query", "same"),
+    "following": ("query", "same"),
+    "rollup": ("query", "aggregation; what must roll up to what is a domain "
+               "conservation law"),
+    "tally": ("query", "same"),
+    "said_words": ("covered-elsewhere", "the cost budgets are ledger@'s "
+                   "fits-its-reader rules"),
+    "solve": ("covered-elsewhere", "a contract's own laws travel as its "
+              "demonstrations, re-proven at every publish and sync"),
+    "ctx": ("covered-elsewhere", "runtime evidence windows are vigil's: "
+            "a-criterion-is-watchable owns their hygiene"),
+    "abs": ("combinator", "arithmetic; no subject of its own"),
+    "min": ("combinator", "arithmetic; no subject of its own"),
+    "max": ("combinator", "arithmetic; no subject of its own"),
+    "sum": ("combinator", "arithmetic; no subject of its own"),
+    "len": ("combinator", "arithmetic; no subject of its own"),
+}
+
 
 @dataclass
 class Cell:

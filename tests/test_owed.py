@@ -82,6 +82,34 @@ def test_the_generator_is_held_complete_against_the_metamodel():
     assert not (mapped & exempt), "a field cannot be both mapped and exempted"
 
 
+def test_the_schema_set_is_held_complete_against_the_grammar_itself():
+    """The second denominator. The channel walk proves every declaration is
+    read; this proves the schema set is not a judgment call: what a declaration
+    can imply is bounded by what the grammar can ask, the grammar's verbs are
+    an enumerable dict, and every verb is either a floor this module emits or
+    an exemption with its reason. A verb landing in the grammar breaks this
+    test until somebody decides its floor — out loud."""
+    from quern.owed import GRAMMAR_VERBS, floor
+    from quern.tree import Quern, _env
+
+    verbs = set(_env(Quern()))
+    classified = set(GRAMMAR_VERBS)
+    assert classified == verbs, (
+        f"unclassified verb(s): {sorted(verbs - classified)}; "
+        f"stale entries: {sorted(classified - verbs)} — every grammar verb is "
+        "a floor the generator emits or an exemption with its reason, decided "
+        "when the verb lands, never later and never silently.")
+
+    # ...and the table is tied to the code: every verb classified as `floor`
+    # actually appears in the emitted exprs, so the claim cannot rot into prose
+    gen, _ = floor(VOCAB, [])
+    emitted = " ".join(r.expr for r in gen)
+    floors = {v for v, (d, _) in GRAMMAR_VERBS.items() if d == "floor"}
+    assert floors == {"states", "dangling"}
+    for v in floors:
+        assert f"{v}(" in emitted, f"'{v}' is declared a floor and emits nothing"
+
+
 def test_the_floor_generates_only_the_owed_cells_and_each_rule_refutes():
     """The generated tier emits for the OWED cells only, so an authored rule
     retires its floor at regeneration; and each generated rule rejects its own
