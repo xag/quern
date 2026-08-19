@@ -11,9 +11,20 @@ record that anything was skipped.
 This module derives the full matrix from a vocabulary and computes which cells the
 rules actually cover, so "do we have the obvious laws?" has a computed answer with
 a named remainder — the same move coverage made for surfaces and strings, applied
-to predicates. It generates the EXPECTATION, deliberately not the rules: an
-existence check is free, but a range («0..1»), a tolerance, or a link's meaning is
-the domain's to state, and a generated rule would be a guess wearing a law's name.
+to predicates. And the tiers split (the founder's push, 2026-08-19): the FLOOR is
+generated — presence for a declared param (`states`), no holes for a declared link
+(`dangling == 0`) — because those need no domain knowledge, each ships with the
+counter-example the publish gate demands, and `floor()` emits them as data any
+package or tree can adopt. Only the SHARPENING stays the domain's: a range
+(«0..1»), a tolerance, a link's meaning — a generated sharp rule would be a guess
+wearing a law's name. An authored rule on a cell supersedes its floor: `floor()`
+emits only the owed cells, so regeneration never fights the author.
+
+The generator itself is held complete against the metamodel, mechanically: every
+field a KindDef can carry is either MAPPED to a predicate family here or EXEMPTED
+with its reason, and a test walks `KindDef.model_fields` and fails the moment a new
+field arrives unmapped — a generator's blind spot cannot be added silently, which
+is the only honest answer to "how do you know the generator is complete."
 
 Coverage is by mention: a rule scoped to the kind (or unscoped, running everywhere)
 whose expr names the param or the link covers the cell. The scan reads expr source —
@@ -29,7 +40,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from .tree import KindDef, Rule
+from .tree import KindDef, Node, Rule
+
+# THE GENERATOR'S OWN DENOMINATOR. Every KindDef field is either mapped to a
+# predicate family or exempted with its reason; tests/test_owed.py walks
+# KindDef.model_fields against this and fails on any field neither names —
+# so quern growing the metamodel breaks this generator loudly, never silently.
+KINDDEF_FIELDS_MAPPED = {
+    "params": "presence predicates (states) + the sharpening the hint describes",
+    "links": "resolution predicates (dangling == 0) + the meaning the hint "
+             "describes",
+}
+KINDDEF_FIELDS_EXEMPT = {
+    "kind": "the scope itself — every cell is keyed by it",
+    "description": "prose for the next designer; claims nothing checkable",
+    "operations": "capabilities, not claims — each is gated at publish by its "
+                  "own demonstrations",
+    "convention": "names a namespace, never a node; the matrix skips it whole",
+}
 
 
 @dataclass
@@ -69,6 +97,49 @@ def matrix(vocabulary: list[KindDef], rules: list[Rule]) -> list[Cell]:
             cells.append(Cell(kd.kind, f"link:{l}", hint,
                               [r.name for r in in_scope if _mentions(r, l)]))
     return cells
+
+
+def floor(vocabulary: list[KindDef], rules: list[Rule]
+          ) -> tuple[list[Rule], list[tuple[str, Node]]]:
+    """The generated tier for every OWED cell, as data: a presence rule per unread
+    param, a no-holes rule per unread link — each with the refuting node the
+    publish gate demands (a rule that cannot reject anything cannot be published).
+    Only owed cells emit, so an authored rule on a cell retires its floor at the
+    next regeneration; the emitted descriptions say they are generated and what
+    sharpening is still the domain's."""
+    out_rules: list[Rule] = []
+    refuters: list[tuple[str, Node]] = []
+    for c in matrix(vocabulary, rules):
+        if not c.owed:
+            continue
+        what, _, name = c.subject.partition(":")
+        if what == "param":
+            rule = Rule(
+                name=f"a-{c.kind}-states-its-{name.replace('_', '-')}",
+                kind=c.kind, expr=f"states(self, '{name}')",
+                description=f"generated floor: the vocabulary declares "
+                            f"'{name}' ({c.hint}) — presence is checked here; "
+                            "the range or tolerance is the domain's to sharpen, "
+                            "superseding this rule")
+            refuters.append((rule.name, Node(
+                id=f"a-{c.kind}-missing-{name.replace('_', '-')}", kind=c.kind,
+                name=f"a {c.kind} that never states its {name}")))
+        else:
+            rule = Rule(
+                name=f"a-{c.kind}-{name.replace('_', '-')}-link-resolves",
+                kind=c.kind, expr=f"dangling(self, '{name}') == 0",
+                description=f"generated floor: the vocabulary declares the "
+                            f"'{name}' link ({c.hint}) — a stored target that "
+                            "resolves to nothing is a broken record; what the "
+                            "link MEANS is the domain's to state, superseding "
+                            "this rule")
+            refuters.append((rule.name, Node(
+                id=f"a-{c.kind}-with-a-dangling-{name.replace('_', '-')}",
+                kind=c.kind,
+                name=f"a {c.kind} whose {name} link points at nothing",
+                links={name: ["nowhere/that/exists"]})))
+        out_rules.append(rule)
+    return out_rules, refuters
 
 
 def report(vocabulary: list[KindDef], rules: list[Rule]) -> str:

@@ -149,15 +149,26 @@ def _cmd_owed(args: argparse.Namespace) -> None:
     from pathlib import Path
 
     from .navigate import load_target, project_label
-    from .owed import report
+    from .owed import floor, report
     root = Path(args.project).resolve()
     target = load_target(root, args.module)
     # a build() callable yields a tree; --module may also name a Package —
     # both carry .vocabulary and .rules, which is all the matrix reads
     obj = target() if callable(target) else target
+    vocab, rules = list(obj.vocabulary or []), list(obj.rules or [])
+    if args.emit:
+        import json
+        gen, refuters = floor(vocab, rules)
+        print(json.dumps({
+            "rules": [r.model_dump(exclude_none=True) for r in gen],
+            "counter_examples": [
+                {"rule": name, "node": n.model_dump(exclude_defaults=True)}
+                for name, n in refuters],
+        }, indent=1, ensure_ascii=False))
+        return
     print(f"{project_label(root)} - implied predicates, computed from the "
           "vocabulary")
-    print(report(list(obj.vocabulary or []), list(obj.rules or [])))
+    print(report(vocab, rules))
 
 
 def _utf8_streams() -> None:
@@ -260,6 +271,11 @@ def run(argv: list[str]) -> None:
     p.add_argument("--module", metavar="PATH[:ATTR]",
                    help="override the build entry; ATTR may be a build() or a "
                         "Package (default: <project>/ledger/tree.py:build)")
+    p.add_argument("--emit", action="store_true",
+                   help="emit the generated floor for every owed cell, as JSON "
+                        "rule data with the refuting node each rule must reject "
+                        "— presence and resolution only; sharpening stays the "
+                        "domain's")
     p.set_defaults(func=_cmd_owed)
 
     p = sub.add_parser("navigate", help="serve a project's ledger in the read-only navigator")

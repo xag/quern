@@ -75,8 +75,10 @@ from .tree import (
     superseded_paths,
     superseders,
     tally,
+    dangling,
     linked,
     linked_current,
+    states,
     unsupported,
     users,
 )
@@ -112,8 +114,10 @@ __all__ = [
     "resolve_params", "rollup", "run_demonstration", "run_rules", "run_solver",
     "save_blob", "solve_contract",
     "said_words", "semantics_at", "set_node", "stamp", "superseders", "tally",
+    "dangling",
     "linked",
     "linked_current",
+    "states",
     "unsupported",
     "users",
 ]

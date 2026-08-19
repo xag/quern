@@ -457,6 +457,26 @@ def linked_current(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     return [t for t in linked(tree, path, rel) if not is_superseded(tree, t)]
 
 
+def states(tree: Quern | TreeStore, path: str, name: str) -> bool:
+    """Does the node state this param at all — through its `uses` chain, like every
+    param read? The floor predicate a declared param implies (`quern owed`): the
+    range or tolerance is the domain's to sharpen, but presence is generable, and
+    `param()` raising was the only way to ask before this."""
+    return name in resolve_params(tree, path)
+
+
+def dangling(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """Stored targets of `path`'s `rel` link that resolve to nothing — the floor
+    predicate a declared link implies. Narrower than `unsupported` on purpose: a
+    superseded target is a worked revision, a MISSING one is a broken record, and
+    a link vocabulary like `contradicts` legitimately points at superseded nodes
+    while never legitimately pointing at holes."""
+    node = tree.get(path)
+    if node is None:
+        return []
+    return sorted(t for t in node.links.get(rel, []) if tree.get(t) is None)
+
+
 def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
     """Every (link name -> source paths) that names `path`: the whole reverse index
     at one node, domain links and reserved verbs alike. This is what makes a link
@@ -1128,6 +1148,11 @@ def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         "linked_current": lambda p, rel: linked_current(tree, p, rel),
         "backlinked": lambda p, rel: sorted(
             tree.backlinks(rel, "/".join(_segs(p)))),
+        # the floor verbs (`quern owed` emits rules over these): presence for a
+        # declared param, holes for a declared link — counts and booleans a
+        # generated rule can carry without guessing at meaning
+        "states": lambda p, name: states(tree, p, name),
+        "dangling": lambda p, rel: float(len(dangling(tree, p, rel))),
         # the cost verb: how many words a subtree makes every reader pay. A budget
         # rule (`said_words(self) <= N`) is the one mechanical brake on the way
         # ledgers actually decay - not by lying, by growing.

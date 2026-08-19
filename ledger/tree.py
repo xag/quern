@@ -1095,6 +1095,11 @@ def build() -> Quern:
         Node(
             id="the-obvious-predicates-are-computed-never-remembered",
             kind="decision",
+            meta={"amended": "2b5846eaaa0a the founder pushed back the same "
+                             "day: the floor half of an owed cell IS generable "
+                             "without guessing, so the not-the-rules clause "
+                             "narrowed to the sharpening tier and floor() "
+                             "emits the rest"},
             name="`quern owed` derives the expected-predicate matrix from a "
                  "vocabulary - every declared param and link implies its obvious "
                  "rule - and computes which cells the rules cover, with the owed "
@@ -1111,8 +1116,19 @@ def build() -> Quern:
                     "what a K's L points at still stands. The matrix generates "
                     "the EXPECTATION and deliberately not the rules - an "
                     "existence check is free but a range or a link's meaning is "
-                    "the domain's, and a generated rule would be a guess wearing "
-                    "a law's name. Coverage is by mention over expr source, "
+                    "the domain's. Amended the same day, on the founder's push: "
+                    "the FLOOR half of every owed cell IS generable without "
+                    "guessing — presence for a param (states), no holes for a "
+                    "link (dangling == 0) — so floor() emits those as rule data "
+                    "with the refuting node each must reject, for owed cells "
+                    "only, and an authored rule retires its floor at "
+                    "regeneration. Only the sharpening (ranges, tolerances, "
+                    "meanings) stays authored. And the generator is held "
+                    "complete against the metamodel mechanically: every KindDef "
+                    "field is mapped to a predicate family or exempted with its "
+                    "reason, and a test walks model_fields so a new field "
+                    "breaks the generator loudly. Coverage is by mention over "
+                    "expr source, "
                     "legitimate in the core that owns the grammar (#44's day "
                     "makes it an AST walk). First runs: mindmap 2/7, invest 4/9 "
                     "- and assay answers 'nothing is implied', a finding about "
