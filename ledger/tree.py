@@ -1093,6 +1093,49 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-obvious-predicates-are-computed-never-remembered",
+            kind="decision",
+            name="`quern owed` derives the expected-predicate matrix from a "
+                 "vocabulary - every declared param and link implies its obvious "
+                 "rule - and computes which cells the rules cover, with the owed "
+                 "remainder named",
+            links={"rests_on": ["the-breadth-is-on-the-record"]},
+            payload={
+                "why":
+                    "The obvious laws are exactly the ones nobody writes down. "
+                    "Every adopter that authored them stopped somewhere with no "
+                    "record of the stop: invest ruled its thesis params and left "
+                    "noise-band's k unread; mindmap ruled a claim's confidence "
+                    "and left four links unread. A KindDef already DECLARES the "
+                    "shape, so the expectation is generable: a K states its p, "
+                    "what a K's L points at still stands. The matrix generates "
+                    "the EXPECTATION and deliberately not the rules - an "
+                    "existence check is free but a range or a link's meaning is "
+                    "the domain's, and a generated rule would be a guess wearing "
+                    "a law's name. Coverage is by mention over expr source, "
+                    "legitimate in the core that owns the grammar (#44's day "
+                    "makes it an AST walk). First runs: mindmap 2/7, invest 4/9 "
+                    "- and assay answers 'nothing is implied', a finding about "
+                    "its kinds declaring shape in prose instead of data.",
+            },
+            children=[
+                Node(id="alt-generate-the-rules", kind="alternative",
+                     name="Emit the missing rules themselves, not the worklist",
+                     payload={"why":
+                              "Existence checks alone would go green while the "
+                              "range, tolerance or meaning stays unstated - "
+                              "green that means nothing, minted at scale."}),
+                Node(id="alt-leave-it-to-authors", kind="alternative",
+                     name="Trust each package author to enumerate their own "
+                          "obvious rules",
+                     payload={"why":
+                              "The survey shows every author stopping somewhere "
+                              "silently; a computed denominator is the same "
+                              "cure coverage was for surfaces and strings."}),
+            ],
+        ),
+
+        Node(
             id="the-weakest-domains-demand-lands-first",
             kind="decision",
             name="The grammar learns to traverse links — linked, linked_current, "

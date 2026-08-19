@@ -134,6 +134,21 @@ def load_build(project: Path, spec: str | None) -> Callable[[], Quern]:
     return build
 
 
+def load_target(project: Path, spec: str | None):
+    """`load_build` without the callable requirement: the attribute as it is —
+    a build() callable for a ledger, or a Package for `--module pkg.py:PACKAGE`.
+    The path/attr parsing is load_build's, not a second copy of it."""
+    try:
+        return load_build(project, spec)
+    except SystemExit as e:
+        if "has no callable" not in str(e):
+            raise
+    head, _, tail = (spec or "").rpartition(":")
+    path = Path(head) if tail.isidentifier() else Path(spec)
+    attr = tail if tail.isidentifier() else "build"
+    return getattr(_import_ledger_module(path), attr)
+
+
 def project_label(project: Path) -> str:
     """The project's name from pyproject `[project].name`, else the directory name."""
     pp = project / "pyproject.toml"

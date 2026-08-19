@@ -215,6 +215,21 @@
     "digest": "ec92043486da"
   },
   {
+    "path": "the-obvious-predicates-are-computed-never-remembered",
+    "kind": "decision",
+    "digest": "8dfe1eb71f10"
+  },
+  {
+    "path": "the-obvious-predicates-are-computed-never-remembered/alt-generate-the-rules",
+    "kind": "alternative",
+    "digest": "8244e056fbe9"
+  },
+  {
+    "path": "the-obvious-predicates-are-computed-never-remembered/alt-leave-it-to-authors",
+    "kind": "alternative",
+    "digest": "aa6e8e46aed9"
+  },
+  {
     "path": "the-outline-groups-by-kind-and-refuses-to-nest-by-link",
     "kind": "decision",
     "digest": "0bfdf295a0d6"
