@@ -295,6 +295,21 @@
     "digest": "40e3efc167c7"
   },
   {
+    "path": "the-weakest-domains-demand-lands-first",
+    "kind": "decision",
+    "digest": "b3fd1a4ea49f"
+  },
+  {
+    "path": "the-weakest-domains-demand-lands-first/alt-a-links-native",
+    "kind": "alternative",
+    "digest": "1defcfce56ff"
+  },
+  {
+    "path": "the-weakest-domains-demand-lands-first/alt-wait-for-a-second-consumer",
+    "kind": "alternative",
+    "digest": "728f87ef1d46"
+  },
+  {
     "path": "the-working-set-is-a-tool-not-only-a-command",
     "kind": "decision",
     "digest": "4204ab08aed4"

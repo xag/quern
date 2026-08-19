@@ -1091,5 +1091,45 @@ def build() -> Quern:
                               "shows the other domains already paying that tax."}),
             ],
         ),
+
+        Node(
+            id="the-weakest-domains-demand-lands-first",
+            kind="decision",
+            name="The grammar learns to traverse links — linked, linked_current, "
+                 "backlinked — because the weakest live domain's own loudest demand "
+                 "(#46) comes before any interface-law analogy",
+            links={"rests_on": ["the-breadth-is-on-the-record"]},
+            payload={
+                "why":
+                    "mindmap's open-tension check lived in a parallel Python engine "
+                    "whose findings cannot go red in tree_check and cannot travel "
+                    "with a package — because no rule could range over a node's "
+                    "links at all. Three verbs in the unsupported shape close the "
+                    "core of it: linked (targets that resolve — dangling stays "
+                    "unsupported's finding), linked_current (a tension superseded "
+                    "away is worked, not open), backlinked (who points at me). Each "
+                    "is driven through run_rules in its tests, because a verb the "
+                    "grammar cannot reach is not an answer to #46. Deliberately NOT "
+                    "closed: reading a link's meaning, list comprehension in exprs, "
+                    "and self-reference tests — the issue stays open for what a "
+                    "second consumer actually demands.",
+            },
+            children=[
+                Node(id="alt-a-links-native", kind="alternative",
+                     name="Ship link traversal as a native contract in a package",
+                     payload={"why":
+                              "A native is host code a consumer must install and "
+                              "import; a traversal is structural, exactly what the "
+                              "env's own verbs are for — unsupported already "
+                              "follows links there."}),
+                Node(id="alt-wait-for-a-second-consumer", kind="alternative",
+                     name="Leave #46 unimplemented until a second domain demands it",
+                     payload={"why":
+                              "Two domains already did: mindmap's parallel checker "
+                              "and epure's relation demoted to a child node. The "
+                              "second consumer clause now governs what MORE #46 "
+                              "gets, not whether it starts."}),
+            ],
+        ),
     ]
     return quern

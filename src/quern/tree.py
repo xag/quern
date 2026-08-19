@@ -432,6 +432,31 @@ def unsupported(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
                   if tree.get(t) is None or is_superseded(tree, t))
 
 
+def linked(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """Targets of `path`'s `rel` link that resolve — the plain traversal the rule
+    grammar lacked (#46: graph domains grew parallel Python checkers because a rule
+    could not range over a node's associations at all).
+
+    The mirror of `unsupported`: that verb returns the targets that FAIL, this one
+    returns the targets that EXIST, whatever their currency — a rule that wants
+    only the living ones says `linked_current`. Structural like every verb here:
+    what `rel` means is the domain's, and the core reads none of it. Targets that
+    resolve to nothing are dropped, not raised — a dangling link is `unsupported`'s
+    finding, and this verb answers what is actually there."""
+    node = tree.get(path)
+    if node is None:
+        return []
+    return sorted("/".join(_segs(t)) for t in node.links.get(rel, [])
+                  if tree.get(t) is not None)
+
+
+def linked_current(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """`linked`, kept to targets that still hold — the form an open-tension rule
+    wants: a `contradicts` link to a superseded node is a tension somebody worked,
+    and only a link to a CURRENT node is still open."""
+    return [t for t in linked(tree, path, rel) if not is_superseded(tree, t)]
+
+
 def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
     """Every (link name -> source paths) that names `path`: the whole reverse index
     at one node, domain links and reserved verbs alike. This is what makes a link
@@ -1095,6 +1120,14 @@ def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         # ...and the same question asked of what a node leans on, over any link:
         # a count, because a rule wants `== 0` and a diagnostic wants how many.
         "unsupported": lambda p, rel: float(len(unsupported(tree, p, rel))),
+        # the link traversals (#46): what a node points at over any link, as
+        # paths a rule can count or feed onward — and the current-only form,
+        # because a tension superseded away is worked, not open. `backlinked`
+        # is the symmetric read: who points at me.
+        "linked": lambda p, rel: linked(tree, p, rel),
+        "linked_current": lambda p, rel: linked_current(tree, p, rel),
+        "backlinked": lambda p, rel: sorted(
+            tree.backlinks(rel, "/".join(_segs(p)))),
         # the cost verb: how many words a subtree makes every reader pay. A budget
         # rule (`said_words(self) <= N`) is the one mechanical brake on the way
         # ledgers actually decay - not by lying, by growing.
