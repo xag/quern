@@ -31,7 +31,7 @@ quern = "quern.cli:main"
 
 [tool.uv.sources]
 # Pinned by rev, always — the estate's fork-or-republish doctrine over resolver algebra.
-xag-flight-recorder = { git = "https://github.com/xag/flight-recorder", rev = "1a5da2c" }
+xag-flight-recorder = { git = "https://github.com/xag/flight-recorder", rev = "9a0d0e5" }
 
 [build-system]
 requires = ["hatchling"]
