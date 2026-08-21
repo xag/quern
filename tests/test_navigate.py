@@ -67,6 +67,19 @@ def test_the_conventional_location_needs_no_spec(tmp_path):
     assert load_build(tmp_path, None)().root.children[0].id == "only"
 
 
+def test_a_project_may_declare_its_ledger_in_pyproject(tmp_path):
+    """A library whose ledger sits beside its code says so once; no --module afterwards."""
+    path = _ledger(tmp_path / "lib", package=False)     # lands at lib/ledger/tree.py
+    declared = "lib/ledger/tree.py"
+    (tmp_path / "pyproject.toml").write_text(
+        f'[project]\nname = "x"\n[tool.quern]\nledger = "{declared}:build"\n', encoding="utf-8")
+    assert load_build(tmp_path, None)().root.children[0].id == "only"
+    (tmp_path / "pyproject.toml").write_text(
+        f'[tool.quern]\nledger = "{declared}"\n', encoding="utf-8")        # ATTR defaults
+    assert load_build(tmp_path, None)().root.children[0].id == "only"
+    assert load_build(tmp_path, f"{path}:other")().root.children == []   # --module still wins
+
+
 def test_a_spec_overrides_the_convention_and_may_name_the_attribute(tmp_path):
     path = _ledger(tmp_path / "elsewhere", package=False)
     assert load_build(tmp_path, str(path))().root.children[0].id == "only"      # ATTR defaults

@@ -101,9 +101,33 @@ def _import_ledger_module(path: Path) -> Any:
     return importlib.import_module(dotted)
 
 
+def declared_ledger(project: Path) -> str | None:
+    """The entry a project declares for its ledger in pyproject.toml - `[tool.quern]
+    ledger = "epure/tree.py:build"` - or None. A library whose ledger lives beside its code
+    (an `epure/tree.py`, not a `ledger/` package) says so once, there, and every quern
+    command finds it: the alternative was every session rediscovering `--module`."""
+    pp = project / "pyproject.toml"
+    if not pp.exists():
+        return None
+    try:
+        import tomllib
+        data = tomllib.loads(pp.read_text(encoding="utf-8"))
+    except Exception:
+        return None
+    entry = data.get("tool", {}).get("quern", {}).get("ledger")
+    return entry if isinstance(entry, str) and entry else None
+
+
 def load_build(project: Path, spec: str | None) -> Callable[[], Quern]:
-    """Resolve the `build` callable. By convention `<project>/ledger/tree.py:build`;
-    `spec` overrides it as `PATH[:ATTR]` (ATTR defaults to `build`)."""
+    """Resolve the `build` callable. By convention `<project>/ledger/tree.py:build`, or what
+    `[tool.quern] ledger` in the project's pyproject declares; `spec` overrides either as
+    `PATH[:ATTR]` (ATTR defaults to `build`). A declared entry is relative to the project."""
+    if not spec:
+        declared = declared_ledger(project)
+        if declared:
+            head, sep, tail = declared.rpartition(":")
+            rel, attr = (head, tail) if sep and tail.isidentifier() else (declared, "build")
+            spec = f"{project / rel}:{attr}"
     if spec:
         # rpartition, and the identifier test, because a Windows path carries a colon
         # of its own: `partition(":")` on `C:\proj\ledger\tree.py` splits at the DRIVE
@@ -121,7 +145,8 @@ def load_build(project: Path, spec: str | None) -> Callable[[], Quern]:
     if not path.exists():
         raise SystemExit(
             f"no ledger to navigate: {path} does not exist - pass a PROJECT dir "
-            f"holding ledger/tree.py, or --module PATH:ATTR")
+            f"holding ledger/tree.py, declare `[tool.quern] ledger = \"PATH:ATTR\"` in its "
+            f"pyproject.toml, or --module PATH:ATTR")
     try:
         mod = _import_ledger_module(path)
     except SystemExit:

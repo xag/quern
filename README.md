@@ -94,7 +94,7 @@ uv run quern navigate path/to/project
 
 Outline, kind prose, params with their provenance and grounding, links, and each rule's pass or fail against the node it names. The same view is served in-conversation as an MCP App, where the model browses through exactly the tools you are looking at.
 
-Both rest on **one convention, which is the contract of the commands**: the project keeps its tree in a package `ledger/` — an `__init__.py` beside a `tree.py` — and `tree.py` exposes `build() -> Quern` that takes no arguments and resolves its own registry. Point `--module PATH[:ATTR]` at any other entry and the convention is bypassed; it is the default, not a requirement.
+Both rest on **one convention, which is the contract of the commands**: the project keeps its tree in a package `ledger/` — an `__init__.py` beside a `tree.py` — and `tree.py` exposes `build() -> Quern` that takes no arguments and resolves its own registry. A project whose tree lives elsewhere declares it once, in its `pyproject.toml` — `[tool.quern] ledger = "epure/tree.py:build"` — and every command finds it; `--module PATH[:ATTR]` overrides either for one invocation. The convention is the default, not a requirement.
 
 **Checking it** is a separate act from reading it, and it is what makes a ledger worth keeping. A project's own gate is an ordinary Python module — quern ships one for itself:
 
