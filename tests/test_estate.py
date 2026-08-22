@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from quern.estate import Reading, _harvest, has_ledger, render
+from quern.estate import Reading, _harvest, _settled, has_ledger, render
 
 
 BRIEF = """demo - ledger brief
@@ -50,3 +50,18 @@ def test_a_ledger_is_found_where_it_lives_or_where_it_says(tmp_path: Path):
     neither.mkdir()
     (neither / "pyproject.toml").write_text('[project]\nname = "x"\n', encoding="utf-8")
     assert not has_ledger(neither)
+
+
+def test_a_debt_paid_in_part_is_still_owed():
+    # the discharge convention keeps a paid debt in the tree, saying so in its own name.
+    # A debt paid in PART says so too, and is still work — dropping it would report the
+    # remainder as done. This held for a while only because the test was a case-sensitive
+    # substring that "PARTLY DISCHARGED" happened to miss; "Discharged in part" did not.
+    for said, owed in [("PARTLY DISCHARGED 2026-08-22 - the catalogue exists", True),
+                       ("Partly discharged: half of it done", True),
+                       ("Discharged in part; the rest waits on a publish", True),
+                       ("An old gap. Discharged 2026-08-01: it was closed", False),
+                       ("Nobody has done this yet", True)]:
+        r = Reading(project="demo")
+        _harvest(f"[debt]  an-entry  —  {said}  {{1 discharge}}", r)
+        assert bool(r.owed) is owed, said

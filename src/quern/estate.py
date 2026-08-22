@@ -133,9 +133,19 @@ def _harvest(text: str, out: Reading) -> None:
             out.red.append((kind, name, red.group("rule")))
         # A debt that has been paid says so in its own name rather than leaving the tree;
         # that is the discharge convention, and reading it here is the only way to tell a
-        # live debt from a settled one without opening the entry.
-        if kind == "debt" and "Discharged" not in rest:
+        # live debt from a settled one without opening the entry. A debt paid IN PART is
+        # still owed and must still be counted — the fleet writes that as "PARTLY
+        # DISCHARGED" today, and until this was made a rule it worked only because the
+        # test was a case-sensitive substring that those capitals happened to miss.
+        # "Discharged in part" would have been dropped, silently, as work already done.
+        if kind == "debt" and not _settled(rest):
             out.owed.append((name, rest))
+
+
+def _settled(rest: str) -> bool:
+    """Does this debt's own name say it has been paid — wholly, not in part?"""
+    low = rest.lower()
+    return "discharged" in low and "part" not in low
 
 
 def survey(root: Path, timeout: float = 300.0) -> list[Reading]:
