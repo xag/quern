@@ -72,6 +72,59 @@ def build() -> Quern:
 
     quern.root.children = [
         Node(
+            id="the-fleets-owings-are-computed-never-authored",
+            kind="decision",
+            name="`quern estate` reads what a directory of projects owes itself out of their "
+                 "own ledgers, and a project it cannot read is reported rather than skipped",
+            payload={
+                "why":
+                    "A fleet accumulates work faster than any one project's brief shows, and "
+                    "the reflex is to keep a list of it — a bucket, a roadmap, a scratch "
+                    "ledger spanning the projects. That list is precisely the memory a "
+                    "ledger exists to replace. It drifts the first time a debt is discharged "
+                    "and nobody edits it, and then two records disagree with nothing to say "
+                    "which is right. Every project already states what it owes, in a kind "
+                    "built to carry it, beside the decision that incurred it. So the "
+                    "cross-project view authors nothing: it walks a directory, runs each "
+                    "ledger's own brief, and collects the debts still open and the entries a "
+                    "rule holds red. Discharge a debt and it leaves the roll-up because it "
+                    "left the ledger, which is the only way a roll-up stays true.",
+                "note":
+                    "Each ledger is read IN ITS OWN ENVIRONMENT, and that is the whole "
+                    "difficulty: a ledger imports its project's code, projects do not share "
+                    "a venv, and one of them cannot depend on quern at all (a package quern "
+                    "depends on cannot depend back). Hence a short list of invocations tried "
+                    "in order, and the module form before any console script — `uv run "
+                    "quern` finds an executable on PATH when the project's own environment "
+                    "has none, so a project that cannot answer appears to answer, through "
+                    "whichever quern the CALLER had. It was caught doing that. The caller's "
+                    "VIRTUAL_ENV is dropped for the same reason. Silence is the failure this "
+                    "is built against: an unread ledger is printed under its own heading, "
+                    "the exit status is non-zero, and the heading says in words that these "
+                    "are not projects with nothing owed.",
+            },
+            children=[
+                Node(id="a-cross-project-bucket-ledger", kind="alternative",
+                     name="Author one temporary ledger spanning the sessions and the projects",
+                     payload={"why":
+                              "It is the obvious answer and it is a second source of truth. "
+                              "The entries would be copies, the copies would go stale, and "
+                              "the stale one would be the one anybody reads — a list is "
+                              "easier to open than fifteen repositories, which is exactly "
+                              "why it would be believed after it stopped being true. What "
+                              "was actually missing was never a place to write things down; "
+                              "it was a way to read what had been."}),
+                Node(id="one-invocation-for-every-project", kind="alternative",
+                     name="Require every project to answer the same command",
+                     payload={"why":
+                              "There is no such command. A project that cannot depend on "
+                              "quern still has a ledger and still owes things, and demanding "
+                              "uniformity would either exclude it from the fleet's view or "
+                              "force a dependency cycle to keep it visible. The tool bends "
+                              "instead, and reports which way it had to bend."}),
+            ],
+        ),
+        Node(
             id="native-contracts-bypass-the-sandbox",
             kind="decision",
             name="A package may ship a first-class contract that does not run in wasm",

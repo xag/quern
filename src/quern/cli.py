@@ -145,6 +145,18 @@ def _cmd_brief(args: argparse.Namespace) -> None:
     print(brief(tree, all=args.all, fat=args.fat))
 
 
+def _cmd_estate(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from . import estate
+    root = Path(args.directory).resolve()
+    readings = estate.survey(root, timeout=args.timeout)
+    print(estate.as_json(readings) if args.json else estate.render(readings))
+    # a project whose ledger did not answer is not a project with nothing owed, and a caller
+    # that only reads the exit code has to be told the difference
+    return 1 if any(not r.ok for r in readings) else 0
+
+
 def _cmd_owed(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -251,6 +263,15 @@ def run(argv: list[str]) -> None:
     p.add_argument("--dest", default=CACHE_DEFAULT)
     p.set_defaults(func=_cmd_sync)
 
+    p = sub.add_parser("estate", help="every ledger under a directory: what is owed and "
+                                      "what is red, across the fleet")
+    p.add_argument("directory", nargs="?", default="..",
+                   help="directory holding the projects (default: the parent of this one)")
+    p.add_argument("--json", action="store_true")
+    p.add_argument("--timeout", type=float, default=300.0,
+                   help="seconds to allow one project's brief (default: 300)")
+    p.set_defaults(func=_cmd_estate)
+
     p = sub.add_parser("brief", help="one line per current ledger entry - the working "
                                      "set, not the archaeology")
     p.add_argument("project", nargs="?", default=".",
@@ -291,7 +312,10 @@ def run(argv: list[str]) -> None:
     import importlib
     for module in args.natives or []:
         importlib.import_module(module)
-    args.func(args)
+    # a command that returns a code means it; the rest return None and exit 0 as before
+    code = args.func(args)
+    if code:
+        raise SystemExit(code)
 
 
 def main(argv: list[str] | None = None) -> None:
