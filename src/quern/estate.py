@@ -65,6 +65,12 @@ def _child_env() -> dict[str, str]:
 
 _ENTRY = re.compile(r"^\[(?P<kind>[^\]]+)\]\s+(?P<name>\S+)\s+—\s+(?P<rest>.*)$")
 _RED = re.compile(r"RED\((?P<rule>[^)]+)\)")
+# One rendered link, as brief._line writes it: a double-space-delimited token
+# `rel->a,b`. Parsed HERE, beside the renderer's repo, and bound to it by a
+# round-trip test - so a consumer reads links as structured data and a rendering
+# change breaks quern's own suite in the same commit instead of silently dropping
+# every edge a fleet index derives.
+_LINK = re.compile(r"^(?P<rel>[A-Za-z_][\w-]*)->(?P<targets>\S+)$")
 
 
 @dataclass
@@ -73,7 +79,8 @@ class Reading:
 
     project: str
     how: str = ""                       # the invocation that answered
-    owed: list[tuple[str, str]] = field(default_factory=list)     # (entry, one line)
+    owed: list[tuple[str, str, dict]] = field(default_factory=list)
+    #                                   (entry, one line, links as {rel: [targets]})
     red: list[tuple[str, str, str]] = field(default_factory=list)  # (kind, entry, rule)
     unread: str = ""                    # why, when nothing answered
 
@@ -139,7 +146,18 @@ def _harvest(text: str, out: Reading) -> None:
         # test was a case-sensitive substring that those capitals happened to miss.
         # "Discharged in part" would have been dropped, silently, as work already done.
         if kind == "debt" and not _settled(rest):
-            out.owed.append((name, rest))
+            out.owed.append((name, rest, _links(rest)))
+
+
+def _links(rest: str) -> dict[str, list[str]]:
+    """The links the line renders, as data. brief._line joins bits with two spaces
+    and writes each link relation as `rel->a,b`; prose arrows sit inside a bit and
+    never match a whole token."""
+    links: dict[str, list[str]] = {}
+    for token in rest.split("  "):
+        if m := _LINK.match(token.strip()):
+            links[m.group("rel")] = m.group("targets").split(",")
+    return links
 
 
 def _settled(rest: str) -> bool:
@@ -155,7 +173,7 @@ def survey(root: Path, timeout: float = 300.0) -> list[Reading]:
 
 
 def render(readings: list[Reading], width: int = 96) -> str:
-    owed = [(r.project, n, why) for r in readings for n, why in r.owed]
+    owed = [(r.project, n, why) for r in readings for n, why, _ in r.owed]
     red = [(r.project, k, n, rule) for r in readings for k, n, rule in r.red]
     unread = [r for r in readings if not r.ok]
 
@@ -181,6 +199,7 @@ def render(readings: list[Reading], width: int = 96) -> str:
 def as_json(readings: list[Reading]) -> str:
     return json.dumps([{
         "project": r.project, "how": r.how, "unread": r.unread,
-        "owed": [{"entry": n, "line": why} for n, why in r.owed],
+        "owed": [{"entry": n, "line": why, "links": links}
+                 for n, why, links in r.owed],
         "red": [{"kind": k, "entry": n, "rule": rule} for k, n, rule in r.red],
     } for r in readings], ensure_ascii=False, indent=2)

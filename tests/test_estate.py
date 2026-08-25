@@ -21,14 +21,14 @@ def test_a_discharged_debt_is_not_owed():
     # is to read that. A roll-up that counted both would report work already done.
     r = Reading(project="demo")
     _harvest(BRIEF, r)
-    assert [n for n, _ in r.owed] == ["still-owed"]
+    assert [n for n, _, _ in r.owed] == ["still-owed"]
     assert r.red == [("law", "a-law", "a-law-cites-a-source")]
 
 
 def test_a_project_that_could_not_be_read_is_reported_not_skipped():
     # the failure this tool exists to avoid: a ledger that did not answer, omitted, and the
     # silence read as "nothing owed here". It has to appear, and it has to say it is not that.
-    out = render([Reading(project="fine", how="x", owed=[("a", "b")]),
+    out = render([Reading(project="fine", how="x", owed=[("a", "b", {})]),
                   Reading(project="broken", unread="no interpreter")])
     assert "broken" in out and "no interpreter" in out
     assert "UNREAD" in out and "not projects with nothing owed" in out
@@ -65,3 +65,27 @@ def test_a_debt_paid_in_part_is_still_owed():
         r = Reading(project="demo")
         _harvest(f"[debt]  an-entry  —  {said}  {{1 discharge}}", r)
         assert bool(r.owed) is owed, said
+
+
+def test_the_links_a_line_renders_come_back_as_data():
+    # renderer and parser live in this repo and this test holds them together: a
+    # change to either breaks here, in the same commit, instead of silently
+    # dropping every edge a fleet index derives from the estate reading
+    from quern.brief import _line
+    from quern.tree import Node
+
+    node = Node(id="a-debt", kind="debt", name="Waits on two things",
+                links={"blocked_by": ["near", "far:away"], "rests_on": ["why"]})
+    line = _line(None, "a-debt", node, False, [])
+    r = Reading(project="demo")
+    _harvest(line, r)
+    assert r.owed == [("a-debt", line.split("—  ", 1)[1],
+                       {"blocked_by": ["near", "far:away"], "rests_on": ["why"]})]
+
+
+def test_prose_arrows_are_not_links():
+    r = Reading(project="demo")
+    _harvest("[debt]  an-entry  —  Reads a -> b, then maps x->y in prose  "
+             "blocked_by->real-one  {1 discharge}", r)
+    (_, _, links), = r.owed
+    assert links == {"blocked_by": ["real-one"]}
