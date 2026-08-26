@@ -284,32 +284,34 @@ def build() -> Quern:
                               "launches a ledger whose gates have never been seen red — "
                               "indistinguishable, to a stranger, from decoration."}),
                 Node(id="alt-hide-the-ledger", kind="alternative",
+                meta={"amended": "18517c6ea31b wording only: aphorism replaced with a plain statement, claim unchanged"},
                      name="Keep the ledger private and ship a README caveat instead",
                      payload={"why":
-                              "A README caveat cannot fire — the exact pathology this "
-                              "substrate exists to refuse, reintroduced at the front "
-                              "door of the repo that argues against it."}),
+                              "A README caveat triggers no check — the exact pathology this "
+                              "substrate exists to refuse, reintroduced at the front door of "
+                              "the repo that argues against it."}),
             ],
         ),
 
         Node(
             id="the-gate-fails-on-unaccounted-red-not-on-red",
             kind="decision",
+            meta={"amended": "eeb7f54c2d34 wording only: aphorism replaced with a plain statement, claim unchanged"},
             name="A red the ledger accounts for is not a failure: the gate exits 1 on red "
                  "nobody expected, and on an expectation whose red has gone",
             links={"rests_on": ["the-red-ledger-ships-red"]},
             payload={
                 "rationale":
-                    "Shipping red by decision and gating on red are not compatible, and "
-                    "for a year this repo did both: `ledger-gate` failed on EVERY run in "
-                    "its recorded history. A check that has never once passed carries the "
-                    "same information as one that always does — none — so a genuinely "
-                    "broken ledger arrives into the noise and reads as Tuesday. That is "
-                    "not hypothetical here: flight-recorder's README gate shipped red on "
-                    "2026-08-03 and stayed red for ten days, because nobody could see a "
-                    "new red inside the old one. The exit code was carrying two claims at "
-                    "once — 'something is unsound' and 'something is WRONG' — and only "
-                    "the second is a gate's business. The first is the ledger's content.",
+                    "Shipping red by decision and gating on red are not compatible, and for a "
+                    "year this repo did both: `ledger-gate` failed on EVERY run in its recorded "
+                    "history. A check that has never once passed carries the same information "
+                    "as one that always does — none — so a genuinely broken ledger arrives amid "
+                    "the noise and looks routine. That is not hypothetical here: "
+                    "flight-recorder's README gate shipped red on 2026-08-03 and stayed red for "
+                    "ten days, because nobody could see a new red inside the old one. The exit "
+                    "code was carrying two claims at once — 'something is unsound' and "
+                    "'something is WRONG' — and only the second is a gate's business. The first "
+                    "is the ledger's content.",
                 "consequence":
                     "`reckon` sorts red into news, carried and stale. A red is carried "
                     "when the node it fires at names the rule in "
@@ -988,14 +990,15 @@ def build() -> Quern:
                      "not a surprise: exact versions, fork-or-republish, no ranges."},
             children=[
                 Node(id="alt-infer-the-convention-from-an-empty-shape", kind="alternative",
+                meta={"amended": "543897afd042 wording only: aphorism replaced with a plain statement, claim unchanged"},
                      name="Treat a kind that declares no params, no links and no "
                           "operations, and that nothing instantiates, as a namespace",
                      payload={"why":
                               "Needs no new field and would have cost no republication. "
-                              "Rejected because it is inference, and it excuses exactly "
-                              "the case being caught: a real node kind that happens to "
-                              "document nothing would be silently forgiven, which is the "
-                              "hole wearing the shape of a check."}),
+                              "Rejected because it is inference, and it excuses exactly the "
+                              "case being caught: a real node kind that happens to document "
+                              "nothing would be silently forgiven, which is a check that cannot "
+                              "catch the thing it exists for."}),
                 Node(id="alt-let-a-counter-example-count-as-an-instance", kind="alternative",
                      name="Accept a kind demonstrated only by the node a rule must reject",
                      payload={"why":
@@ -1131,11 +1134,11 @@ def build() -> Quern:
                               "readers swept the repos; every claim carries a "
                               "file-level receipt in the issue it points to."}),
                 Node(id="alt-fix-instead-of-file", kind="alternative",
+                meta={"amended": "4eab374bcb6e wording only: aphorism replaced with a plain statement, claim unchanged"},
                      name="Fix the seven walls in one pass instead of filing them",
                      payload={"why":
-                              "Each is a substrate release with a pin cascade across "
-                              "a dozen adopters; seven at once is how a survey "
-                              "becomes an incident."}),
+                              "Each is a substrate release with a pin cascade across a dozen "
+                              "adopters; seven at once turns a survey into an incident."}),
                 Node(id="alt-bend-the-domains", kind="alternative",
                      name="Ask the domains to restate their demands in what the "
                           "grammar already says",

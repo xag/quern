@@ -22,7 +22,7 @@
   {
     "path": "a-kind-is-a-word-something-is/alt-infer-the-convention-from-an-empty-shape",
     "kind": "alternative",
-    "digest": "283781b55f34"
+    "digest": "543897afd042"
   },
   {
     "path": "a-kind-is-a-word-something-is/alt-let-a-counter-example-count-as-an-instance",
@@ -142,7 +142,7 @@
   {
     "path": "the-breadth-is-on-the-record/alt-fix-instead-of-file",
     "kind": "alternative",
-    "digest": "1d39e44e180c"
+    "digest": "4eab374bcb6e"
   },
   {
     "path": "the-breadth-is-on-the-record/alt-survey-from-memory",
@@ -165,9 +165,24 @@
     "digest": "76d3e8112f0b"
   },
   {
+    "path": "the-fleets-owings-are-computed-never-authored",
+    "kind": "decision",
+    "digest": "df7ed5edade9"
+  },
+  {
+    "path": "the-fleets-owings-are-computed-never-authored/a-cross-project-bucket-ledger",
+    "kind": "alternative",
+    "digest": "1a2cbe604c08"
+  },
+  {
+    "path": "the-fleets-owings-are-computed-never-authored/one-invocation-for-every-project",
+    "kind": "alternative",
+    "digest": "f75e9111b3fb"
+  },
+  {
     "path": "the-gate-fails-on-unaccounted-red-not-on-red",
     "kind": "decision",
-    "digest": "b45556c3b6ff"
+    "digest": "eeb7f54c2d34"
   },
   {
     "path": "the-gate-fails-on-unaccounted-red-not-on-red/a-committed-baseline-of-expected-reds",
@@ -277,7 +292,7 @@
   {
     "path": "the-red-ledger-ships-red/alt-hide-the-ledger",
     "kind": "alternative",
-    "digest": "f3c38c52ddaf"
+    "digest": "18517c6ea31b"
   },
   {
     "path": "the-roll-digests-what-an-entry-says",
