@@ -23,6 +23,12 @@ def build(tree) -> None:
     set_node(tree, "parts/bolt", {
         "kind": "fastener",
         "params": {"mass": {"value": 10, "unit": "g"}}})
+    set_node(tree, "parts/rivet", {
+        "kind": "fastener",
+        "payload": {"field": "Some_API_Field_Name",
+                    "notes": [{"text": "buried in a list"}], "count": 9},
+        "params": {"length": {"value": 12, "unit": "mm",
+                              "source": "datasheet DS-4471"}}})
     set_node(tree, "rooms/kitchen", {
         "kind": "space", "name": "Kitchen", "meta": {"floor": "ground"}})
     set_node(tree, "rooms/kitchen/sink", {
@@ -79,9 +85,25 @@ def test_find_parity(stores):
         {"under": "rooms"},
         {"kind": "fixture", "current_only": True},
         {"query": "ground"},  # meta values are searchable
+        {"query": "some_api_field"},  # and payload strings, however deep (#51)
+        {"query": "ds-4471"},  # and the source a param cites
     ):
         assert [p for p, _ in find_nodes(store, **kwargs)] == \
                [p for p, _ in find_nodes(quern, **kwargs)], kwargs
+
+
+def test_query_reaches_payload_and_param_sources(stores):
+    """The one string a practitioner arrives with is often only in the payload — an
+    external identifier, a definition, a field name the domain records — or in the
+    source a param cites. Until #51 `query` stopped at id/name/kind/meta and such a
+    node resolved to nothing."""
+    for tree in stores:
+        assert [p for p, _ in find_nodes(tree, query="some_api_field")] == \
+            ["parts/rivet"]
+        assert [p for p, _ in find_nodes(tree, query="in a list")] == ["parts/rivet"]
+        assert [p for p, _ in find_nodes(tree, query="ds-4471")] == ["parts/rivet"]
+        # a number in the payload is not prose: its digits find nothing
+        assert find_nodes(tree, query="9") == []
 
 
 def test_supersession_reads_from_the_link_index(stores):

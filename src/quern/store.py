@@ -36,6 +36,7 @@ from .tree import (
     _coerce,
     _fold_payload,
     _segs,
+    haystack,
 )
 
 # after '/' in ASCII: `path >= p || '/' AND path < p || '0'` is the subtree range
@@ -219,8 +220,7 @@ class SqliteStore:
             if len(out) >= limit:
                 break
             n = _node_of(p, doc)
-            hay = " ".join([n.id, n.name, n.kind, *n.meta.values()]).lower()
-            if ((q is None or q in hay)
+            if ((q is None or q in haystack(n))
                     and (has_param is None or has_param in n.params)
                     and (links_to is None
                          or any(links_to in v for v in n.links.values()))

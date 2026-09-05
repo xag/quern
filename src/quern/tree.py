@@ -317,9 +317,7 @@ class Quern(BaseModel):
             if len(out) >= limit:
                 return
             if path:  # the root is an anchor, not a result
-                hay = " ".join([node.id, node.name, node.kind,
-                                *node.meta.values()]).lower()
-                if ((q is None or q in hay)
+                if ((q is None or q in haystack(node))
                         and (kind is None or node.kind == kind)
                         and (has_param is None or has_param in node.params)
                         and (links_to is None
@@ -366,16 +364,43 @@ def get_node(tree: Quern | TreeStore, path: str) -> Node | None:
     return tree.get(path)
 
 
+def _strings(value: Any) -> Iterator[str]:
+    """Every string inside a payload value, however nested. Numbers, booleans and
+    None are not prose and are not yielded — "7" should not find a count of 7."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from _strings(v)
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            yield from _strings(v)
+
+
+def haystack(node: Node) -> str:
+    """The prose a `query` searches, lower-cased: id, name, kind, meta values, every
+    string in the payload (nested lists and dicts included) and every param's
+    `source`. Payload and sources joined on 2026-09-05 (#51): an external identifier
+    or a definition lives in the payload, and a node that only its payload names
+    resolved to nothing — the string a practitioner arrives with is the one that
+    was not searched. Both stores search this and nothing else, so they agree."""
+    return " ".join([node.id, node.name, node.kind, *node.meta.values(),
+                     *_strings(node.payload),
+                     *(q.source for q in node.params.values() if q.source)]).lower()
+
+
 def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
                limit: int = 20) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
-    given filter. `query` is a case-insensitive substring over id, name, kind and
-    meta values; `kind` and `has_param` match exactly; `links_to` matches any link
-    target (a path, exact); `under` scopes the search to a branch; `current_only`
-    drops nodes some other node supersedes — the "what do we hold now?" query.
-    Purely structural — the search knows no more about kinds than the tree does."""
+    given filter. `query` is a case-insensitive substring over a node's prose — id,
+    name, kind, meta values, the strings in its payload and the sources its params
+    cite (see `haystack`); `kind` and `has_param` match exactly; `links_to` matches
+    any link target (a path, exact); `under` scopes the search to a branch;
+    `current_only` drops nodes some other node supersedes — the "what do we hold
+    now?" query. Purely structural — the search knows no more about kinds than the
+    tree does; the payload is searched as text, never interpreted."""
     return tree.find(query=query, kind=kind, has_param=has_param,
                      links_to=links_to, under=under, current_only=current_only,
                      limit=limit)

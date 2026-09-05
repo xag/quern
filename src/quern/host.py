@@ -215,8 +215,11 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                   under: str = "", current_only: bool = False,
                   limit: int = 20) -> dict[str, Any]:
         """Search the Quern instead of walking it — when the user names an element,
-        locate it in one call. `query` matches id/name/kind/meta (case-insensitive
-        substring); `kind`/`has_param` match exactly; `links_to` finds every node
+        locate it in one call. `query` is a case-insensitive substring over a
+        node's prose — id, name, kind, meta, every string in its payload and the
+        sources its params cite — so the external identifier, definition or
+        field name a user arrives with resolves to its node without knowing the
+        path; `kind`/`has_param` match exactly; `links_to` finds every node
         referencing a path; `under` scopes to a branch; `current_only` drops nodes
         another node supersedes (the "what do we hold now?" query). Returns paths +
         a one-line summary each; then tree_get the one you meant. Purely structural."""
