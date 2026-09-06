@@ -2,7 +2,20 @@
 name = "quern"
 version = "0.1.0"
 description = "A tree whose semantics — vocabulary, rules and solvers — are data, authored at runtime and published as digest-pinned packages through a proof gate"
+readme = "README.md"
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+authors = [{ name = "Xavier Grehant" }]
 requires-python = ">=3.11"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Libraries",
+]
 dependencies = [
     "pydantic>=2",
     "wasmtime>=25",  # sandboxed solver runtime: fuel-metered, no ambient authority
@@ -10,8 +23,16 @@ dependencies = [
     # registry, the lockfile, blob bytes, $QUERN_REGISTRY. A runtime dependency, not a dev
     # one — recording that only happens in development is recording that is absent from
     # every run a user could report.
-    "xag-flight-recorder",  # distribution name; the module is `flight_recorder`
+    # Distribution name; the module is `flight_recorder`. The floor is the PyPI release
+    # the suite was run against (241 tests, 2026-09-06); development resolves the git rev
+    # under [tool.uv.sources] instead, which a built wheel does not carry.
+    "xag-flight-recorder>=0.8.0",
 ]
+
+[project.urls]
+Homepage = "https://github.com/xag/quern"
+Repository = "https://github.com/xag/quern"
+Issues = "https://github.com/xag/quern/issues"
 
 [project.optional-dependencies]
 # quern.host registers the tree_* MCP tools over a Workspace; only a server needs it.
@@ -39,6 +60,11 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/quern"]
+
+[tool.hatch.build.targets.sdist]
+# The package and what describes it. The ledger, the tests (which import the ledger), the
+# claims file and the flight tapes are the repository's, not the distribution's.
+only-include = ["src/quern", "README.md", "LICENSE", "pyproject.toml"]
 
 [dependency-groups]
 dev = [
