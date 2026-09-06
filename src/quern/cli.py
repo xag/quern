@@ -134,6 +134,15 @@ def _cmd_navigate(args: argparse.Namespace) -> None:
           open_browser=not args.no_browser)
 
 
+def _cmd_serve(args: argparse.Namespace) -> None:
+    try:
+        from .serve import serve
+    except ImportError as e:
+        sys.exit(f"the server needs the host extra - install quern[host] "
+                 f"(the MCP SDK is missing: {e})")
+    serve(args.dir, transport=args.transport, host=args.host, port=args.port)
+
+
 def _cmd_brief(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -238,7 +247,8 @@ def run(argv: list[str]) -> None:
     literally the command the user typed."""
     parser = argparse.ArgumentParser(
         prog="quern",
-        description="packages travel as data: publish, pin, sync; navigate a ledger")
+        description="packages travel as data: publish, pin, sync; navigate a ledger; "
+                    "serve a tree")
     parser.add_argument("--registry", help="registry directory (or $QUERN_REGISTRY)")
     parser.add_argument("--natives", action="append", metavar="MODULE",
                         help="module to import for its register_native side "
@@ -307,6 +317,19 @@ def run(argv: list[str]) -> None:
     p.add_argument("--port", type=int, default=8765, help="localhost port (default: 8765)")
     p.add_argument("--no-browser", action="store_true", help="do not open a browser window")
     p.set_defaults(func=_cmd_navigate)
+
+    p = sub.add_parser("serve", help="an MCP server exposing the tree_* tools over one "
+                                     "directory (tree.json + library/), editable")
+    p.add_argument("dir", nargs="?", default=".quern",
+                   help="directory holding tree.json and library/ (default: .quern; "
+                        "created if missing)")
+    p.add_argument("--transport", choices=["stdio", "streamable-http", "sse"],
+                   default="stdio", help="MCP transport (default: stdio)")
+    p.add_argument("--host", default="127.0.0.1", help="bind address for the HTTP "
+                                                        "transports (default: 127.0.0.1)")
+    p.add_argument("--port", type=int, default=8000, help="port for the HTTP transports "
+                                                          "(default: 8000)")
+    p.set_defaults(func=_cmd_serve)
 
     args = parser.parse_args(argv)
     import importlib

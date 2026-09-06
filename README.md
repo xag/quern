@@ -102,6 +102,16 @@ Outline, kind prose, params with their provenance and grounding, links, and each
 
 Both rest on **one convention, which is the contract of the commands**: the project keeps its tree in a package `ledger/` — an `__init__.py` beside a `tree.py` — and `tree.py` exposes `build() -> Quern` that takes no arguments and resolves its own registry. A project whose tree lives elsewhere declares it once, in its `pyproject.toml` — `[tool.quern] ledger = "epure/tree.py:build"` — and every command finds it; `--module PATH[:ATTR]` overrides either for one invocation. The convention is the default, not a requirement.
 
+**`quern serve`** — the same tools as an MCP server, over a directory, editable:
+
+```bash
+pip install "quern[host]"
+quern serve                    # stdio; the tree lives in ./.quern (tree.json + library/)
+quern serve path/to/dir --transport streamable-http --port 8000
+```
+
+Point any MCP client at it (`{"command": "quern", "args": ["serve", "/path/to/dir"]}`) and it holds every `tree_*` verb and the navigator app over an empty tree: define kinds with `tree_vocabulary` or pin a published vocabulary with `tree_package`, then author. This is the Workspace every hosted domain otherwise writes by hand, for the case where there is no domain yet — a tree, a client, and a first hour. A `Dockerfile` at the root builds the same server with the tree under `/data`.
+
 **Checking it** is a separate act from reading it, and it is what makes a ledger worth keeping. A project's own gate is an ordinary Python module — quern ships one for itself:
 
 ```bash

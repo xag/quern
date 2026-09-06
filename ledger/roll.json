@@ -350,6 +350,21 @@
     "digest": "3f415985ae75"
   },
   {
+    "path": "the-server-is-the-workspace-nobody-should-have-to-write",
+    "kind": "decision",
+    "digest": "cfcefcc296a9"
+  },
+  {
+    "path": "the-server-is-the-workspace-nobody-should-have-to-write/alt-serve-over-sqlite",
+    "kind": "alternative",
+    "digest": "08533ed2a14c"
+  },
+  {
+    "path": "the-server-is-the-workspace-nobody-should-have-to-write/alt-stay-a-library",
+    "kind": "alternative",
+    "digest": "dee2964f28a9"
+  },
+  {
     "path": "the-substrate-records-its-own-runs",
     "kind": "decision",
     "digest": "cc4b209a3b54"

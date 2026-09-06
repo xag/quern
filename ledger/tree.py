@@ -442,6 +442,60 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-server-is-the-workspace-nobody-should-have-to-write",
+            kind="decision",
+            name="quern serve is a standalone MCP server over one directory - tree.json "
+                 "beside a library/ - so the tree_* tools can be used without writing a "
+                 "host",
+            links={"rests_on": ["the-navigator-is-vocabulary-blind"]},
+            payload={
+                "rationale":
+                    "Until 2026-09-06 `pip install quern[host]` bought a library: the "
+                    "generic verbs existed, and every server exposing them was a domain's "
+                    "own Workspace - its store, its read view, its write guard, its "
+                    "persistence. That is the right shape for a domain, and it meant there "
+                    "was no server for anyone with a client and no domain. The gap was "
+                    "found from outside: a public listing described quern as an MCP server, "
+                    "and the listing's checker asked for a server that starts and answers "
+                    "introspection, which did not exist. `quern serve DIR` is the "
+                    "Workspace such a user would otherwise have to write: a pydantic Quern "
+                    "loaded from tree.json, written whole and atomically on every commit, "
+                    "a Library beside it for packages and blobs, every tree_* verb and the "
+                    "navigator app registered over it, stdio by default. Like the "
+                    "navigator it supplies no vocabulary: an empty tree's first act is "
+                    "tree_vocabulary or tree_package.",
+                "note":
+                    "The store is a JSON file and not the SQLite store, on purpose: the "
+                    "host's transactional commit snapshots and restores an in-memory "
+                    "Quern (model_copy / _restore), and the scaled store has no such "
+                    "seam yet. A tree too large for one file is a domain with a store of "
+                    "its own, which writes its Workspace as the scaled hosts do. The "
+                    "CLI's flight recording stays off in the container (QUERN_FLIGHT=0): "
+                    "a server holds its one `run` call open for its whole life, which is "
+                    "a tape of nothing finished.",
+            },
+            children=[
+                Node(id="alt-stay-a-library", kind="alternative",
+                     name="Keep quern[host] a library and let every user write a Workspace",
+                     payload={"why":
+                              "It is what shipped, and it left the first hour of any new "
+                              "user as an hour of plumbing before the first node - and a "
+                              "listing that called quern a server with nothing behind the "
+                              "claim. A generic Workspace is forty lines; not shipping it "
+                              "saved nothing."}),
+                Node(id="alt-serve-over-sqlite", kind="alternative",
+                     name="Back the standalone server with quern.store.SqliteStore",
+                     payload={"why":
+                              "Scales further, and the host cannot commit over it today: "
+                              "commit_changes snapshots a Quern to roll back a batch that "
+                              "went red, and a store on disk needs a transaction where the "
+                              "model needs a copy. When the host grows that seam the "
+                              "server can offer both; the JSON file is not a ceiling on the "
+                              "design, only on one directory."}),
+            ],
+        ),
+
+        Node(
             id="the-roll-digests-what-an-entry-says",
             kind="decision",
             name="The roll records a digest of every node's words — name, payload, and "
