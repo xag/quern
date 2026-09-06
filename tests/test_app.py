@@ -121,7 +121,7 @@ def test_the_bridge_serves_every_tool_the_model_can_call(tmp_path):
     assert "tree_app" in names  # the app's own entry tool, registered alongside
     for expected in ("tree_get", "tree_find", "tree_set", "tree_delete", "tree_check",
                      "tree_brief", "tree_solver", "tree_solve", "tree_vocabulary",
-                     "tree_rule", "tree_commit", "tree_package"):
+                     "tree_rule", "tree_commit", "tree_package", "tree_roll"):
         assert expected in names, f"{expected} is callable by the model and not by the UI"
 
     # And each is genuinely reachable through the bridge, not merely listed.

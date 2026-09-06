@@ -26,6 +26,7 @@ from typing import Any, Iterable, Iterator, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
+from .expr import Read, compile_expr
 from .provenance import Quantity
 from .solver import SolverDef, path_allowed
 
@@ -304,6 +305,7 @@ class Quern(BaseModel):
     def find(self, query: str | None = None, kind: str | None = None,
              has_param: str | None = None, links_to: str | None = None,
              under: str = "", current_only: bool = False,
+             payload: dict[str, Any] | None = None,
              limit: int = 20) -> list[tuple[str, Node]]:
         """Search the tree instead of walking it — see `find_nodes`."""
         start = self.get(under)
@@ -322,6 +324,7 @@ class Quern(BaseModel):
                         and (has_param is None or has_param in node.params)
                         and (links_to is None
                              or any(links_to in v for v in node.links.values()))
+                        and (payload is None or payload_matches(node, payload))
                         and (stale is None or path not in stale)):
                     out.append((path, node))
             for c in node.children:
@@ -351,6 +354,7 @@ class TreeStore(Protocol):
     def find(self, query: str | None = None, kind: str | None = None,
              has_param: str | None = None, links_to: str | None = None,
              under: str = "", current_only: bool = False,
+             payload: dict[str, Any] | None = None,
              limit: int = 20) -> list[tuple[str, Node]]: ...
 
 
@@ -389,21 +393,51 @@ def haystack(node: Node) -> str:
                      *(q.source for q in node.params.values() if q.source)]).lower()
 
 
+def payload_matches(node: Node, want: dict[str, Any]) -> bool:
+    """Does the node's payload hold each named field at one of the stated values?
+
+    The value is matched exactly (a string, a number, a boolean, a nested object),
+    or against a list of values, which reads as "any of these" — the two forms
+    scoping is written in. A list ALWAYS reads as the alternatives, so a payload
+    field that holds a list is not matchable this way; that is the trade, and it is
+    the right way round, because scoping by a set of states is what checks do and
+    scoping by an exact list is not. Both stores answer through this one function,
+    so they cannot disagree; the sqlite store narrows with `json_extract` first and
+    then asks here, which only ever drops rows this would reject anyway.
+
+    Top-level payload keys only, and no interpretation: the substrate does not know
+    what `state` means, only that a caller named a field and a value. A key the
+    payload does not carry reads as None, so `{"state": None}` finds the nodes that
+    do not state one — which is the honest reading and the useful one."""
+    for key, value in want.items():
+        have = node.payload.get(key)
+        if isinstance(value, (list, tuple, set)):
+            if not any(have == v for v in value):
+                return False
+        elif have != value:
+            return False
+    return True
+
+
 def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
+               payload: dict[str, Any] | None = None,
                limit: int = 20) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
     given filter. `query` is a case-insensitive substring over a node's prose — id,
     name, kind, meta values, the strings in its payload and the sources its params
     cite (see `haystack`); `kind` and `has_param` match exactly; `links_to` matches
-    any link target (a path, exact); `under` scopes the search to a branch;
+    any link target (a path, exact); `payload` matches payload fields exactly —
+    `{"state": "Opened"}`, or `{"state": ["Opened", "Proposed"]}` for any of
+    several (see `payload_matches`); `under` scopes the search to a branch;
     `current_only` drops nodes some other node supersedes — the "what do we hold
     now?" query. Purely structural — the search knows no more about kinds than the
-    tree does; the payload is searched as text, never interpreted."""
+    tree does; the payload is searched as text by `query` and compared as values by
+    `payload`, and interpreted by neither."""
     return tree.find(query=query, kind=kind, has_param=has_param,
                      links_to=links_to, under=under, current_only=current_only,
-                     limit=limit)
+                     payload=payload, limit=limit)
 
 
 # --- the reserved structural verbs: supersession, lineage and reuse -------------
@@ -1002,15 +1036,28 @@ def check_demonstrations(spec: "list[Demonstration]", base: "Quern | None" = Non
 
 
 class RuleResult(BaseModel):
+    """One rule's verdict on one node, and — when the run was traced — what the
+    expression read to reach it.
+
+    `reads` is empty unless `run_rules(..., trace=True)`, and it is what makes a red
+    actionable: `ok=False` says the rule did not hold, the trace says the evaluation
+    saw a `state` of "Assigned" and a date of 2026-10-03. It comes from the evaluator
+    that produced the verdict, so a reporter never re-runs the sub-expressions to
+    recover the numbers — a second pass over the same grammar is a second grammar,
+    and it drifts. On a rule that raised, the trace holds what was read BEFORE the
+    exception, which is most of the diagnosis."""
+
     rule: str
     node: str  # the path the rule ran against ("" = global)
     ok: bool
     detail: str = ""
+    reads: list[Read] = Field(default_factory=list)
 
 
 def run_rules(tree: Quern | TreeStore, path: str = "",
               context: dict[str, Any] | None = None,
-              solver_runner=None) -> list[RuleResult]:
+              solver_runner=None, rules: str | Iterable[str] | None = None,
+              trace: bool = False) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
 
     `context` is the caller-supplied evaluation payload (feeds, series windows,
@@ -1019,18 +1066,46 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
     against the NATIVE registry first, then `solver_runner(tree, name, args)` if
     the caller wires one (e.g. to the sandboxed WASM machinery) — the tree is
     handed over because a sandboxed module is fed a *slice*, and a runner that
-    could not see the tree could not cut one."""
+    could not see the tree could not cut one.
+
+    `rules` narrows the run to the rules named — one name or several. The two
+    questions a checker asks are "what is wrong" (every rule, every node) and "is
+    this still wrong" (one rule, one node, asked by whoever has just done something
+    about it), and the second should cost one rule's reads. A name no rule carries
+    raises: an empty green would answer the question with a typo.
+
+    `trace` fills each result's `reads` with every call the expression made. Off by
+    default because the trace of a whole tree's check is much larger than its
+    verdicts, and the calls that matter are the ones behind a line somebody is
+    looking at."""
     out: list[RuleResult] = []
-    env = _env(tree, context or {}, solver_runner)
-    for rule in tree.rules:
+    env = rule_env(tree, context or {}, solver_runner)
+    for rule in _selected_rules(tree, rules):
         for node_path, variables in _rule_bindings(tree, rule, path):
+            reads: list[Read] | None = [] if trace else None
             try:
-                value = _eval_expr(rule.expr, env, variables)
-                out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value)))
+                value = compile_expr(rule.expr).evaluate(env, variables, reads)
+                out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value),
+                                      reads=reads or []))
             except Exception as e:  # a broken rule must report, not crash the check
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
-                                      detail=str(e)))
+                                      detail=str(e), reads=reads or []))
     return out
+
+
+def _selected_rules(tree: Quern | TreeStore,
+                    rules: str | Iterable[str] | None) -> list[Rule]:
+    """The tree's rules, or the ones named — with an unknown name refused."""
+    if rules is None:
+        return list(tree.rules)
+    wanted = [rules] if isinstance(rules, str) else list(rules)
+    known = {r.name for r in tree.rules}
+    missing = [n for n in wanted if n not in known]
+    if missing:
+        raise ValueError(
+            f"no rule named {', '.join(repr(n) for n in missing)} in this tree "
+            f"({len(known)} registered)")
+    return [r for r in tree.rules if r.name in set(wanted)]
 
 
 def expectations(node: Node) -> dict[str, str]:
@@ -1134,9 +1209,19 @@ def _iter_paths(node: Node, path: str):
         yield from _iter_paths(c, cpath)
 
 
-def _env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
-         solver_runner=None) -> dict[str, Any]:
-    """Structural builtins + the solve() bridge. Nothing here interprets content."""
+def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
+             solver_runner=None) -> dict[str, Any]:
+    """Structural builtins + the solve() bridge. Nothing here interprets content.
+
+    Public because evaluating one expression against a tree is a thing consumers
+    do outside `run_rules` — a daemon judging a criterion that lives in a payload,
+    a checker asking one question of one node. Before this they staged a copy of
+    the tree with a fabricated one-rule rule list to get at the same environment
+    (#44). Pair it with `quern.expr.compile_expr`:
+
+        expr = compile_expr(node.payload["expr"])
+        value, reads = expr.trace(rule_env(tree, context), {"self": path})
+    """
     context = context or {}
 
     def solve(name: str, *args):
@@ -1206,140 +1291,3 @@ def _param_of(tree: Quern | TreeStore, path: str, name: str) -> float:
     if q is None:
         raise ValueError(f"no param '{name}' at '{path}'")
     return q.value
-
-
-def _eval_expr(src: str, env: dict[str, Any], variables: dict[str, Any]) -> Any:
-    tokens = _tokenize(src)
-    value, pos = _parse_or(tokens, 0, env, variables)
-    if pos != len(tokens):
-        raise ValueError(f"unexpected '{tokens[pos][1]}'")
-    return value
-
-
-def _tokenize(src: str) -> list[tuple[str, Any]]:
-    out: list[tuple[str, Any]] = []
-    i = 0
-    while i < len(src):
-        c = src[i]
-        if c.isspace():
-            i += 1
-        elif c.isdigit() or (c == "." and i + 1 < len(src) and src[i + 1].isdigit()):
-            j = i
-            while j < len(src) and (src[j].isdigit() or src[j] == "."):
-                j += 1
-            out.append(("num", float(src[i:j])))
-            i = j
-        elif c.isalpha() or c == "_":
-            j = i
-            while j < len(src) and (src[j].isalnum() or src[j] == "_"):
-                j += 1
-            out.append(("name", src[i:j]))
-            i = j
-        elif c in "'\"":
-            j = src.find(c, i + 1)
-            if j < 0:
-                raise ValueError("unterminated string")
-            out.append(("str", src[i + 1:j]))
-            i = j + 1
-        elif src[i:i + 2] in ("<=", ">=", "==", "!="):
-            out.append(("op", src[i:i + 2]))
-            i += 2
-        elif c in "+-*/<>(),":
-            out.append(("op", c))
-            i += 1
-        else:
-            raise ValueError(f"bad character '{c}'")
-    return out
-
-
-def _parse_or(toks, i, env, var):
-    v, i = _parse_and(toks, i, env, var)
-    while i < len(toks) and toks[i] == ("name", "or"):
-        r, i = _parse_and(toks, i + 1, env, var)
-        v = bool(v) or bool(r)
-    return v, i
-
-
-def _parse_and(toks, i, env, var):
-    v, i = _parse_not(toks, i, env, var)
-    while i < len(toks) and toks[i] == ("name", "and"):
-        r, i = _parse_not(toks, i + 1, env, var)
-        v = bool(v) and bool(r)
-    return v, i
-
-
-def _parse_not(toks, i, env, var):
-    if i < len(toks) and toks[i] == ("name", "not"):
-        v, i = _parse_not(toks, i + 1, env, var)
-        return not bool(v), i
-    return _parse_cmp(toks, i, env, var)
-
-
-def _parse_cmp(toks, i, env, var):
-    v, i = _parse_sum(toks, i, env, var)
-    if i < len(toks) and toks[i][0] == "op" and toks[i][1] in ("<", "<=", ">", ">=", "==", "!="):
-        op = toks[i][1]
-        r, i = _parse_sum(toks, i + 1, env, var)
-        v = {"<": v < r, "<=": v <= r, ">": v > r, ">=": v >= r,
-             "==": v == r, "!=": v != r}[op]
-    return v, i
-
-
-def _parse_sum(toks, i, env, var):
-    v, i = _parse_term(toks, i, env, var)
-    while i < len(toks) and toks[i][0] == "op" and toks[i][1] in "+-":
-        op = toks[i][1]
-        r, i = _parse_term(toks, i + 1, env, var)
-        v = v + r if op == "+" else v - r
-    return v, i
-
-
-def _parse_term(toks, i, env, var):
-    v, i = _parse_unary(toks, i, env, var)
-    while i < len(toks) and toks[i][0] == "op" and toks[i][1] in "*/":
-        op = toks[i][1]
-        r, i = _parse_unary(toks, i + 1, env, var)
-        v = v * r if op == "*" else v / r
-    return v, i
-
-
-def _parse_unary(toks, i, env, var):
-    if i < len(toks) and toks[i] == ("op", "-"):
-        v, i = _parse_unary(toks, i + 1, env, var)
-        return -v, i
-    return _parse_atom(toks, i, env, var)
-
-
-def _parse_atom(toks, i, env, var):
-    if i >= len(toks):
-        raise ValueError("unexpected end of expression")
-    kind, val = toks[i]
-    if kind in ("num", "str"):
-        return val, i + 1
-    if kind == "op" and val == "(":
-        v, i = _parse_or(toks, i + 1, env, var)
-        if i >= len(toks) or toks[i] != ("op", ")"):
-            raise ValueError("missing ')'")
-        return v, i + 1
-    if kind == "name":
-        if i + 1 < len(toks) and toks[i + 1] == ("op", "("):
-            fn = env.get(val)
-            if fn is None:
-                raise ValueError(f"unknown function '{val}'")
-            args = []
-            i += 2
-            if toks[i] != ("op", ")"):
-                while True:
-                    a, i = _parse_or(toks, i, env, var)
-                    args.append(a)
-                    if i < len(toks) and toks[i] == ("op", ","):
-                        i += 1
-                        continue
-                    break
-            if i >= len(toks) or toks[i] != ("op", ")"):
-                raise ValueError("missing ')'")
-            return fn(*args), i + 1
-        if val in var:
-            return var[val], i + 1
-        raise ValueError(f"unknown name '{val}'")
-    raise ValueError(f"unexpected '{val}'")

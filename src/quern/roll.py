@@ -147,6 +147,24 @@ def vanished(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
             if e["path"] not in here and not is_spared(e["path"])]
 
 
+def compare(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
+            excused: Iterable[str] = ()) -> dict[str, list[dict[str, str]]]:
+    """The three findings against a roll the caller holds, as data.
+
+    `{"vanished": [...], "rewritten": [...], "rekinded": [...]}` — the same three
+    reads `audit` turns into prose, without git anywhere near them. A gate diffs
+    against the roll committed beside the tree; a tree that MIRRORS something else
+    (an index of external objects, refreshed on a schedule) has the same question on
+    every refresh and holds its own previous roll, not a revision. Both want the
+    same three answers, and neither should re-derive `vanished` in its own dialect.
+
+    `previous` is a roll: the list `roll()` returned last time."""
+    previous = list(previous)
+    return {"vanished": vanished(tree, previous, excused),
+            "rewritten": rewritten(tree, previous),
+            "rekinded": rekinded(tree, previous)}
+
+
 def audit(tree: Quern | TreeStore, repo: str | Path, relpath: str,
           rev: str = "HEAD", excused: Iterable[str] = (),
           ) -> tuple[list[str], bool]:
@@ -171,18 +189,19 @@ def audit(tree: Quern | TreeStore, repo: str | Path, relpath: str,
     if previous is None:
         return [], False
 
+    found = compare(tree, previous, excused)
     out = [f"{e['path']} ({e['kind']}) was on the roll and is gone - supersede it, "
            "discharge it, or retract it with a tombstone, but do not delete it"
-           for e in vanished(tree, previous, excused)]
+           for e in found["vanished"]]
     out += [f"{e['path']} ({e['kind']}) no longer says what the roll recorded "
             f"({e['was']} -> {e['now']}) - a correction travels by supersession: add "
             "the corrected entry and leave this one standing. If only the wording "
             f"moved and the claim did not, acknowledge it: meta['{AMENDED}'] = "
             f"'{e['now']} <why>'"
-            for e in rewritten(tree, previous)]
+            for e in found["rewritten"]]
     out += [f"{e['path']} was a {e['was']} and is now a {e['now']} - a belief "
             "rewritten into a decision was not confirmed, it stopped being falsifiable"
-            for e in rekinded(tree, previous)]
+            for e in found["rekinded"]]
     return out, True
 
 

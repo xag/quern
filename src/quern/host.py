@@ -28,7 +28,8 @@ from typing import Any, Callable, Protocol
 
 from mcp.server.fastmcp import FastMCP
 
-from . import brief as briefmod, library as librarymod, solver as solvermod, tree as treemod
+from . import (brief as briefmod, library as librarymod, roll as rollmod,
+               solver as solvermod, tree as treemod)
 from .library import Library
 from .tree import Quern, KindDef
 
@@ -54,6 +55,17 @@ class Workspace(Protocol):
 Resolver = Callable[[], "Workspace | str"]
 
 _MAX_REPORTED = 8
+
+# How much of one read's value a check report shows. A trace exists to put the value
+# behind a red in front of its reader; a contract that answers with a hundred paths
+# would bury the line it was meant to explain.
+_MAX_READ_CHARS = 120
+
+
+def _short(value: Any) -> str:
+    """One read's argument or answer, rendered for a report line and truncated."""
+    text = json.dumps(value, ensure_ascii=False, default=str)
+    return text if len(text) <= _MAX_READ_CHARS else text[:_MAX_READ_CHARS - 1] + "…"
 
 
 def _relevant(node: str, path: str) -> bool:
@@ -213,6 +225,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
     def tree_find(query: str | None = None, kind: str | None = None,
                   has_param: str | None = None, links_to: str | None = None,
                   under: str = "", current_only: bool = False,
+                  payload: dict[str, Any] | None = None,
                   limit: int = 20) -> dict[str, Any]:
         """Search the Quern instead of walking it — when the user names an element,
         locate it in one call. `query` is a case-insensitive substring over a
@@ -220,16 +233,20 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         sources its params cite — so the external identifier, definition or
         field name a user arrives with resolves to its node without knowing the
         path; `kind`/`has_param` match exactly; `links_to` finds every node
-        referencing a path; `under` scopes to a branch; `current_only` drops nodes
-        another node supersedes (the "what do we hold now?" query). Returns paths +
-        a one-line summary each; then tree_get the one you meant. Purely structural."""
+        referencing a path; `payload` matches payload FIELDS by value —
+        {"state": "Opened"}, or {"state": ["Opened", "Proposed"]} for any of
+        several — which is how you scope by state without a substring also
+        matching the word in a description; `under` scopes to a branch;
+        `current_only` drops nodes another node supersedes (the "what do we hold
+        now?" query). Returns paths + a one-line summary each; then tree_get the
+        one you meant. Purely structural."""
         ws = get_ws()
         if isinstance(ws, str):
             return {"error": ws}
         hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
                                   has_param=has_param, links_to=links_to,
                                   under=under, current_only=current_only,
-                                  limit=limit)
+                                  payload=payload, limit=limit)
         return {"matches": [
             {"path": p, "kind": n.kind or None, "name": n.name or None,
              "shape": (n.payload.get("shape") or {}).get("op"),
@@ -391,23 +408,65 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         return f"registered rule '{name}' — it will run in tree_check"
 
     @mcp.tool()
-    def tree_check(path: str = "") -> str:
+    def tree_check(path: str = "", rule: str | list[str] | None = None) -> str:
         """Run every applicable rule at or under `path` — the domain's data checks.
         Structural only; domain summaries (e.g. geometry's bounding box / volume via
-        tree_measure) are registered by the domain's own tools, not here."""
+        tree_measure) are registered by the domain's own tools, not here.
+
+        `rule` narrows the run to the rule(s) named. That is the "is this still
+        wrong?" question — one rule, one node, asked after doing something about it
+        — and it costs that rule's reads instead of the whole tree's. Naming a rule
+        also prints what each evaluation READ: every param, solve, linked and ctx
+        call with its arguments and the value it returned, so a red arrives with the
+        values behind it. A name no rule carries is an error, never an empty pass."""
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        results = treemod.run_rules(ws.effective(), path)
+        try:
+            results = treemod.run_rules(ws.effective(), path, rules=rule,
+                                        trace=rule is not None)
+        except ValueError as e:
+            return str(e)
         if not results:
-            return "no rules apply — register some with tree_rule."
+            return ("no rules apply — register some with tree_rule." if rule is None
+                    else f"no node in scope for {rule} at '{path}'.")
         lines = []
         for r in results:
             state = "PASS" if r.ok else "FAIL"
             where = f" @ {r.node}" if r.node else ""
             detail = f" ({r.detail})" if r.detail else ""
             lines.append(f"{state} {r.rule}{where}{detail}")
+            for read in r.reads:
+                args = ", ".join(_short(a) for a in read.args)
+                lines.append(f"     {read.call}({args}) -> {_short(read.value)}")
         return "\n".join(lines)
+
+    @mcp.tool(structured_output=True)
+    def tree_roll(against: list[dict[str, Any]] | None = None,
+                  excused: list[str] | None = None) -> dict[str, Any]:
+        """What the tree holds now, as {path, kind, digest} per node — and, given a
+        roll you kept from last time, what changed since.
+
+        Every rule runs against the tree as it is, so no rule can see what was
+        REMOVED: a deleted node is not red, it is absent. The roll is what makes
+        absence and silent rewriting mechanical. Keep the `roll` this returns; hand
+        it back as `against` on the next read and you get `vanished` (on the roll,
+        no longer here), `rewritten` (still here, still its kind, no longer saying
+        what it said — the digest covers name, payload and each param's value, and
+        deliberately not grounding or meta, so re-reading an unchanged record is not
+        a change) and `rekinded` (here, under a different kind).
+
+        `excused` spares paths whose removal was intended, and spares their whole
+        subtree. The comparison is against the roll you hold, never against git —
+        a gate diffing a committed roll is `quern.roll.audit`, not this."""
+        ws = get_ws()
+        if isinstance(ws, str):
+            return {"error": ws}
+        tree = ws.effective()
+        out: dict[str, Any] = {"roll": rollmod.roll(tree)}
+        if against is not None:
+            out.update(rollmod.compare(tree, against, excused or []))
+        return out
 
     @mcp.tool()
     def tree_solver(name: str | None = None, description: str = "",

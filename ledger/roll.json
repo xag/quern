@@ -200,6 +200,26 @@
     "digest": "fefe7ec6461f"
   },
   {
+    "path": "the-grammar-is-an-object-not-a-private-parser",
+    "kind": "decision",
+    "digest": "3d2a09146df1"
+  },
+  {
+    "path": "the-grammar-is-an-object-not-a-private-parser/alt-a-reporter-re-evaluates",
+    "kind": "alternative",
+    "digest": "66f788d56d7f"
+  },
+  {
+    "path": "the-grammar-is-an-object-not-a-private-parser/alt-publish-the-private-functions",
+    "kind": "alternative",
+    "digest": "7163a8047027"
+  },
+  {
+    "path": "the-grammar-is-an-object-not-a-private-parser/alt-short-circuit-while-we-are-here",
+    "kind": "alternative",
+    "digest": "e6028473832a"
+  },
+  {
     "path": "the-history-ships-as-is",
     "kind": "decision",
     "digest": "2a36550d28b6"
@@ -208,6 +228,26 @@
     "path": "the-history-ships-as-is/alt-fresh-root",
     "kind": "alternative",
     "digest": "6fa011f6cd63"
+  },
+  {
+    "path": "the-host-can-be-asked-one-question",
+    "kind": "decision",
+    "digest": "a08dc31ef7ee"
+  },
+  {
+    "path": "the-host-can-be-asked-one-question/alt-a-substring-is-close-enough",
+    "kind": "alternative",
+    "digest": "805bf0206f8c"
+  },
+  {
+    "path": "the-host-can-be-asked-one-question/alt-run-everything-and-filter",
+    "kind": "alternative",
+    "digest": "51981d68e715"
+  },
+  {
+    "path": "the-host-can-be-asked-one-question/alt-the-roll-stays-a-gate-concern",
+    "kind": "alternative",
+    "digest": "7fec4a164a3b"
   },
   {
     "path": "the-host-surface",

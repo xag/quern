@@ -1255,5 +1255,114 @@ def build() -> Quern:
                               "gets, not whether it starts."}),
             ],
         ),
+
+        Node(
+            id="the-grammar-is-an-object-not-a-private-parser",
+            kind="decision",
+            name="The rule grammar moves into `quern.expr` with a public compile, "
+                 "evaluate and inspect API, and the evaluator reports what it read "
+                 "(#44, #52)",
+            links={"rests_on": ["the-breadth-is-on-the-record"]},
+            payload={
+                "why":
+                    "An expr was a string a caller could only hand to run_rules, so "
+                    "everything else about one had to be recovered from its source "
+                    "text. Four adopters did that, four ways: one imported the "
+                    "private _tokenize and froze it by pin, two read what an "
+                    "expression needs (its ctx keys, a numeric bound) back out with "
+                    "regular expressions, and two staged a throwaway copy of a tree "
+                    "with a one-rule rule list to evaluate an expression that was "
+                    "sitting in a payload. Every one of those is a second reader of "
+                    "the grammar, and a second reader drifts. compile_expr gives an "
+                    "immutable object, cached by source, that evaluates against a "
+                    "public rule_env and answers `reads` before it runs. The same "
+                    "move answers the other half: the evaluator can record every "
+                    "call it makes, so a RuleResult carries what the expression saw "
+                    "and a red arrives with the values behind it instead of asking "
+                    "its reporter to re-evaluate the sub-expressions and hope.",
+                "note":
+                    "Folded in because every adopter had patched them locally: "
+                    "`true`/`false` are literals rather than names an environment "
+                    "must bind, and an integer literal stays an integer.",
+            },
+            children=[
+                Node(id="alt-publish-the-private-functions", kind="alternative",
+                     name="Make _tokenize and _parse_or public as they stand",
+                     payload={"why":
+                              "They evaluate WHILE parsing, so there is no parsed "
+                              "form to inspect and no way to compile once and run "
+                              "many times. Blessing them would have frozen the "
+                              "shape that caused the problem, and left the regexes "
+                              "in place because there was still nothing to ask."}),
+                Node(id="alt-a-reporter-re-evaluates", kind="alternative",
+                     name="Let whoever reports a red re-evaluate the sub-expressions "
+                          "to recover the values",
+                     payload={"why":
+                              "That is a second evaluator over the same grammar, "
+                              "written in the reporter's dialect, and it can "
+                              "disagree with the verdict it is explaining. The "
+                              "trace comes from the evaluation that produced the "
+                              "answer or it is not evidence."}),
+                Node(id="alt-short-circuit-while-we-are-here", kind="alternative",
+                     name="Make `and`/`or` short-circuit while the parser is being "
+                          "moved",
+                     payload={"why":
+                              "It is what those words mean everywhere else, and it "
+                              "would silently turn green every rule whose right "
+                              "half raises today - each of which is red now, and "
+                              "some of which are red on purpose. A change to what "
+                              "existing rules ANSWER needs its own evidence, not a "
+                              "refactor's coat-tails."}),
+            ],
+        ),
+
+        Node(
+            id="the-host-can-be-asked-one-question",
+            kind="decision",
+            name="tree_check takes a rule filter and prints what that rule read, "
+                 "tree_find matches payload fields by value, and tree_roll serves "
+                 "the roll and its comparison (#53, #54, #55)",
+            links={"rests_on": ["the-breadth-is-on-the-record"]},
+            payload={
+                "why":
+                    "A checker asks two questions, and the host could only answer "
+                    "the first. `What is wrong` is every rule over every node. `Is "
+                    "this still wrong` is one rule at one node, asked by the person "
+                    "looking at the line who has just done something about it, and "
+                    "it should cost that rule's reads. The same narrowness is "
+                    "missing from the other two verbs: scoping is nearly always a "
+                    "payload field's value, and a tree that mirrors external "
+                    "objects asks on every refresh what left scope and what was "
+                    "rewritten in place. All three were reachable in Python and "
+                    "not over MCP, so the client either read the whole tree back "
+                    "and re-derived the answer, or staged a copy of the tree to "
+                    "narrow what ran.",
+            },
+            children=[
+                Node(id="alt-run-everything-and-filter", kind="alternative",
+                     name="Leave the narrowing to the caller: run every rule and "
+                          "drop the lines about other rules",
+                     payload={"why":
+                              "It is what they did, and on a store of any size the "
+                              "cost is the whole tree's reads to answer about one "
+                              "node. The staged-copy workaround it drove is the "
+                              "same one #44 records."}),
+                Node(id="alt-a-substring-is-close-enough", kind="alternative",
+                     name="Let the prose query stand in for scoping by state",
+                     payload={"why":
+                              "query='Opened' also matches a description that "
+                              "carries the word, and 'any of these' cannot be said "
+                              "at all. A scope that is nearly right is worse than "
+                              "none, because it reads as a scope."}),
+                Node(id="alt-the-roll-stays-a-gate-concern", kind="alternative",
+                     name="Keep the roll where it is: read out of git by a gate",
+                     payload={"why":
+                              "A mirror holds its own previous roll and has no "
+                              "revision to name. Reading git is one caller of the "
+                              "comparison, not the comparison - so the three "
+                              "findings became data and `audit` became its "
+                              "git-backed wrapper."}),
+            ],
+        ),
     ]
     return quern

@@ -26,6 +26,8 @@ import sqlite3
 from pathlib import Path
 from typing import Any, Iterator
 
+import re
+
 from .solver import SolverDef
 from .tree import (
     Quern,
@@ -37,10 +39,16 @@ from .tree import (
     _fold_payload,
     _segs,
     haystack,
+    payload_matches,
 )
 
 # after '/' in ASCII: `path >= p || '/' AND path < p || '0'` is the subtree range
 _AFTER_SLASH = "0"
+
+# A payload key plain enough to write into a JSON path without quoting it. Anything
+# else is filtered in Python instead — the narrowing is an optimisation, and one
+# that guessed at escaping would be a wrong answer rather than a slow one.
+_PLAIN_KEY = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS nodes (
@@ -194,9 +202,12 @@ class SqliteStore:
     def find(self, query: str | None = None, kind: str | None = None,
              has_param: str | None = None, links_to: str | None = None,
              under: str = "", current_only: bool = False,
+             payload: dict[str, Any] | None = None,
              limit: int = 20) -> list[tuple[str, Node]]:
         """Same contract as `Quern.find`, index-narrowed: `kind` hits its column,
-        `current_only` its link index; the rest filters the narrowed rows."""
+        `current_only` its link index, `payload` reads the doc column with
+        json_extract so scoping by a field's value stays in SQLite; the rest
+        filters the narrowed rows."""
         anchor = "/".join(_segs(under))
         if anchor and not self._exists(anchor):
             return []
@@ -207,6 +218,9 @@ class SqliteStore:
         if anchor:
             where.append("(path=? OR (path >= ? AND path < ?))")
             args += [anchor, anchor + "/", anchor + _AFTER_SLASH]
+        for clause, params in _payload_clauses(payload):
+            where.append(clause)
+            args += params
         sql = "SELECT path, doc FROM nodes"
         if where:
             sql += " WHERE " + " AND ".join(where)
@@ -224,6 +238,7 @@ class SqliteStore:
                     and (has_param is None or has_param in n.params)
                     and (links_to is None
                          or any(links_to in v for v in n.links.values()))
+                    and (payload is None or payload_matches(n, payload))
                     and (stale is None or p not in stale)):
                 out.append((p, n))
         return out
@@ -326,6 +341,33 @@ class SqliteStore:
             "DELETE FROM links WHERE src >= ? AND src < ?", (lo, hi))
         self._db.execute(
             "DELETE FROM nodes WHERE path >= ? AND path < ?", (lo, hi))
+
+
+def _payload_clauses(payload: dict[str, Any] | None,
+                     ) -> list[tuple[str, list[Any]]]:
+    """SQL that narrows rows by payload field, for the fields SQLite can compare.
+
+    `json_extract(doc, '$.payload.state') = 'Opened'` is the whole trick: the store
+    keeps each node as one JSON document, so scoping by a field's value never has to
+    hydrate a node into Python to find out it did not match. Strings and numbers
+    only, and only under a plain key — every other shape (a nested object, a
+    boolean, a key needing quotes) is left to `payload_matches` on the rows that
+    survive. That is safe in the one direction that matters: this can only drop rows
+    the matcher would drop too, and the matcher has the last word on the rest."""
+    if not payload:
+        return []
+    out: list[tuple[str, list[Any]]] = []
+    for key, value in payload.items():
+        if not _PLAIN_KEY.match(key):
+            continue
+        values = list(value) if isinstance(value, (list, tuple, set)) else [value]
+        if not values or not all(
+                isinstance(v, (str, int, float)) and not isinstance(v, bool)
+                for v in values):
+            continue
+        holes = ", ".join("?" for _ in values)
+        out.append((f"json_extract(doc, '$.payload.{key}') IN ({holes})", values))
+    return out
 
 
 def _doc_of(node: Node) -> str:

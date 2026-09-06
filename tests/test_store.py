@@ -41,6 +41,17 @@ def build(tree) -> None:
     set_node(tree, "assembly/line1", {
         "links": {"uses": ["parts/bolt"]},
         "params": {"qty": {"value": 3, "unit": "each"}}})
+    # Three mirrored records, the shape #54 is about: the state a check scopes by is
+    # a payload FIELD, and the third node has the word in its prose and not in its
+    # state — which is exactly what a substring query cannot tell apart.
+    set_node(tree, "programs/alpha", {"kind": "program",
+                                      "payload": {"state": "Opened", "ref": "P-1"}})
+    set_node(tree, "programs/beta", {"kind": "program",
+                                     "payload": {"state": "Proposed", "ref": "P-2"}})
+    set_node(tree, "programs/gamma", {
+        "kind": "program",
+        "payload": {"state": "Closed", "record": {"origin": "platform"},
+                    "note": "reopened once, then Opened again"}})
 
 
 @pytest.fixture()
@@ -87,6 +98,12 @@ def test_find_parity(stores):
         {"query": "ground"},  # meta values are searchable
         {"query": "some_api_field"},  # and payload strings, however deep (#51)
         {"query": "ds-4471"},  # and the source a param cites
+        {"payload": {"state": "Opened"}},              # a field's value (#54)
+        {"payload": {"state": ["Opened", "Proposed"]}},  # any of several
+        {"payload": {"count": 9}},                     # numbers, not only strings
+        {"payload": {"state": "Opened"}, "kind": "program"},   # composes
+        {"payload": {"state": None}, "kind": "fastener"},      # absent reads as None
+        {"payload": {"record": {"origin": "platform"}}},        # a nested value
     ):
         assert [p for p, _ in find_nodes(store, **kwargs)] == \
                [p for p, _ in find_nodes(quern, **kwargs)], kwargs
@@ -104,6 +121,40 @@ def test_query_reaches_payload_and_param_sources(stores):
         assert [p for p, _ in find_nodes(tree, query="ds-4471")] == ["parts/rivet"]
         # a number in the payload is not prose: its digits find nothing
         assert find_nodes(tree, query="9") == []
+
+
+def test_payload_scopes_by_a_fields_value_where_a_substring_cannot(stores):
+    """Scoping is the first thing a check does, and the scope is nearly always a
+    field's value. `query="Opened"` cannot say it — it also matches a description
+    carrying the word, and "any of these" cannot be said at all."""
+    for tree in stores:
+        opened = find_nodes(tree, payload={"state": "Opened"})
+        assert [p for p, _ in opened] == ["programs/alpha"]
+        # the prose match a check does not want: gamma carries the word in a note
+        assert [p for p, _ in find_nodes(tree, query="opened")] == [
+            "programs/alpha", "programs/gamma"]
+        # ...and "any of these", which a substring cannot say at all
+        assert [p for p, _ in find_nodes(
+            tree, payload={"state": ["Opened", "Proposed"]})] == [
+            "programs/alpha", "programs/beta"]
+        # every filter is an AND, and a value nothing holds finds nothing
+        assert find_nodes(tree, payload={"state": "Opened"}, kind="fastener") == []
+        assert find_nodes(tree, payload={"state": "Retired"}) == []
+        # a key the payload does not carry reads as None, so this asks for the nodes
+        # that state no such field - the honest reading, and the useful one
+        assert [p for p, _ in find_nodes(
+            tree, payload={"state": None}, kind="fastener")] == [
+            "parts/bolt", "parts/rivet"]
+
+
+def test_payload_matching_holds_where_sqlite_cannot_narrow(stores):
+    """The json_extract clause is an optimisation over plain keys and scalar values.
+    A nested value, or a key that would need quoting, is filtered in Python on both
+    stores - so the two answer the same thing rather than one answering less."""
+    for tree in stores:
+        assert [p for p, _ in find_nodes(
+            tree, payload={"record": {"origin": "platform"}})] == ["programs/gamma"]
+        assert find_nodes(tree, payload={"no.such key": "x"}) == []
 
 
 def test_supersession_reads_from_the_link_index(stores):

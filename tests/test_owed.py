@@ -90,9 +90,9 @@ def test_the_schema_set_is_held_complete_against_the_grammar_itself():
     an exemption with its reason. A verb landing in the grammar breaks this
     test until somebody decides its floor — out loud."""
     from quern.owed import GRAMMAR_VERBS, floor
-    from quern.tree import Quern, _env
+    from quern.tree import Quern, rule_env
 
-    verbs = set(_env(Quern()))
+    verbs = set(rule_env(Quern()))
     classified = set(GRAMMAR_VERBS)
     assert classified == verbs, (
         f"unclassified verb(s): {sorted(verbs - classified)}; "

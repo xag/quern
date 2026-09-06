@@ -14,6 +14,13 @@ The substrate knows nothing of its consumers: a domain is a package plus the cod
 that embeds this library — never a reference from inside it.
 """
 
+from .expr import (
+    Expr,
+    Read,
+    Reads,
+    compile_expr,
+    evaluate_expr,
+)
 from .provenance import (
     Provenance,
     Quantity,
@@ -57,6 +64,8 @@ from .tree import (
     explode,
     find_nodes,
     following,
+    payload_matches,
+    rule_env,
     get_node,
     is_before,
     is_superseded,
@@ -98,7 +107,8 @@ from .store import SqliteStore
 
 __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
-    "Demonstration", "KindDef", "Library", "Node", "Occurrence",
+    "Demonstration", "Expr", "KindDef", "Library", "Node", "Occurrence",
+    "Read", "Reads", "compile_expr", "evaluate_expr",
     "OperationDef", "Package",
     "PackageRef", "Rule",
     "RuleResult", "Quern", "ArtifactDef", "SolverDef", "SolverError", "SqliteStore",
@@ -109,6 +119,7 @@ __all__ = [
     "check_demonstrations", "child_at", "child_index", "definition",
     "delete_node", "explode",
     "find_nodes", "following", "get_node", "is_before", "is_superseded",
+    "payload_matches", "rule_env",
     "linked_from", "superseded_paths",
     "lineage", "load_blob", "path_allowed", "preceding", "register_native",
     "resolve_params", "rollup", "run_demonstration", "run_rules", "run_solver",

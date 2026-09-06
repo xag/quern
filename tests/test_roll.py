@@ -8,8 +8,8 @@ import json
 
 from quern import Quern, set_node
 from quern.roll import (
-    AMENDED, audit, committed, digest, dumps, read, rekinded, rewritten, roll,
-    vanished, write,
+    AMENDED, audit, committed, compare, digest, dumps, read, rekinded, rewritten,
+    roll, vanished, write,
 )
 
 
@@ -280,3 +280,35 @@ def test_an_excused_path_spares_its_subtree():
     # ...and a sibling that merely shares the prefix string is NOT spared
     assert [e["path"] for e in vanished(tree, before, excused={"key-for"})] == [
         "key-for-key", "key-for-key/alt-fallback"]
+
+
+def test_compare_answers_all_three_against_a_roll_the_caller_holds(tmp_path):
+    """#55: a tree that MIRRORS something else - an index refreshed from a platform
+    - asks the same three questions on every refresh, holds its own previous roll,
+    and has no git anywhere near it. `audit` is the gate's git-backed wrapper over
+    exactly this."""
+    before = roll(ledger())
+    tree = ledger()
+    tree.root.children = [c for c in tree.root.children if c.id != "release"]
+    set_node(tree, "the-eight-are-human", {"kind": "decision"})
+    set_node(tree, "key-for-key", {"payload": {"rationale": "reworded in place"}})
+
+    found = compare(tree, before)
+    assert [e["path"] for e in found["vanished"]] == ["release"]
+    assert [e["path"] for e in found["rekinded"]] == ["the-eight-are-human"]
+    assert [e["path"] for e in found["rewritten"]] == ["key-for-key"]
+    was, now = found["rewritten"][0]["was"], found["rewritten"][0]["now"]
+    assert was != now and now == digest(tree.get("key-for-key"))
+
+
+def test_compare_excuses_the_removals_the_caller_names():
+    before = roll(ledger())
+    tree = ledger()
+    tree.root.children = [c for c in tree.root.children if c.id != "key-for-key"]
+    assert compare(tree, before, excused={"key-for-key"})["vanished"] == []
+
+
+def test_comparing_a_tree_with_its_own_roll_finds_nothing():
+    tree = ledger()
+    assert compare(tree, roll(tree)) == {
+        "vanished": [], "rewritten": [], "rekinded": []}
