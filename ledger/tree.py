@@ -1418,5 +1418,46 @@ def build() -> Quern:
                               "git-backed wrapper."}),
             ],
         ),
+
+        Node(
+            id="a-kind-may-be-a-section",
+            kind="decision",
+            name="A kind declared `section` is a branch of the tree and not a claim: "
+                 "the brief prints it as a heading with its entries beneath, `--under` "
+                 "reads one branch, and the navigator opens a tree folded by them",
+            links={"rests_on": ["the-host-can-be-asked-one-question"]},
+            payload={
+                "why":
+                    "A ledger past a hundred entries stops being one list. The estate's "
+                    "largest was reorganised into branches on 2026-09-12 - algorithms, "
+                    "corpus, games, the client, the languages, the product - and the "
+                    "brief showed ten lines, one per branch, because it only ever "
+                    "listed the root's children; the navigator showed the same ten "
+                    "under one kind header. Structure the tree carries has to reach "
+                    "the readers, and the substrate is the one place both readers "
+                    "share. The flag is on the KindDef, so it travels with a "
+                    "vocabulary as data and no reader has to guess which nodes are "
+                    "headings. None by default, so a published package's digest does "
+                    "not move.",
+            },
+            children=[
+                Node(id="alt-a-depth-flag-on-the-brief", kind="alternative",
+                     name="Give the brief a --depth and let the reader choose how far "
+                          "down to list",
+                     payload={"why":
+                              "Depth is not structure. A decision's alternatives sit at "
+                              "the same depth as a branch's entries, and a brief at "
+                              "depth 2 would list every rejected alternative as an "
+                              "entry. What is a heading is a fact about the kind, not "
+                              "about how deep it sits."}),
+                Node(id="alt-guess-the-headings", kind="alternative",
+                     name="Treat a node with no links, no params and many children as "
+                          "a heading",
+                     payload={"why":
+                              "A guess that is right on one ledger is wrong on the next, "
+                              "and it reads as a rule. The vocabulary is where meaning "
+                              "lives; a heading is meaning."}),
+            ],
+        ),
     ]
     return quern

@@ -57,6 +57,8 @@ KINDDEF_FIELDS_EXEMPT = {
     "operations": "capabilities, not claims — each is gated at publish by its "
                   "own demonstrations",
     "convention": "names a namespace, never a node; the matrix skips it whole",
+    "section": "structure, not a claim: the brief and the navigator fold by it, "
+               "and a rule binds beneath it as anywhere",
 }
 
 # THE SECOND DENOMINATOR: the verb table. The channel walk above proves the

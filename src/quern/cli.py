@@ -151,7 +151,7 @@ def _cmd_brief(args: argparse.Namespace) -> None:
     root = Path(args.project).resolve()
     tree = load_build(root, args.module)()
     print(f"{project_label(root)} - ledger brief")
-    print(brief(tree, all=args.all, fat=args.fat))
+    print(brief(tree, all=args.all, fat=args.fat, under=args.under))
 
 
 def _cmd_estate(args: argparse.Namespace) -> int:
@@ -292,6 +292,8 @@ def run(argv: list[str]) -> None:
                    help="include superseded entries instead of counting them away")
     p.add_argument("--fat", action="store_true",
                    help="sort by said_words, heaviest first - the curation view")
+    p.add_argument("--under", default="", metavar="PATH",
+                   help="brief one branch: the entries beneath this path")
     p.set_defaults(func=_cmd_brief)
 
     p = sub.add_parser("owed", help="the expected-predicate matrix: what the "

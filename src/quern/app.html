@@ -68,6 +68,15 @@ main { flex: 1; display: flex; min-height: 0; }
 .tgrouphead:hover { background: var(--bg3); }
 .tgrouphead .gname { color: var(--accent); }
 .tgrouphead .gcount { margin-left: auto; }
+/* Sections: a kind whose definition says `section` is a branch of the tree, not a claim.
+   Its heading is a node (clicking the name navigates to it; the twist folds it), and
+   what it holds is bucketed by kind beneath, exactly as the root was. */
+.tsecthead { display: flex; align-items: center; gap: 6px; padding: 4px 6px;
+  margin-top: 6px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; }
+.tsecthead:hover { background: var(--bg3); }
+.tsecthead.sel { background: var(--bg3); outline: 1px solid var(--line); }
+.tsecthead .sname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.tsecthead .gcount { margin-left: auto; font-weight: 400; color: var(--fg2); font-size: 11px; }
 /* Row markers, read off the node exactly as the CLI brief reads them: `!x` is an
    ungrounded param (--inferred is the palette's not-yet-measured amber), RED is a
    failing rule. */
@@ -212,7 +221,8 @@ const cache = new Map();     // path -> node slice (depth 2)
 const expanded = new Set([""]);
 let staleSet = new Set();    // paths some node supersedes — not current belief
 let hideStale = false;       // the "current only" outline toggle
-const collapsedKinds = new Set();   // kind -> folded away in the outline
+const collapsedKinds = new Set();   // "path|kind" -> that kind's group folded away
+const openSections = new Set();     // section paths the reader unfolded
 let groupsPrimed = false;    // have the groups been folded shut for the first paint?
 let redByPath = new Map();   // path -> [failing rule names]
 
@@ -292,6 +302,7 @@ async function go(path) {
   if (d.superseded) staleSet = new Set(d.superseded);
   current = { path, node: d, semantics: d.semantics || {} };
   expanded.add(path);
+  if (sectionKinds().has(d.kind)) openSections.add(path);
   revealGroup(path);
   renderAll();
 }
@@ -333,20 +344,46 @@ function renderTree() {
     el.appendChild(bar);
   }
 
-  // Grouping applies to the TOP level only. Deeper, an entry has a handful of children
-  // and grouping them would add a layer of chrome to hide two rows behind.
+  // Grouping applies at the top level and inside each section. Deeper, an entry has a
+  // handful of children and grouping them would add a layer of chrome to hide two rows.
   el.appendChild(grouped(rootSlice, ""));
+}
+
+/* The kinds whose definition says `section`: branches of the tree, not claims. Read off
+   the root slice's semantics, which carry every kind present two levels down. */
+function sectionKinds() {
+  const kinds = (cache.get("")?.semantics || current.semantics || {}).kinds || {};
+  return new Set(Object.entries(kinds).filter(([, d]) => d && d.section).map(([k]) => k));
+}
+
+/* Entries beneath a section, sections descended: what its heading counts. */
+function sectionCount(node, path, secs) {
+  let n = 0, red = 0;
+  for (const c of node.children || []) {
+    const p = childPath(path, c.id);
+    if (secs.has(c.kind)) { const [a, b] = sectionCount(cache.get(p) || c, p, secs); n += a; red += b; continue; }
+    if (staleSet.has(p) && hideStale) continue;
+    n += 1; red += (redByPath.get(p) || []).length ? 1 : 0;
+  }
+  return [n, red];
 }
 
 /* The group holding `path`, opened. Navigation can arrive from anywhere — a search hit, a
    link chip in the centre panel, a crumb — and landing on a node whose group is shut
    would leave the outline looking untouched, with the selection hidden inside a fold. */
 function revealGroup(path) {
-  const top = String(path || "").split("/")[0];
-  if (!top) return;
-  const root = cache.get("");
-  const entry = (root?.children || []).find(c => c.id === top);
-  if (entry) collapsedKinds.delete(entry.kind || "—");
+  const segs = String(path || "").split("/").filter(Boolean);
+  if (!segs.length) return;
+  const secs = sectionKinds();
+  let node = cache.get(""), base = "";
+  for (const seg of segs) {
+    const entry = (node?.children || []).find(c => c.id === seg);
+    if (!entry) return;
+    const p = childPath(base, seg);
+    if (secs.has(entry.kind)) { openSections.add(p); node = cache.get(p) || entry; base = p; continue; }
+    collapsedKinds.delete(base + "|" + (entry.kind || "—"));
+    return;
+  }
 }
 
 /* Top-level children, bucketed by kind. Order is first-appearance, not alphabetical:
@@ -354,29 +391,61 @@ function revealGroup(path) {
    would be the viewer asserting a precedence among kinds it is not allowed to know. */
 function grouped(node, path) {
   const wrap = document.createElement("div"); wrap.className = "tnode";
+  const secs = sectionKinds();
+  const sections = [];
   const buckets = new Map();
   for (const c of node.children || []) {
     const p = childPath(path, c.id);
+    if (secs.has(c.kind)) { sections.push(c); continue; }
     if (staleSet.has(p) && hideStale) continue;
     const k = c.kind || "—";
     if (!buckets.has(k)) buckets.set(k, []);
     buckets.get(k).push(c);
   }
-  if (!buckets.size) return wrap;
+  if (!buckets.size && !sections.length) return wrap;
 
-  // Shut on the first paint. A ledger opens as its own table of contents — four kind
-  // headers with their counts — and the reader chooses what to unfold, rather than
-  // being handed forty rows and asked to find the shape in them.
+  // Shut on the first paint. A ledger opens as its own table of contents — its sections,
+  // or its kind headers, with their counts — and the reader chooses what to unfold,
+  // rather than being handed two hundred rows and asked to find the shape in them.
   if (!groupsPrimed) {
     groupsPrimed = true;
-    for (const k of buckets.keys()) collapsedKinds.add(k);
+    for (const k of buckets.keys()) collapsedKinds.add(path + "|" + k);
     revealGroup(current.path);   // unless a path was already selected: show where we are
   }
 
-  if (buckets.size === 1) return outline(node, path);  // one kind: grouping buys nothing
+  // A section is a node: its heading navigates, its twist folds, and what it holds is
+  // grouped beneath it the way the root is — so a branch of branches reads as an outline.
+  for (const c of sections) {
+    const p = childPath(path, c.id);
+    const open = openSections.has(p);
+    const slice = cache.get(p) || c;
+    const [n, reds] = sectionCount(slice, p, secs);
+    const head = document.createElement("div");
+    head.className = "tsecthead" + (p === current.path ? " sel" : "");
+    head.title = c.name || "";
+    head.innerHTML = `<span class="twist">${open ? "▾" : "▸"}</span>
+      <span class="sname mono">${esc(c.id)}</span>
+      <span class="gcount">${n}${reds ? ` · <span class="tred">${reds} RED</span>` : ""}</span>`;
+    head.onclick = e => {
+      if (e.target.classList.contains("twist")) {
+        open ? openSections.delete(p) : openSections.add(p);
+        renderTree();
+      } else go(p);
+    };
+    wrap.appendChild(head);
+    if (open) {
+      const kids = document.createElement("div"); kids.className = "tkids";
+      kids.appendChild(grouped(slice, p));
+      wrap.appendChild(kids);
+    }
+  }
+
+  if (!buckets.size) return wrap;
+  if (buckets.size === 1 && !sections.length) return outline(node, path);  // one kind: grouping buys nothing
 
   for (const [kind, kids] of buckets) {
-    const folded = collapsedKinds.has(kind);
+    const key = path + "|" + kind;
+    const folded = collapsedKinds.has(key);
     const reds = kids.filter(c => (redByPath.get(childPath(path, c.id)) || []).length).length;
     const head = document.createElement("div");
     head.className = "tgrouphead";
@@ -384,7 +453,7 @@ function grouped(node, path) {
       <span class="gname">${esc(kind)}</span>
       <span class="gcount">${kids.length}${reds ? ` · <span class="tred">${reds} RED</span>` : ""}</span>`;
     head.onclick = () => {
-      folded ? collapsedKinds.delete(kind) : collapsedKinds.add(kind);
+      folded ? collapsedKinds.delete(key) : collapsedKinds.add(key);
       renderTree();
     };
     wrap.appendChild(head);
@@ -441,6 +510,13 @@ function outline(node, path, hideKind = false) {
 }
 
 /* ---------- center: the node ---------- */
+
+/* "12 decision, 3 hypothesis, 1 debt": what a section holds, by kind, in first-appearance order. */
+function kindCounts(kids) {
+  const counts = new Map();
+  for (const c of kids) counts.set(c.kind || "—", (counts.get(c.kind || "—") || 0) + 1);
+  return [...counts].map(([k, n]) => `${n} ${k}`).join(", ");
+}
 
 function provBadge(q) {
   const label = q.provenance || "";
@@ -519,6 +595,7 @@ function renderNode() {
 
     <section class="block"><div class="blockhead"><h2>Children (${kids.length})</h2>
       <button id="addchild">+ child</button></div>
+      ${kd && kd.section ? `<p class="muted">${esc(kindCounts(kids))}</p>` : ""}
       ${kids.map(c => `<div class="kidrow" data-go="${esc(childPath(path, c.id))}"
           title="${esc(kinds[c.kind]?.description || "")}">
         <span class="mono">${esc(c.id)}</span>

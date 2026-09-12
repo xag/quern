@@ -89,7 +89,9 @@ Every marker on a line is read off the node, never annotated by hand. `!meter` n
 
 Superseded entries are counted away rather than printed, with a trailer saying what was omitted; the tree keeps them and `--all` prints them marked with what superseded them. `--fat` appends each entry's wordcount and sorts by it, heaviest first — the curation view, where the first line is the first thing to tighten.
 
-A model reads it the same way: `tree_brief` serves exactly this over MCP, with the same two flags. It is the table of contents and `tree_get` is the chapter — reading a tree by `tree_get('')` spends its whole history to find the dozen claims that still bind, which is the cost the brief exists to refuse.
+A tree can be organised in branches. A kind whose definition says `section=True` is a heading and not a claim: the brief prints such a node as `== algorithms  —  The algorithms  (14 entries, 1 RED)` with its entries indented beneath it, sections nest, and `--under algorithms` briefs one branch alone. The navigator opens the same tree folded by its sections, each with its count and its reds, and buckets by kind inside each. A tree with no section kinds reads as one list, as before.
+
+A model reads it the same way: `tree_brief` serves exactly this over MCP, with the same flags. It is the table of contents and `tree_get` is the chapter — reading a tree by `tree_get('')` spends its whole history to find the dozen claims that still bind, which is the cost the brief exists to refuse.
 
 **`quern navigate`** — the same tree in a browser, read-only:
 

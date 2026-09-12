@@ -159,3 +159,11 @@ def test_register_app_declares_the_ui_extension_capability(tmp_path):
     opts = mcp._mcp_server.create_initialization_options()
     dumped = opts.capabilities.model_dump()
     assert dumped["extensions"][UI_EXTENSION] == {"mimeTypes": [APP_MIME]}
+
+
+def test_the_outline_opens_a_tree_by_its_sections():
+    """A kind declared `section` reaches the page through the slice's semantics, and the
+    outline folds the tree by those nodes before it buckets anything by kind."""
+    html = app_html()
+    assert "sectionKinds" in html and "d.section" in html
+    assert "tsecthead" in html

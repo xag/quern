@@ -7,7 +7,7 @@ trailer count instead of their prose, and the curation view sorts by the one
 number that predicts future cost — words.
 """
 
-from quern import Quern, Quantity, said_words, set_node
+from quern import KindDef, Quern, Quantity, said_words, set_node
 from quern.brief import brief
 
 
@@ -160,3 +160,54 @@ def test_tree_brief_passes_its_flags_through():
     weights = [int(l.rsplit("~", 1)[1].rstrip("w"))
                for l in fat.splitlines() if l.startswith("[")]
     assert weights == sorted(weights, reverse=True)
+
+
+# --- sections: a kind declared `section` is a heading, and its children are the entries ----
+
+def branched() -> Quern:
+    tree = Quern(vocabulary=[KindDef(kind="branch", description="a branch of the tree",
+                                     section=True)])
+    set_node(tree, "algorithms", {"kind": "branch", "name": "The algorithms"})
+    set_node(tree, "algorithms/cache-the-parse",
+             {"kind": "decision", "name": "Parse each bundle once and cache it"})
+    set_node(tree, "algorithms/parse-every-time",
+             {"kind": "decision", "name": "Parse on every request after all",
+              "links": {"supersedes": ["algorithms/cache-the-parse"]}})
+    set_node(tree, "corpus", {"kind": "branch", "name": "The corpus"})
+    set_node(tree, "corpus/sentences", {"kind": "branch", "name": "The sentences"})
+    set_node(tree, "corpus/sentences/one-record",
+             {"kind": "debt", "name": "One record per sentence",
+              "params": {"entries": Quantity(value=1, unit="entry",
+                                             provenance="unreviewed", grounded=False)}})
+    set_node(tree, "loose-end", {"kind": "decision", "name": "An entry outside any branch"})
+    return tree
+
+
+def test_a_section_is_a_heading_and_its_children_are_the_entries():
+    out = brief(branched())
+    lines = out.splitlines()
+    assert lines[0] == "== algorithms  —  The algorithms  (1 entry)"
+    assert lines[1].startswith("  [decision]  algorithms/parse-every-time"), lines[1]
+    assert "== corpus  —  The corpus  (1 entry)" in lines
+    assert "  == corpus/sentences  —  The sentences  (1 entry)" in lines, "nested sections indent"
+    assert any(l.startswith("    [debt]  corpus/sentences/one-record") and "!entries" in l
+               for l in lines)
+    assert "[decision]  loose-end" in out, "an entry outside every branch still prints"
+    assert "3 entr(y/ies)" in out and "in 3 section(s)" in out
+    assert "omitted as no longer current: 1 decision" in out
+
+
+def test_under_briefs_one_branch():
+    out = brief(branched(), under="corpus")
+    assert "one-record" in out and "parse-every-time" not in out and "loose-end" not in out
+
+
+def test_fat_flattens_the_sections():
+    out = brief(branched(), fat=True)
+    assert "==" not in out
+    assert all(not l.startswith(" ") for l in out.splitlines() if l.startswith("["))
+
+
+def test_a_kind_without_the_flag_serialises_as_before():
+    """`section` is None by default so a published package's digest does not move."""
+    assert "section" not in KindDef(kind="k", description="d").model_dump(exclude_defaults=True)

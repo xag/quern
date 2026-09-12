@@ -1,6 +1,6 @@
 [project]
 name = "quern"
-version = "0.1.1"
+version = "0.1.2"
 description = "A tree whose semantics — vocabulary, rules and solvers — are data, authored at runtime and published as digest-pinned packages through a proof gate"
 readme = "README.md"
 license = "Apache-2.0"

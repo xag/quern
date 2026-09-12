@@ -108,6 +108,12 @@ class KindDef(BaseModel):
     `operations` binds the kind to capabilities — what can be computed wherever a
     node means this, discovered with the slice like the rest of the vocabulary.
 
+    `section` says nodes of this kind are branches of the tree and not claims: a
+    heading the brief and the navigator open, whose children are the entries. A
+    ledger of two hundred entries reads as ten branches with a count each instead
+    of one list; a rule binds beneath a section exactly as it does anywhere. None
+    rather than False for the same digest reason as `convention` below.
+
     `convention` says this entry names a namespace and not a shape a node can have:
     it exists so a package's contracts have somewhere to hang their prose, and no
     node is ever one. It is the one thing about a kind that publication can check,
@@ -125,6 +131,7 @@ class KindDef(BaseModel):
     links: dict[str, str] = Field(default_factory=dict)
     operations: dict[str, OperationDef] = Field(default_factory=dict)
     convention: bool | None = None
+    section: bool | None = None
 
 
 class Rule(BaseModel):

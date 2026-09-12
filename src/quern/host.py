@@ -256,9 +256,11 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
             "truncated": len(hits) >= limit}
 
     @mcp.tool()
-    def tree_brief(all: bool = False, fat: bool = False) -> str:
-        """The working set — one line per current top-level entry: kind, path, name,
-        the links it declares, the params still ungrounded, the rules red on it.
+    def tree_brief(all: bool = False, fat: bool = False, under: str = "") -> str:
+        """The working set — one line per current entry: kind, path, name, the links
+        it declares, the params still ungrounded, the rules red on it; under headings
+        where the tree has sections (a kind declared `section`), `under=PATH` for one
+        branch alone.
         START HERE on an unfamiliar tree. This is the table of contents and tree_get
         is the chapter: reading a tree by tree_get('') costs its whole history to
         find the dozen claims that still bind, which is the cost this exists to
@@ -270,7 +272,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
         ws = get_ws()
         if isinstance(ws, str):
             return ws
-        return briefmod.brief(ws.effective(), all=all, fat=fat)
+        return briefmod.brief(ws.effective(), all=all, fat=fat, under=under)
 
     @mcp.tool()
     def tree_delete(path: str) -> str:

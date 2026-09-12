@@ -30,6 +30,21 @@
     "digest": "ef855161de8c"
   },
   {
+    "path": "a-kind-may-be-a-section",
+    "kind": "decision",
+    "digest": "b96c2b6a791c"
+  },
+  {
+    "path": "a-kind-may-be-a-section/alt-a-depth-flag-on-the-brief",
+    "kind": "alternative",
+    "digest": "d9607463e463"
+  },
+  {
+    "path": "a-kind-may-be-a-section/alt-guess-the-headings",
+    "kind": "alternative",
+    "digest": "6286c229e7ad"
+  },
+  {
     "path": "a-kind-may-ship-with-nothing-that-is-one",
     "kind": "debt",
     "digest": "a6cc49e1b87a"
