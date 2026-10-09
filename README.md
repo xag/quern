@@ -93,6 +93,8 @@ A tree can be organised in branches. A kind whose definition says `section=True`
 
 The reds are the ones the project's check recorded. Running every rule is the slow part of a brief - on a ledger of two thousand rules it took 52 s where building the tree took 1 s - and the check runs them all before every commit anyway, so the check keeps that run: `quern.verdicts.record(tree, run_rules(tree), "ledger")` writes `ledger/verdicts.json` (per entry, a digest of what it says and the rules failed on it) and `ledger/brief.txt` (the brief as text, searchable with no build at all). The brief reads them, marks `UNCHECKED` an entry whose words changed since, and says its reds are as recorded; `--fresh` runs every rule, `--write FILE` writes the brief instead of printing it.
 
+Two ways into one chapter, neither running a rule: `quern get <path-or-id>` prints an entry in full - its links, params, payload and its children with their reasons - and `quern find <words>` lists the entries whose path, name or payload carry every word.
+
 A model reads it the same way: `tree_brief` serves exactly this over MCP, with the same flags. It is the table of contents and `tree_get` is the chapter — reading a tree by `tree_get('')` spends its whole history to find the dozen claims that still bind, which is the cost the brief exists to refuse.
 
 **`quern navigate`** — the same tree in a browser, read-only:

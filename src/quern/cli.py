@@ -163,6 +163,24 @@ def _cmd_brief(args: argparse.Namespace) -> None:
     print(text)
 
 
+def _cmd_get(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from .lookup import get
+    from .navigate import load_build
+    tree = load_build(Path(args.project).resolve(), args.module)()
+    print(get(tree, args.entry))
+
+
+def _cmd_find(args: argparse.Namespace) -> None:
+    from pathlib import Path
+
+    from .lookup import find
+    from .navigate import load_build
+    tree = load_build(Path(args.project).resolve(), args.module)()
+    print(find(tree, args.words, superseded=args.all, limit=args.limit))
+
+
 def _cmd_estate(args: argparse.Namespace) -> int:
     from pathlib import Path
 
@@ -311,6 +329,24 @@ def run(argv: list[str]) -> None:
                         "(default: ledger)")
     p.add_argument("--write", metavar="FILE", help="write the brief to FILE instead of printing it")
     p.set_defaults(func=_cmd_brief)
+
+    p = sub.add_parser("get", help="one entry in full, by its path or its id")
+    p.add_argument("entry", help="the entry's path, or its id alone")
+    p.add_argument("project", nargs="?", default=".",
+                   help="project root holding ledger/tree.py (default: current dir)")
+    p.add_argument("--module", metavar="PATH[:ATTR]",
+                   help="override the build entry (default: <project>/ledger/tree.py:build)")
+    p.set_defaults(func=_cmd_get)
+
+    p = sub.add_parser("find", help="the entries whose path, name or payload carry every word")
+    p.add_argument("words", nargs="+")
+    p.add_argument("--project", default=".",
+                   help="project root holding ledger/tree.py (default: current dir)")
+    p.add_argument("--module", metavar="PATH[:ATTR]",
+                   help="override the build entry (default: <project>/ledger/tree.py:build)")
+    p.add_argument("--all", action="store_true", help="include superseded entries")
+    p.add_argument("--limit", type=int, default=40, help="most lines to print (default: 40)")
+    p.set_defaults(func=_cmd_find)
 
     p = sub.add_parser("owed", help="the expected-predicate matrix: what the "
                                     "vocabulary implies, and which cells no rule "
