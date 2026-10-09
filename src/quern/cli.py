@@ -146,12 +146,21 @@ def _cmd_serve(args: argparse.Namespace) -> None:
 def _cmd_brief(args: argparse.Namespace) -> None:
     from pathlib import Path
 
+    from . import verdicts
     from .brief import brief
     from .navigate import load_build, project_label
     root = Path(args.project).resolve()
     tree = load_build(root, args.module)()
-    print(f"{project_label(root)} - ledger brief")
-    print(brief(tree, all=args.all, fat=args.fat, under=args.under))
+    # The reds the project's check recorded (quern.verdicts), unless asked to run every
+    # rule: running them is the slow part of a brief, and the check runs them anyway.
+    kept = None if args.fresh else verdicts.load(tree, root / args.verdicts)
+    text = f"{project_label(root)} - ledger brief\n" + brief(
+        tree, all=args.all, fat=args.fat, under=args.under, verdicts=kept)
+    if args.write:
+        Path(args.write).write_text(text + "\n", encoding="utf-8")
+        print(f"brief written to {args.write}")
+        return
+    print(text)
 
 
 def _cmd_estate(args: argparse.Namespace) -> int:
@@ -294,6 +303,13 @@ def run(argv: list[str]) -> None:
                    help="sort by said_words, heaviest first - the curation view")
     p.add_argument("--under", default="", metavar="PATH",
                    help="brief one branch: the entries beneath this path")
+    p.add_argument("--fresh", action="store_true",
+                   help="run every rule for the reds, instead of reading the ones the "
+                        "project's check recorded")
+    p.add_argument("--verdicts", default="ledger", metavar="DIR",
+                   help="where the check recorded its verdicts, under the project "
+                        "(default: ledger)")
+    p.add_argument("--write", metavar="FILE", help="write the brief to FILE instead of printing it")
     p.set_defaults(func=_cmd_brief)
 
     p = sub.add_parser("owed", help="the expected-predicate matrix: what the "

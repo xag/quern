@@ -593,6 +593,41 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-brief-reads-the-checks-verdicts",
+            kind="decision",
+            name="The brief reads the reds a project's check recorded instead of running every "
+                 "rule, and marks UNCHECKED an entry changed since; get and find open one entry "
+                 "or the entries naming something, with no rule run",
+            links={"rests_on": ["the-working-set-is-computed"]},
+            payload={
+                "rationale":
+                    "On a ledger of 2,238 rules the brief took 52 s, where building the tree "
+                    "took 1 s: it ran every rule, proofs included, to mark the reds the "
+                    "project's check had computed before the last commit anyway. "
+                    "quern.verdicts.record writes that run beside the ledger - per entry a "
+                    "digest of what it says and its failed rules, and the brief as text - so "
+                    "the brief costs the build, and a reader can search the text with no "
+                    "build at all. An entry whose words changed since is marked, not shown "
+                    "green. A red that moved because code or tapes outside the ledger moved "
+                    "is the check's to find: the brief says its reds are as recorded, and "
+                    "--fresh runs every rule.",
+            },
+            children=[
+                Node(id="alt-cache-by-the-whole-trees-digest", kind="alternative",
+                     name="Reuse the verdicts only while the whole tree is unchanged",
+                     payload={"why":
+                              "One edited entry would send every brief back to the "
+                              "minute-long run until the next check, which is the session "
+                              "that reads the ledger most."}),
+                Node(id="alt-run-only-the-cheap-rules", kind="alternative",
+                     name="Run only the rules that are quick in the brief",
+                     payload={"why":
+                              "A red the brief left out is shown green, and which rules "
+                              "are cheap is a property of each project, not of quern."}),
+            ],
+        ),
+
+        Node(
             id="the-dev-bridge-is-the-tool-surface-not-a-copy-of-it",
             kind="decision",
             name="serve_dev registers the real tree_* tools and calls them; it no longer "

@@ -39,16 +39,20 @@ def section_kinds(tree: Quern | TreeStore) -> set[str]:
 
 
 def brief(tree: Quern | TreeStore, *, all: bool = False, fat: bool = False,
-          under: str = "") -> str:
+          under: str = "", verdicts=None) -> str:
     """The ledger's working set, one line per entry, under headings where the tree
     has sections.
 
     `all` includes superseded entries (marked) instead of counting them away.
     `fat` appends each entry's `said_words` and sorts by it, descending, as one
     flat list — the curation view: the first line is the first thing to tighten.
-    `under` briefs one branch: the entries beneath that path."""
+    `under` briefs one branch: the entries beneath that path.
+    `verdicts` (quern.verdicts.Verdicts) are the reds a check recorded: the brief reads
+    them instead of running every rule, and marks UNCHECKED an entry whose words changed
+    since, which no rule has judged as it stands."""
     sections = section_kinds(tree)
-    reds = _reds_by_entry(tree, sections)
+    reds = dict(verdicts.red) if verdicts is not None else _reds_by_entry(tree, sections)
+    unchecked = verdicts.unchecked if verdicts is not None else set()
 
     kept: list[tuple[str, str, int]] = []  # (line, path, words)
     omitted: dict[str, int] = {}
@@ -88,7 +92,8 @@ def brief(tree: Quern | TreeStore, *, all: bool = False, fat: bool = False,
             if stale and not all:
                 omitted[node.kind or "?"] = omitted.get(node.kind or "?", 0) + 1
                 continue
-            kept.append((indent + _line(tree, p, node, stale, reds.get(p, [])),
+            kept.append((indent + _line(tree, p, node, stale, reds.get(p, []))
+                         + ("  UNCHECKED" if p in unchecked else ""),
                          p, said_words(tree, p)))
 
     render(under, "")
@@ -109,6 +114,14 @@ def brief(tree: Quern | TreeStore, *, all: bool = False, fat: bool = False,
                        "(the tree keeps them; --all shows them).")
     if reds.get(None):
         trailer.append("rules not evaluated: " + reds[None][0])
+    if verdicts is not None:
+        whole = reds.get("") or []
+        if whole:
+            trailer.append("RED on the ledger as a whole: " + ", ".join(whole))
+        trailer.append("reds as the last check recorded them"
+                       + (f"; {len(unchecked)} entr(y/ies) changed since, marked UNCHECKED"
+                          if unchecked else "")
+                       + " (--fresh runs every rule).")
     return "\n".join(lines + [""] + trailer)
 
 

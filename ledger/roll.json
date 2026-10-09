@@ -165,6 +165,21 @@
     "digest": "4f21ad770e94"
   },
   {
+    "path": "the-brief-reads-the-checks-verdicts",
+    "kind": "decision",
+    "digest": "ae07d9a4fb2b"
+  },
+  {
+    "path": "the-brief-reads-the-checks-verdicts/alt-cache-by-the-whole-trees-digest",
+    "kind": "alternative",
+    "digest": "439201a89032"
+  },
+  {
+    "path": "the-brief-reads-the-checks-verdicts/alt-run-only-the-cheap-rules",
+    "kind": "alternative",
+    "digest": "11f2e9366a5b"
+  },
+  {
     "path": "the-dev-bridge-is-the-tool-surface-not-a-copy-of-it",
     "kind": "decision",
     "digest": "8afebe3895be"
