@@ -119,6 +119,8 @@ GRAMMAR_VERBS = {
     "sum": ("combinator", "arithmetic; no subject of its own"),
     "len": ("combinator", "arithmetic; no subject of its own"),
     "contains": ("combinator", "text containment; no subject of its own"),
+    "field": ("combinator", "reads inside a value the rule already holds; no subject "
+              "of its own"),
 }
 
 

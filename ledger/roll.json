@@ -65,9 +65,24 @@
     "digest": "afd20699655c"
   },
   {
+    "path": "a-rule-binds-a-list-element",
+    "kind": "decision",
+    "digest": "684a4e9fe65a"
+  },
+  {
+    "path": "a-rule-binds-a-list-element/alt-a-fixed-shape-matcher",
+    "kind": "alternative",
+    "digest": "95748e7a8099"
+  },
+  {
+    "path": "a-rule-binds-a-list-element/alt-short-circuit-the-quantifier",
+    "kind": "alternative",
+    "digest": "debad4ca2889"
+  },
+  {
     "path": "a-rule-reads-the-payload",
     "kind": "decision",
-    "digest": "d1a91cfb2aed"
+    "digest": "24bb64dbb3e6"
   },
   {
     "path": "a-rule-reads-the-payload/alt-a-kind-per-value",

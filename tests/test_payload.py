@@ -95,3 +95,73 @@ def test_the_trace_names_the_field_and_the_value_read():
     red = next(r for r in run_rules(tree, trace=True) if not r.ok and r.node == "req-3")
     assert any(rd.call == "payload" and rd.args[1] == "owner" and rd.value == ""
                for rd in red.reads)
+
+
+# --- several facts about the same element: `some` / `every` with `field` ---------------
+
+def test_some_holds_two_facts_on_one_element_where_a_mapped_path_cannot():
+    """The plan has a step ana owns and a step tagged urgent, and no step that is both.
+    The mapped reads say yes to each half; only a binding says no to the pair."""
+    tree = governance()
+    mapped = ("contains(payload(self, 'steps.owner'), 'ana') "
+              "and contains(payload(self, 'steps.tags'), 'urgent')")
+    bound = ("some(s, payload(self, 'steps'), "
+             "field(s, 'owner') == 'ana' and contains(field(s, 'tags'), 'urgent'))")
+    tree.rules = [Rule(name="mapped", kind="plan", expr=mapped),
+                  Rule(name="bound", kind="plan", expr=bound)]
+    results = {r.rule: r for r in run_rules(tree)}
+    assert all(not getattr(r, "detail", "") or r.ok for r in results.values()),         "a rule that failed to evaluate proves nothing about the binding"
+    assert {k: r.ok for k, r in results.items()} == {"mapped": True, "bound": False}
+
+    set_node(tree, "plan", {"kind": "plan", "payload": {"steps": [
+        {"name": "hotfix", "owner": "ana", "tags": ["urgent"]}]}})
+    assert all(r.ok for r in run_rules(tree))
+
+
+def test_every_holds_a_fact_on_each_element_and_an_empty_list_holds_it_vacuously():
+    tree = governance()
+    tree.rules = [Rule(name="every-step-owned", kind="plan",
+                       expr="every(s, payload(self, 'steps'), field(s, 'owner', '') != '')")]
+    assert [r.ok for r in run_rules(tree)] == [False], "ship has no owner"
+
+    set_node(tree, "plan", {"kind": "plan", "payload": {"steps": []}})
+    assert all(r.ok for r in run_rules(tree))
+
+
+def test_an_absent_list_is_empty_and_a_non_list_refuses():
+    tree = governance()
+    tree.rules = [Rule(name="none", kind="requirement",
+                       expr="not some(x, payload(self, 'items'), true)")]
+    assert all(r.ok for r in run_rules(tree)), "no items: nothing to find"
+    tree.rules = [Rule(name="bad", kind="requirement",
+                       expr="some(x, payload(self, 'state'), true)")]
+    assert not any(r.ok for r in run_rules(tree)), "a state is not a list to range over"
+
+
+def test_the_first_argument_must_be_a_name():
+    from quern import compile_expr, rule_env
+    with pytest.raises(ValueError, match="first argument is a name"):
+        compile_expr("some('s', payload(self, 'steps'), true)").evaluate(
+            rule_env(governance()), {"self": "plan"})
+
+
+def test_a_bound_name_is_not_a_free_name_and_the_forms_are_not_functions():
+    """`reads` says what a caller must supply: `self`, not the bound `s`, and no `some`
+    for an environment to provide."""
+    from quern import compile_expr
+    reads = compile_expr(
+        "some(s, payload(self, 'steps'), field(s, 'owner') == 'ana')").reads
+    assert reads.names == ("self",)
+    assert reads.functions == ("field", "payload")
+
+
+def test_bindings_nest_and_the_trace_names_the_element_read():
+    tree = governance()
+    tree.rules = [Rule(
+        name="nested", kind="plan",
+        expr="some(s, payload(self, 'steps'), some(t, field(s, 'tags'), t == 'gate'))")]
+    result = next(iter(run_rules(tree, trace=True)))
+    assert result.ok
+    assert any(rd.call == "field" and rd.args[1] == "tags" and rd.value == ["gate", "urgent"]
+               for rd in result.reads)
+    assert any(rd.call == "some" and rd.args[0] == "s" for rd in result.reads)

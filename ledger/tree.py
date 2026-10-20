@@ -1346,6 +1346,44 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-rule-binds-a-list-element",
+            kind="decision",
+            name="`some(x, xs, cond)` and `every(x, xs, cond)` bind a name to each element "
+                 "of a list, and `field(x, 'a.b')` reads inside one (#45's last case)",
+            links={"rests_on": ["a-rule-reads-the-payload"]},
+            payload={
+                "why":
+                    "A path mapped over a list answers each fact about the list on its "
+                    "own, so 'a step owned by ana' and 'a step tagged urgent' both hold "
+                    "on a plan where no step is both. Stating the pair needs the same "
+                    "element under both facts, which is a binding. The forms parse as "
+                    "calls and the evaluator binds the name instead of looking up a "
+                    "function, so no syntax was added and no environment can shadow "
+                    "them; `reads` leaves the bound name out of the names a caller must "
+                    "supply and the forms out of the functions an environment must "
+                    "provide. Every element is evaluated, as both sides of `and`/`or` "
+                    "are, so a rule whose later elements raise stays red.",
+            },
+            children=[
+                Node(id="alt-a-fixed-shape-matcher", kind="alternative",
+                     name="A builtin taking a list path and field/value pairs that "
+                          "must all match on one element",
+                     payload={"why":
+                              "Equality only, a fixed number of facts, and a second "
+                              "small language in its arguments. A binding reuses the "
+                              "whole grammar on the element: containment, comparison, "
+                              "nesting."}),
+                Node(id="alt-short-circuit-the-quantifier", kind="alternative",
+                     name="Stop at the first element that decides the answer",
+                     payload={"why":
+                              "Would make an element that raises after the deciding "
+                              "one invisible, which is the change "
+                              "the-grammar-is-an-object-not-a-private-parser refused "
+                              "for `and`/`or`; the same evidence would be needed."}),
+            ],
+        ),
+
+        Node(
             id="a-rule-reads-the-payload",
             kind="decision",
             name="The grammar reads a node's payload at a dotted path and asks whether a "
@@ -1368,11 +1406,13 @@ def build() -> Quern:
                     "comparison a fixed fragment among varying values needs, and over "
                     "a list it searches the elements.",
                 "note":
-                    "Not covered: several facts about the same list element ('a step "
-                    "owned by ana that is also urgent'). A mapped path loses which "
-                    "element a value came from; that needs an existential over "
-                    "elements, which #45's third comment names and this does not add.",
+                    "Several facts about the same list element ('a step owned by ana "
+                    "that is also urgent') are not a mapped path's to state, since it "
+                    "loses which element a value came from: see a-rule-binds-a-list-"
+                    "element.",
             },
+            meta={"amended": "24bb64dbb3e6 the binding forms now carry what this note "
+                             "said was not covered; the claim itself is unchanged"},
             children=[
                 Node(id="alt-a-kind-per-value", kind="alternative",
                      name="Keep the payload unreadable and let a domain mint a kind "

@@ -448,6 +448,13 @@ def payload_at(tree: Quern | TreeStore, path: str, field: str, default: Any = No
     return _walk_payload(node.payload, [s for s in str(field).split(".") if s], default)
 
 
+def field_at(value: Any, field: str, default: Any = None) -> Any:
+    """`payload_at` for a value already in hand — a list element a `some`/`every`
+    binding handed the rule: `some(s, payload(self, 'steps'), field(s, 'owner') ==
+    'ana')`. The same dotted path, the same mapping over lists, the same default."""
+    return _walk_payload(value, [s for s in str(field).split(".") if s], default)
+
+
 def _walk_payload(value: Any, segs: list[str], default: Any) -> Any:
     if not segs:
         return value
@@ -1347,6 +1354,8 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         # wrote, at a dotted path, and whether a fragment occurs in it
         "payload": lambda p, field, default=None: payload_at(tree, p, field, default),
         "contains": contains,
+        # ...and the same read inside a list element a `some`/`every` binding hands over
+        "field": lambda v, f, default=None: field_at(v, f, default),
         "ctx": ctx,                           # caller-supplied evaluation payload
         "abs": abs, "min": min, "max": max,
         "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),

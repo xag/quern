@@ -28,6 +28,14 @@ Two things every adopter patched back in are here rather than there: `true` and
 `false` are literals instead of names that must be bound in every environment, and
 an integer literal stays an integer instead of arriving as a float.
 
+Two forms bind a name instead of calling a function: `some(x, xs, cond)` is true when
+`cond` holds with `x` bound to at least one element of the list `xs`, and `every(x, xs,
+cond)` when it holds for all of them (#45's last case: several facts about the SAME list
+element, which a path mapped over a list cannot state, because it loses which element a
+value came from). They parse as calls and are evaluated here, not looked up in the
+environment, so no environment can shadow them; inside `cond` the bound name is a variable
+like `self`.
+
 `and` and `or` evaluate BOTH sides, as this grammar always has. Short-circuiting
 would change what existing rules answer — an expression whose right half raises
 today goes red, and would silently go green — so it is a change to make on its own
@@ -183,8 +191,35 @@ _COMPARE = {"<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
             "==": lambda a, b: a == b, "!=": lambda a, b: a != b}
 
 
+# The binding forms. Evaluated by the grammar, never looked up in an environment.
+_BINDERS = {"some": any, "every": all}
+
+
+def _bind(term: Call, env: dict[str, Any], variables: dict[str, Any],
+          reads: list[Read] | None) -> bool:
+    if len(term.args) != 3 or not isinstance(term.args[0], Var):
+        raise ValueError(f"{term.fn}(name, list, condition): the first argument is a name")
+    name = term.args[0].name
+    items = _run(term.args[1], env, variables, reads)
+    if items is None:
+        items = []
+    if not isinstance(items, (list, tuple)):
+        raise ValueError(f"{term.fn}: '{name}' ranges over a list, not a "
+                         f"{type(items).__name__}")
+    # Every element is evaluated, as both sides of `and`/`or` are: stopping at the first
+    # answer would turn green a rule whose later elements raise.
+    held = [bool(_run(term.args[2], env, {**variables, name: item}, reads))
+            for item in items]
+    value = _BINDERS[term.fn](held)
+    if reads is not None:
+        reads.append(Read(call=term.fn, args=[name, list(items)], value=value))
+    return value
+
+
 def _run(term: Term, env: dict[str, Any], variables: dict[str, Any],
          reads: list[Read] | None) -> Any:
+    if isinstance(term, Call) and term.fn in _BINDERS:
+        return _bind(term, env, variables, reads)
     if isinstance(term, Lit):
         return term.value
     if isinstance(term, Var):
@@ -241,19 +276,36 @@ def _static_reads(term: Term) -> Reads:
     ctx_keys: list[str] = []
     numbers: list[float] = []
     strings: list[str] = []
-    for t in _walk(term):
+
+    # A name a binding form binds is not a free name the caller must supply, and the
+    # binding forms are the grammar's own, not functions an environment must provide.
+    def visit(t: Term, bound: frozenset[str]) -> None:
+        if isinstance(t, Call) and t.fn in _BINDERS and len(t.args) == 3                 and isinstance(t.args[0], Var):
+            visit(t.args[1], bound)
+            visit(t.args[2], bound | {t.args[0].name})
+            return
         if isinstance(t, Call):
             functions.add(t.fn)
             if (t.fn == "ctx" and t.args and isinstance(t.args[0], Lit)
                     and isinstance(t.args[0].value, str)):
                 ctx_keys.append(t.args[0].value)
+            for a in t.args:
+                visit(a, bound)
         elif isinstance(t, Var):
-            names.add(t.name)
+            if t.name not in bound:
+                names.add(t.name)
         elif isinstance(t, Lit):
             if isinstance(t.value, str):
                 strings.append(t.value)
             elif isinstance(t.value, (int, float)) and not isinstance(t.value, bool):
                 numbers.append(t.value)
+        elif isinstance(t, Unary):
+            visit(t.operand, bound)
+        elif isinstance(t, Binary):
+            visit(t.left, bound)
+            visit(t.right, bound)
+
+    visit(term, frozenset())
     return Reads(functions=tuple(sorted(functions)), names=tuple(sorted(names)),
                  ctx_keys=tuple(dict.fromkeys(ctx_keys)),
                  numbers=tuple(numbers), strings=tuple(strings))
