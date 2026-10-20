@@ -65,6 +65,21 @@
     "digest": "afd20699655c"
   },
   {
+    "path": "a-rule-reads-the-payload",
+    "kind": "decision",
+    "digest": "d1a91cfb2aed"
+  },
+  {
+    "path": "a-rule-reads-the-payload/alt-a-kind-per-value",
+    "kind": "alternative",
+    "digest": "549c47b12a9f"
+  },
+  {
+    "path": "a-rule-reads-the-payload/alt-project-into-params",
+    "kind": "alternative",
+    "digest": "69776d005abb"
+  },
+  {
     "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it",
     "kind": "decision",
     "digest": "a9699a22af63"

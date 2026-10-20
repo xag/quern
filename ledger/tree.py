@@ -1346,6 +1346,55 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-rule-reads-the-payload",
+            kind="decision",
+            name="The grammar reads a node's payload at a dotted path and asks whether a "
+                 "text contains a fragment; what either value means stays the domain's "
+                 "(#45, #60)",
+            links={"rests_on": ["the-breadth-is-on-the-record"]},
+            payload={
+                "why":
+                    "A rule could read params and links and nothing the payload holds, "
+                    "so a check that starts from a field of the record had three ways "
+                    "out, all seen in adopters: mint a kind per value of the field "
+                    "(assay's proof-verdict, with a rule duplicated verbatim across the "
+                    "two kinds), project the field into a param when the tree is built "
+                    "(which works for a lifecycle state and for nothing else), or "
+                    "evaluate the check outside quern, where it never reaches the "
+                    "package gate. `payload(node, 'a.b', default)` returns the value; "
+                    "a segment that meets a list maps over its elements; an absent "
+                    "field reads as the default, None unless named, as tree_find's "
+                    "payload filter already reads it. `contains(text, part)` is the "
+                    "comparison a fixed fragment among varying values needs, and over "
+                    "a list it searches the elements.",
+                "note":
+                    "Not covered: several facts about the same list element ('a step "
+                    "owned by ana that is also urgent'). A mapped path loses which "
+                    "element a value came from; that needs an existential over "
+                    "elements, which #45's third comment names and this does not add.",
+            },
+            children=[
+                Node(id="alt-a-kind-per-value", kind="alternative",
+                     name="Keep the payload unreadable and let a domain mint a kind "
+                          "per value of the field it scopes by",
+                     payload={"why":
+                              "What assay did, and it costs every reader two kinds to "
+                              "ask for and every rule written once per kind. The "
+                              "payload being the domain's is an argument about what "
+                              "a value MEANS, and reading one decides nothing about "
+                              "that."}),
+                Node(id="alt-project-into-params", kind="alternative",
+                     name="Have domains copy the fields a rule needs into params at "
+                          "build time",
+                     payload={"why":
+                              "A param is a number with provenance; a state name, a "
+                              "description or a list of objects is none of those, "
+                              "and the projection fixes at build time which fields "
+                              "and fragments a rule may ever ask about."}),
+            ],
+        ),
+
+        Node(
             id="the-grammar-is-an-object-not-a-private-parser",
             kind="decision",
             name="The rule grammar moves into `quern.expr` with a public compile, "

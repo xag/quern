@@ -426,6 +426,62 @@ def payload_matches(node: Node, want: dict[str, Any]) -> bool:
     return True
 
 
+def payload_at(tree: Quern | TreeStore, path: str, field: str, default: Any = None) -> Any:
+    """The value at a dotted path in a node's payload — `"state"`, `"record.owner"` —
+    for a rule to compare (#45).
+
+    A rule could read params and links and nothing a node's payload holds, so a
+    domain whose checks start from a field of the record minted a kind per value of
+    it, projected the field into a param when it built the tree, or evaluated the
+    check outside quern. This reads the value and hands it to the grammar; what the
+    value MEANS is still the domain's, as it is for `payload_matches`.
+
+    A segment that meets a list is applied to every element, and the values come back
+    as one flat list: `"steps.owner"` over three steps is the three owners. A field
+    the payload does not carry reads as `default` — None unless the rule names one —
+    exactly as `payload_matches` reads it, so `payload(self, 'state') == 'Proposed'`
+    is false on a node that states nothing rather than an error, and
+    `payload(self, 'owner', '') != ''` asks whether one is set."""
+    node = tree.get(path)
+    if node is None:
+        return default
+    return _walk_payload(node.payload, [s for s in str(field).split(".") if s], default)
+
+
+def _walk_payload(value: Any, segs: list[str], default: Any) -> Any:
+    if not segs:
+        return value
+    if isinstance(value, list):
+        out: list[Any] = []
+        for item in value:
+            got = _walk_payload(item, segs, default)
+            out.extend(got if isinstance(got, list) else [got])
+        return out
+    if isinstance(value, dict) and segs[0] in value:
+        return _walk_payload(value[segs[0]], segs[1:], default)
+    return default
+
+
+def contains(text: Any, part: Any) -> bool:
+    """Does `part` occur in `text` — or, over a list, in one of its elements (#60)?
+
+    A rule could compare a string only for equality, so a fixed fragment among
+    varying values had no expression, and a param per fragment, set when the tree is
+    built, was the only workaround. Over a list an element that is a string is
+    searched, and any other element must equal `part`; that is the reading a list of
+    payload values wants — `contains(payload(self, 'tags'), 'urgent')`."""
+    if isinstance(text, str):
+        if not isinstance(part, str):
+            raise ValueError("contains: a text is searched for a string")
+        return part in text
+    if isinstance(text, (list, tuple)):
+        return any(contains(t, part) if isinstance(t, str) and isinstance(part, str)
+                   else t == part for t in text)
+    if text is None:
+        return False
+    raise ValueError(f"contains: cannot search a {type(text).__name__}")
+
+
 def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | None = None,
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
@@ -1218,7 +1274,9 @@ def _iter_paths(node: Node, path: str):
 
 def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
              solver_runner=None) -> dict[str, Any]:
-    """Structural builtins + the solve() bridge. Nothing here interprets content.
+    """Structural builtins + the solve() bridge. Nothing here interprets content: `payload`
+    reads a value the domain wrote and `contains` compares text, and what either means is
+    still the domain's, reached through `solve`.
 
     Public because evaluating one expression against a tree is a thing consumers
     do outside `run_rules` — a daemon judging a criterion that lives in a payload,
@@ -1285,6 +1343,10 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         "index": lambda p: child_index(tree, p),
         "at": lambda parent, i: child_at(tree, parent, i),
         "parent": lambda p: "/".join(_segs(p)[:-1]),
+        # the payload read (#45) and text containment (#60): a value the domain
+        # wrote, at a dotted path, and whether a fragment occurs in it
+        "payload": lambda p, field, default=None: payload_at(tree, p, field, default),
+        "contains": contains,
         "ctx": ctx,                           # caller-supplied evaluation payload
         "abs": abs, "min": min, "max": max,
         "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),

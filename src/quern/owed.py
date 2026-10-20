@@ -78,6 +78,8 @@ GRAMMAR_VERBS = {
     "param": ("sharpening", "reads the value; any assertion about it (a range, "
               "a bound) is the meaning the hint describes — the domain's"),
     "params_of": ("sharpening", "the aggregate read; same reason as param"),
+    "payload": ("sharpening", "reads a value the domain wrote; a vocabulary declares "
+                "no payload fields, so no declaration implies a floor over one"),
     "linked": ("query", "returns paths and asserts nothing; assertions over it "
                "encode what the link MEANS, which is the domain's"),
     "linked_current": ("query", "same — currency-filtered traversal"),
@@ -116,6 +118,7 @@ GRAMMAR_VERBS = {
     "max": ("combinator", "arithmetic; no subject of its own"),
     "sum": ("combinator", "arithmetic; no subject of its own"),
     "len": ("combinator", "arithmetic; no subject of its own"),
+    "contains": ("combinator", "text containment; no subject of its own"),
 }
 
 
