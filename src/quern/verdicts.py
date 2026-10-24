@@ -8,8 +8,10 @@ what each entry said when it was judged, and the brief's text beside them; `load
 the brief those verdicts back, and names the entries that changed since, which no rule has
 judged in their present words.
 
-Two files, both deterministic, so they change in a diff only when the ledger or a verdict
-did:
+Two files, both deterministic, a cache of the check's last run: their home is
+`.quern/check` under the project (DEFAULT_DIR), which a project ignores, so they neither
+churn its commits nor stop a rebase on a conflict between two runs. A project that never
+ran its check has none, and the brief runs the rules.
 
   verdicts.json  {"entries": {entry: digest}, "red": {entry: [rule, ...]}} - an entry is
                  what the brief prints one line for (brief.entry_of), its digest covers it
@@ -33,6 +35,7 @@ from .tree import Quern, TreeStore
 
 VERDICTS = "verdicts.json"
 BRIEF = "brief.txt"
+DEFAULT_DIR = ".quern/check"
 
 
 def entries(tree: Quern | TreeStore) -> dict[str, str]:
@@ -68,6 +71,7 @@ def record(tree: Quern | TreeStore, results, directory: str | Path, *,
     `results` is the check's `run_rules` over the same tree. Returns the paths written."""
     from .brief import brief
     d = Path(directory)
+    d.mkdir(parents=True, exist_ok=True)
     data = {"entries": entries(tree), "red": reds(tree, results)}
     verdicts = d / VERDICTS
     verdicts.write_text(json.dumps(data, indent=1, ensure_ascii=False, sort_keys=True) + "\n",

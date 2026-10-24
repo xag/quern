@@ -61,3 +61,31 @@ def test_the_check_writes_the_brief_as_text_beside_its_verdicts(tmp_path: Path):
 
 def test_no_recorded_check_is_none(tmp_path: Path):
     assert verdicts.load(ledger(), tmp_path) is None
+
+
+def _project(tmp_path: Path) -> Path:
+    (tmp_path / "ledger").mkdir()
+    (tmp_path / "ledger" / "tree.py").write_text(
+        "from tests.test_verdicts import ledger\n\ndef build():\n    return ledger()\n",
+        encoding="utf-8")
+    return tmp_path
+
+
+def test_the_brief_reads_the_verdicts_from_the_checks_cache_directory(tmp_path: Path, capsys):
+    """A check's verdicts are a cache of its run, kept in `.quern/check`, which a project
+    ignores: they churned commits and stopped rebases on conflicts between two runs."""
+    from quern.cli import main
+    project = _project(tmp_path)
+    tree = ledger()
+    verdicts.record(tree, run_rules(tree), project / verdicts.DEFAULT_DIR)
+    main(["brief", str(project)])
+    assert "reds as the last check recorded them" in capsys.readouterr().out
+
+
+def test_the_brief_still_reads_verdicts_recorded_beside_the_ledger(tmp_path: Path, capsys):
+    from quern.cli import main
+    project = _project(tmp_path)
+    tree = ledger()
+    verdicts.record(tree, run_rules(tree), project / "ledger")
+    main(["brief", str(project)])
+    assert "reds as the last check recorded them" in capsys.readouterr().out

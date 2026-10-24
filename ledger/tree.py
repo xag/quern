@@ -1583,5 +1583,37 @@ def build() -> Quern:
                               "lives; a heading is meaning."}),
             ],
         ),
+
+        Node(
+            id="the-brief-reads-the-checks-verdicts-2",
+            kind="decision",
+            name="The brief reads the reds a project's check recorded, kept with the check's "
+                 "other caches in .quern/check, which a project ignores; it marks UNCHECKED an "
+                 "entry changed since, and with no recorded check it runs the rules",
+            links={SUPERSEDES: ["the-brief-reads-the-checks-verdicts"],
+                   "rests_on": ["the-working-set-is-computed"]},
+            payload={
+                "rationale":
+                    "What the brief reads is unchanged: the verdicts of the check's last run, "
+                    "per entry a digest of what it says and its failed rules, and the brief as "
+                    "text beside them, so a brief costs the build and the text is searched "
+                    "with no build. What changed is where they live. Written beside the "
+                    "ledger they were committed, and every check rewrote them: a commit "
+                    "carried them whatever it was about, and a rebase across two runs "
+                    "stopped on a conflict in files no one wrote. They are a cache of a run, "
+                    "and .quern/check is where a project's caches already go ignored; the "
+                    "roll stays committed, because the removal audit reads it from git. "
+                    "Verdicts recorded beside the ledger by an older check are still read.",
+            },
+            children=[
+                Node(id="alt-merge-driver", kind="alternative",
+                     name="Keep them committed and give git a merge driver that keeps "
+                          "either side",
+                     payload={"why":
+                              "A driver is git configuration every clone must install, "
+                              "and a rebase that kept either side would commit a brief "
+                              "that matches neither tree until the next check."}),
+            ],
+        ),
     ]
     return quern

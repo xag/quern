@@ -200,6 +200,16 @@
     "digest": "ae07d9a4fb2b"
   },
   {
+    "path": "the-brief-reads-the-checks-verdicts-2",
+    "kind": "decision",
+    "digest": "5cae6dea2c02"
+  },
+  {
+    "path": "the-brief-reads-the-checks-verdicts-2/alt-merge-driver",
+    "kind": "alternative",
+    "digest": "f8bc6391f7a0"
+  },
+  {
     "path": "the-brief-reads-the-checks-verdicts/alt-cache-by-the-whole-trees-digest",
     "kind": "alternative",
     "digest": "439201a89032"

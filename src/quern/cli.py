@@ -154,6 +154,8 @@ def _cmd_brief(args: argparse.Namespace) -> None:
     # The reds the project's check recorded (quern.verdicts), unless asked to run every
     # rule: running them is the slow part of a brief, and the check runs them anyway.
     kept = None if args.fresh else verdicts.load(tree, root / args.verdicts)
+    if kept is None and not args.fresh and args.verdicts == verdicts.DEFAULT_DIR:
+        kept = verdicts.load(tree, root / "ledger")   # where a check recorded them before
     text = f"{project_label(root)} - ledger brief\n" + brief(
         tree, all=args.all, fat=args.fat, under=args.under, verdicts=kept)
     if args.write:
@@ -324,9 +326,9 @@ def run(argv: list[str]) -> None:
     p.add_argument("--fresh", action="store_true",
                    help="run every rule for the reds, instead of reading the ones the "
                         "project's check recorded")
-    p.add_argument("--verdicts", default="ledger", metavar="DIR",
+    p.add_argument("--verdicts", default=".quern/check", metavar="DIR",
                    help="where the check recorded its verdicts, under the project "
-                        "(default: ledger)")
+                        "(default: .quern/check, else ledger)")
     p.add_argument("--write", metavar="FILE", help="write the brief to FILE instead of printing it")
     p.set_defaults(func=_cmd_brief)
 
