@@ -65,6 +65,26 @@
     "digest": "afd20699655c"
   },
   {
+    "path": "a-natives-answer-is-kept-while-what-it-read-is-unchanged",
+    "kind": "decision",
+    "digest": "629be24f225f"
+  },
+  {
+    "path": "a-natives-answer-is-kept-while-what-it-read-is-unchanged/alt-declared-reads-only",
+    "kind": "alternative",
+    "digest": "80cf88397612"
+  },
+  {
+    "path": "a-natives-answer-is-kept-while-what-it-read-is-unchanged/alt-observed-reads-only",
+    "kind": "alternative",
+    "digest": "c1e70da84f93"
+  },
+  {
+    "path": "a-natives-answer-is-kept-while-what-it-read-is-unchanged/alt-whole-tree-digest",
+    "kind": "alternative",
+    "digest": "5c71675cf99d"
+  },
+  {
     "path": "a-rule-binds-a-list-element",
     "kind": "decision",
     "digest": "684a4e9fe65a"

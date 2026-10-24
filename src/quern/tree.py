@@ -984,9 +984,12 @@ def _coerce(model: type[BaseModel], field: str, value: Any) -> Any:
 
 NATIVE: dict[str, Any] = {}  # name -> callable(tree, *args): standard implementations
 NATIVE_SPEC: dict[str, list["Demonstration"]] = {}  # ...and what each must answer
+NATIVE_READS: dict[str, tuple] = {}  # ...and, when it says, what it reads: (reads, env)
 
 
-def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = ()) -> None:
+def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = (), *,
+                    reads=None, env: "tuple[str, ...] | list[str]" = (),
+                    spawns: bool = False) -> None:
     """Install a first-class implementation of a solver contract. The name is the
     contract (e.g. 'geometry/volume'); the callable takes (tree, *args). Natives
     are an optimisation of content, never a semantics of their own: if a native
@@ -1000,14 +1003,26 @@ def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = ()) -> 
     the boundary: meaning is data, safety is code, and the evidence for trusted code
     is code-side too. The publish gate reads this registry and refuses a native
     contract it cannot see satisfied.
+
+    `reads` lets a check keep the native's answers (quern.cache.NativeCache): a function
+    of the call's `(tree, *args)` naming the files and directories the call reads that it
+    may not open while it runs - state the process loaded earlier - or None when a call
+    cannot say; `quern.cache.OPENS_ONLY` when it reads nothing but the tree and what it
+    opens. `env` names the environment variables it reads; `spawns` says the processes it
+    starts read nothing `reads` does not name. Without `reads` the native is called on
+    every run.
     """
     NATIVE[name] = fn
     if spec:
         NATIVE_SPEC[name] = list(spec)
+    if reads is not None:
+        NATIVE_READS[name] = (reads, tuple(env), bool(spawns))
+    else:
+        NATIVE_READS.pop(name, None)
 
 
 def solve_contract(tree: "Quern | TreeStore", name: str, args: list[Any],
-                   solver_runner=None) -> Any:
+                   solver_runner=None, cache=None) -> Any:
     """The one bridge from an expression to meaning, callable outside one.
 
     A rule's `solve(...)` and a demonstration's call are the SAME call — natives
@@ -1016,6 +1031,9 @@ def solve_contract(tree: "Quern | TreeStore", name: str, args: list[Any],
     """
     fn = NATIVE.get(name)
     if fn is not None:
+        if cache is not None and name in NATIVE_READS:
+            reads, env, spawns = NATIVE_READS[name]
+            return cache.answer(tree, name, fn, list(args), reads, env, spawns)
         return fn(tree, *args)
     if solver_runner is not None:
         return solver_runner(tree, name, list(args))
@@ -1127,7 +1145,7 @@ class RuleResult(BaseModel):
 def run_rules(tree: Quern | TreeStore, path: str = "",
               context: dict[str, Any] | None = None,
               solver_runner=None, rules: str | Iterable[str] | None = None,
-              trace: bool = False) -> list[RuleResult]:
+              trace: bool = False, cache=None) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
 
     `context` is the caller-supplied evaluation payload (feeds, series windows,
@@ -1147,9 +1165,14 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
     `trace` fills each result's `reads` with every call the expression made. Off by
     default because the trace of a whole tree's check is much larger than its
     verdicts, and the calls that matter are the ones behind a line somebody is
-    looking at."""
+    looking at.
+
+    `cache` (quern.cache.NativeCache) keeps the answers of the natives that say what they
+    read, and gives one back while all of it is unchanged; without it every native runs."""
     out: list[RuleResult] = []
-    env = rule_env(tree, context or {}, solver_runner)
+    if cache is not None:
+        cache.begin(tree)
+    env = rule_env(tree, context or {}, solver_runner, cache=cache)
     for rule in _selected_rules(tree, rules):
         for node_path, variables in _rule_bindings(tree, rule, path):
             reads: list[Read] | None = [] if trace else None
@@ -1280,7 +1303,7 @@ def _iter_paths(node: Node, path: str):
 
 
 def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
-             solver_runner=None) -> dict[str, Any]:
+             solver_runner=None, cache=None) -> dict[str, Any]:
     """Structural builtins + the solve() bridge. Nothing here interprets content: `payload`
     reads a value the domain wrote and `contains` compares text, and what either means is
     still the domain's, reached through `solve`.
@@ -1297,7 +1320,7 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
     context = context or {}
 
     def solve(name: str, *args):
-        return solve_contract(tree, name, list(args), solver_runner)
+        return solve_contract(tree, name, list(args), solver_runner, cache)
 
     def nodes(kind: str | None = None, under: str = "") -> list[str]:
         anchor = "/".join(_segs(under))

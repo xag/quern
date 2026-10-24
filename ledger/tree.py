@@ -1615,5 +1615,50 @@ def build() -> Quern:
                               "that matches neither tree until the next check."}),
             ],
         ),
+
+        Node(
+            id="a-natives-answer-is-kept-while-what-it-read-is-unchanged",
+            kind="decision",
+            name="A check may keep a native's answer and give it back while every subtree it "
+                 "reached, every file it opened or declared and the code it runs are "
+                 "unchanged; a native that does not say what it reads is called every time",
+            links={"rests_on": ["the-brief-reads-the-checks-verdicts-2"]},
+            payload={
+                "rationale":
+                    "A check runs every rule on every run, and what costs is the natives the "
+                    "rules reach: proofs, sweeps of witnesses, derivations over source files. "
+                    "A run made while editing changes one entry or one file, and nearly every "
+                    "native answers what it answered last time. quern.cache.NativeCache keeps "
+                    "each answer with the reads of the run that gave it - the digest of every "
+                    "subtree the native reached through the tree it was handed, the size and "
+                    "time of every file it opened and every directory it listed (the "
+                    "interpreter's audit hook), the files it declares for state the process "
+                    "loaded before the call, the identity of quern's code and of the native's "
+                    "package - and gives it back only when all of them are as they were. "
+                    "Correct exactly when the native is a function of what it read, which "
+                    "registering `reads` asserts; a call that writes outside the cache, "
+                    "starts a process or opens a connection is not kept, nor a refusal. A "
+                    "check that must not trust an earlier run calls run_rules without one.",
+            },
+            children=[
+                Node(id="alt-whole-tree-digest", kind="alternative",
+                     name="Keep every verdict while the whole tree and the code are unchanged",
+                     payload={"why":
+                              "One edited entry or one edited file sends every native back "
+                              "to the run, which is the run made while editing."}),
+                Node(id="alt-declared-reads-only", kind="alternative",
+                     name="Key each native on the reads it declares, and observe nothing",
+                     payload={"why":
+                              "A declaration that forgets one file keeps a stale verdict "
+                              "with nothing to show it; what a call opens is seen, and only "
+                              "what it cannot be seen reading is declared."}),
+                Node(id="alt-observed-reads-only", kind="alternative",
+                     name="Observe what each native opens, and ask it to declare nothing",
+                     payload={"why":
+                              "A native that uses what an earlier one loaded - a parsed "
+                              "module, data held in memory - opens nothing, and its verdict "
+                              "would be kept on inputs it never showed."}),
+            ],
+        ),
     ]
     return quern
