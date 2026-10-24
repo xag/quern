@@ -199,3 +199,34 @@ def test_a_native_whose_reads_cover_its_processes_is_kept(native, tmp_path):
     run_rules(tree, cache=cache)
     run_rules(tree, cache=cache)
     assert len(calls) == 1
+
+
+def _connects(host):
+    def native(tree, p):
+        import socket
+        with socket.socket() as sock:
+            sock.settimeout(0.2)
+            try:
+                sock.connect((host, 9))
+            except OSError:
+                pass
+        return 1.0
+    return native
+
+
+def test_a_native_that_reaches_the_network_is_not_kept_even_vouched_for(native, tmp_path):
+    calls = native(_connects("192.0.2.1"), reads=OPENS_ONLY, spawns=True)
+    cache = NativeCache(tmp_path)
+    tree = _tree()
+    run_rules(tree, cache=cache)
+    run_rules(tree, cache=cache)
+    assert len(calls) == 2
+
+
+def test_a_vouched_native_may_reach_the_loopback(native, tmp_path):
+    calls = native(_connects("127.0.0.1"), reads=OPENS_ONLY, spawns=True)
+    cache = NativeCache(tmp_path)
+    tree = _tree()
+    run_rules(tree, cache=cache)
+    run_rules(tree, cache=cache)
+    assert len(calls) == 1

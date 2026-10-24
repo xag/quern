@@ -1009,7 +1009,7 @@ def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = (), *,
     may not open while it runs - state the process loaded earlier - or None when a call
     cannot say; `quern.cache.OPENS_ONLY` when it reads nothing but the tree and what it
     opens. `env` names the environment variables it reads; `spawns` says the processes it
-    starts read nothing `reads` does not name. Without `reads` the native is called on
+    starts, and what it reaches on the loopback, read nothing `reads` does not name. Without `reads` the native is called on
     every run.
     """
     NATIVE[name] = fn

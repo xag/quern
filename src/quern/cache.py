@@ -16,7 +16,9 @@ What a call read is recorded as it runs, not guessed:
   interpreter's audit hook, with its size and modification time. Writing a file outside the
   cache, starting a process or opening a connection makes the answer unkeepable: what it
   depends on cannot be seen from here. A native whose declared reads cover what the
-  processes it starts read registers with `spawns=True`, and starting one is then allowed.
+  processes it starts read registers with `spawns=True`, and starting one, or connecting
+  to this machine's loopback (an event loop's own socket pair, a process it started), is
+  then allowed.
 - what the call cannot be seen reading: state the process loaded before the call (a parsed
   module kept in memory, data an earlier native loaded) is invisible to both. The native
   declares it when it registers (`register_native(..., reads=...)`): a function of the
@@ -183,12 +185,29 @@ def _hook(event: str, args: tuple) -> None:
             path = _abs(args[0] if args and args[0] is not None else ".")
             if path is not None:
                 w.dirs.add(path)
-        elif event.startswith(_NETWORK) or (event.startswith(_PROCESSES) and not w.spawns):
+        elif event.startswith(_PROCESSES) and not w.spawns:
+            w.unkeepable = w.unkeepable or f"it called {event}"
+        elif event.startswith(_NETWORK) and not (w.spawns and _loopback(event, args)):
             w.unkeepable = w.unkeepable or f"it called {event}"
         elif event.startswith(_MUTATES):
             path = _abs(args[0]) if args else None
             if path is None or not path.startswith(w.allowed):
                 w.unkeepable = w.unkeepable or f"it called {event}"
+
+
+def _loopback(event: str, args: tuple) -> bool:
+    """A connection that stays on this machine's loopback: an event loop's own socket pair,
+    or a process the native started. Anything else is the network."""
+    if event == "socket.connect" and len(args) > 1:
+        addr = args[1]
+        host = addr[0] if isinstance(addr, tuple) and addr else None
+    elif event == "socket.getaddrinfo" and args:
+        host = args[0]
+    else:
+        return False
+    if isinstance(host, bytes):
+        host = host.decode("ascii", "ignore")
+    return str(host) in ("127.0.0.1", "::1", "localhost")
 
 
 def _ensure_hook() -> None:
