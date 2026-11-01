@@ -22,3 +22,6 @@ uv.lock
 # quern.lock stays the source of truth; `consume` verifies every digest against it.
 .quern/*
 !.quern/library/
+
+# craft-laws recordings, written when a session runs here; data, not source
+.craft/
