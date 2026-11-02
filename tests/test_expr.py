@@ -136,6 +136,27 @@ def test_a_rule_result_carries_what_it_read_when_the_run_is_traced():
         ("param", 30.0), ("param", 10.0)]
 
 
+def test_a_rule_says_whether_it_held_broke_had_nothing_to_read_or_could_not_run():
+    """A missing fact is no answer about the node, and a rule that cannot run is the
+    rule's own fault: neither may read as the node failing, nor as it passing."""
+    from quern import KindDef
+    t = tree()
+    t.vocabulary = [KindDef(kind="debt", description="a debt", params={"spent": "d", "budget": "d"})]
+    set_node(t, "unpriced", {"kind": "debt", "params": {"spent": design_target(1, unit="d")}})
+    t.rules += [
+        Rule(name="budget-named", kind="debt", expr="spent <= budget"),
+        Rule(name="in-context", kind="debt", expr="ctx('cap') > spent"),
+        Rule(name="typo", kind="debt", expr="spnet > 0"),
+    ]
+    verdicts = {(r.rule, r.node): (r.verdict, r.ok) for r in run_rules(t)}
+    assert verdicts[("within-budget", "meter")] == ("broken", False)
+    assert verdicts[("within-budget", "concurrency")] == ("holds", True)
+    assert verdicts[("within-budget", "unpriced")] == ("absent", False)
+    assert verdicts[("budget-named", "unpriced")] == ("absent", False)
+    assert verdicts[("in-context", "meter")] == ("absent", False)
+    assert verdicts[("typo", "meter")] == ("error", False)
+
+
 def test_an_untraced_run_carries_no_reads():
     """Off by default: the trace of a whole tree's check is much larger than its
     verdicts, and the calls that matter are the ones behind a line being read."""

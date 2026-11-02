@@ -434,7 +434,7 @@ def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
                     else f"no node in scope for {rule} at '{path}'.")
         lines = []
         for r in results:
-            state = "PASS" if r.ok else "FAIL"
+            state = {"holds": "PASS", "broken": "FAIL", "absent": "ABSENT", "error": "ERROR"}[r.verdict]
             where = f" @ {r.node}" if r.node else ""
             detail = f" ({r.detail})" if r.detail else ""
             lines.append(f"{state} {r.rule}{where}{detail}")

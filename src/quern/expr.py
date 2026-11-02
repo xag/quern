@@ -52,6 +52,22 @@ from typing import Any, Iterator, NamedTuple
 
 from pydantic import BaseModel, Field
 
+
+class Absent(ValueError):
+    """A fact a rule reads is not there: a param the node's kind declares and the node does
+    not carry, a key the evaluation context does not hold. The rule is then neither held nor
+    broken on that node, since nothing says what the fact would have been, so `run_rules`
+    reports it as `absent`, apart from a rule that does not hold and from one that cannot
+    run. A name nothing declares stays an error: it is the rule that is wrong."""
+
+
+class Bindings(dict):
+    """A rule's variables, with the names its node's kind declares and the node lacks."""
+
+    def __init__(self, values: dict[str, Any], absent: Iterator[str] = ()):
+        super().__init__(values)
+        self.absent = frozenset(absent)
+
 # --- the parsed form ----------------------------------------------------------
 #
 # Five term kinds, immutable, and public: a consumer that wants something this
@@ -225,6 +241,8 @@ def _run(term: Term, env: dict[str, Any], variables: dict[str, Any],
     if isinstance(term, Var):
         if term.name in variables:
             return variables[term.name]
+        if term.name in getattr(variables, "absent", ()):
+            raise Absent(f"no param '{term.name}' at '{variables.get('self', '')}'")
         raise ValueError(f"unknown name '{term.name}'")
     if isinstance(term, Call):
         fn = env.get(term.fn)

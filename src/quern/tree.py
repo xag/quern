@@ -22,11 +22,11 @@ bill without changing a call site.
 
 from __future__ import annotations
 
-from typing import Any, Iterable, Iterator, Protocol
+from typing import Any, Iterable, Iterator, Literal, Protocol
 
 from pydantic import BaseModel, Field, model_validator
 
-from .expr import Read, compile_expr
+from .expr import Absent, Bindings, Read, compile_expr
 from .provenance import Quantity
 from .solver import SolverDef, path_allowed
 
@@ -1133,11 +1133,21 @@ class RuleResult(BaseModel):
     that produced the verdict, so a reporter never re-runs the sub-expressions to
     recover the numbers — a second pass over the same grammar is a second grammar,
     and it drifts. On a rule that raised, the trace holds what was read BEFORE the
-    exception, which is most of the diagnosis."""
+    exception, which is most of the diagnosis.
+
+    `verdict` says which of four things happened. `holds` and `broken` are the rule's
+    answer about the node. `absent` is no answer: a fact the rule reads is not there
+    (`Absent`), and a reader that took it for `broken` would blame the node for a gap in
+    what was recorded, one that took it for `holds` would pass what nobody checked.
+    `error` is the rule's own failure (a typo, a function given the wrong type): the
+    rule is what needs fixing, not the node. `ok` is True only when the rule held, so a
+    reader that knows only `ok` keeps treating every other case as needing a look;
+    `detail` carries the reason for the last two."""
 
     rule: str
     node: str  # the path the rule ran against ("" = global)
     ok: bool
+    verdict: Literal["holds", "broken", "absent", "error"] = "holds"
     detail: str = ""
     reads: list[Read] = Field(default_factory=list)
 
@@ -1179,10 +1189,14 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
             try:
                 value = compile_expr(rule.expr).evaluate(env, variables, reads)
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value),
+                                      verdict="holds" if value else "broken",
                                       reads=reads or []))
+            except Absent as e:
+                out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
+                                      verdict="absent", detail=str(e), reads=reads or []))
             except Exception as e:  # a broken rule must report, not crash the check
                 out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
-                                      detail=str(e), reads=reads or []))
+                                      verdict="error", detail=str(e), reads=reads or []))
     return out
 
 
@@ -1278,11 +1292,14 @@ def reckon(tree: Quern | TreeStore, results: Iterable[RuleResult],
 
 
 def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):
-    """(path, variables) pairs the rule evaluates against."""
+    """(path, variables) pairs the rule evaluates against: the node's params by name, and,
+    as absent, the params its kind declares that it does not carry."""
     if rule.kind is not None:
+        declared = {p for k in tree.vocabulary if k.kind == rule.kind for p in k.params}
         for node_path, node in tree.walk(""):
             if node.kind == rule.kind and node_path.startswith(under):
-                variables = {k: q.value for k, q in node.params.items()}
+                variables = Bindings({k: q.value for k, q in node.params.items()},
+                                     declared - set(node.params))
                 variables["self"] = node_path
                 yield node_path, variables
     else:
@@ -1332,7 +1349,7 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
 
     def ctx(name: str):
         if name not in context:
-            raise ValueError(f"nothing named '{name}' in the evaluation context")
+            raise Absent(f"nothing named '{name}' in the evaluation context")
         return context[name]
 
     return {
@@ -1390,5 +1407,5 @@ def _param_of(tree: Quern | TreeStore, path: str, name: str) -> float:
     # `uses` chain — the read half of the reuse verb
     q = resolve_params(tree, path).get(name)
     if q is None:
-        raise ValueError(f"no param '{name}' at '{path}'")
+        raise Absent(f"no param '{name}' at '{path}'")
     return q.value

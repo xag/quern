@@ -507,9 +507,14 @@ def validate_package(package: Package, blob_dir: Path,
     for ce in package.counter_examples:
         stage.root.children = [n.model_copy(deep=True) for n in ce.nodes]
         outcomes = run_rules(stage)
-        caught = [r for r in outcomes if r.rule == ce.rule and not r.ok]
+        # Only a broken verdict refutes: a rule that reads a fact the counter-example
+        # lacks, or cannot run, has said nothing about the defect it is meant to reject.
+        mine = [r for r in outcomes if r.rule == ce.rule]
+        caught = [r for r in mine if r.verdict == "broken"]
         if not caught:
-            why = ("it passes there" if any(r.rule == ce.rule for r in outcomes)
+            unjudged = next((r for r in mine if r.verdict in ("absent", "error")), None)
+            why = (f"it cannot judge it ({unjudged.detail})" if unjudged
+                   else "it passes there" if mine
                    else "the rule does not even bind to that node")
             defect = ce.because or "its own counter-example"
             raise ValueError(f"counter-example for rule '{ce.rule}' is not refuted — "

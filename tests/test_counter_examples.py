@@ -27,15 +27,24 @@ def pkg(expr: str, counter=(), name="fasteners") -> Package:
         counter_examples=list(counter))
 
 
-MASSLESS = CounterExample(rule="bolt-has-mass", node=bolt("massless"),
-                          because="a bolt with no mass at all")
+MASSLESS = CounterExample(rule="bolt-has-mass", node=bolt("massless", mass=0.0),
+                          because="a bolt that weighs nothing")
 
 
 def test_a_real_rule_is_proven_by_its_counter_example(tmp_path):
     log = validate_package(pkg("mass > 0", counter=[MASSLESS]), tmp_path,
                            Library(tmp_path))
     assert any("refuted by their counter-example" in line for line in log)
-    assert any("a bolt with no mass at all" in line for line in log)
+    assert any("a bolt that weighs nothing" in line for line in log)
+
+
+def test_a_counter_example_that_lacks_the_fact_the_rule_reads_proves_nothing(tmp_path):
+    """A rule cannot judge a node that does not carry what it reads, so such a node shows
+    nothing about the defect the rule is meant to reject."""
+    unstated = CounterExample(rule="bolt-has-mass", node=bolt("unstated"),
+                              because="a bolt that states no mass")
+    with pytest.raises(ValueError, match="cannot judge it"):
+        validate_package(pkg("mass > 0", counter=[unstated]), tmp_path, Library(tmp_path))
 
 
 def test_a_vacuous_rule_cannot_be_proven(tmp_path):

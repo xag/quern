@@ -15,6 +15,7 @@ that embeds this library — never a reference from inside it.
 """
 
 from .expr import (
+    Absent,
     Expr,
     Read,
     Reads,
@@ -110,7 +111,7 @@ from .store import SqliteStore
 
 __all__ = [
     "Provenance", "Quantity", "derived", "design_target", "inferred", "measured",
-    "Demonstration", "Expr", "KindDef", "Library", "Node", "Occurrence",
+    "Absent", "Demonstration", "Expr", "KindDef", "Library", "Node", "Occurrence",
     "Read", "Reads", "compile_expr", "evaluate_expr",
     "OperationDef", "Package",
     "PackageRef", "Rule",
