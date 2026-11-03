@@ -9,6 +9,7 @@ import pytest
 
 from quern import Quern, KindDef, Rule
 from quern.host import _relevant
+from quern._mcp import call_tool
 
 
 def test_a_write_speaks_about_its_own_branch_and_the_ones_above_it():
@@ -62,20 +63,20 @@ class Ws:
 
 @pytest.fixture
 def tools():
-    from mcp.server.fastmcp import FastMCP
+    from quern._mcp import new_server
 
     from quern.host import register_tree_tools
 
     ws = Ws([Rule(name="space-has-a-name", kind="space", expr="len(self) > 0",
                   description="placeholder, replaced per test")])
-    mcp = FastMCP("t")
+    mcp = new_server("t")
     register_tree_tools(mcp, lambda: ws)
     return mcp, ws
 
 
 def _set(mcp, path, node):
     import asyncio
-    res = asyncio.run(mcp.call_tool("tree_set", {"path": path, "node": node}))
+    res = asyncio.run(call_tool(mcp, "tree_set", {"path": path, "node": node}))
     contents = res[0] if isinstance(res, tuple) else res
     return contents[0].text
 

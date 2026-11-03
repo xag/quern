@@ -38,14 +38,15 @@ Issues = "https://github.com/xag/quern/issues"
 # quern.host registers the tree_* MCP tools over a Workspace; only a server needs it.
 # (The geometry extra is gone with the geometry module: shapes are a domain package now,
 # and a shape-carrying host installs that package instead.)
-# CAPPED BELOW 2, and the cap is load-bearing. mcp 2.0.0 no longer exposes
-# `mcp.server.fastmcp`, which host.py imports at module scope — so an unbounded pin
-# breaks every consumer of `quern[host]` (invest, home, spec-studio, the navigator)
-# the next time any of them resolves fresh. It broke korean-gpt-coach's production on
-# 2026-08-12, and this repo's first-ever CI run caught the same thing here on
-# 2026-08-13: a local venv holding 1.x passes forever while a fresh resolve does not.
-# Lift it by porting to the 2.x import path, never by widening the range.
-host = ["mcp[cli]>=1.2,<2"]
+# Both majors, through `quern._mcp`: 1.x has `mcp.server.fastmcp.FastMCP`, 2.x has
+# `mcp.server.mcpserver.MCPServer`, and every difference between them goes through that
+# one module. A server that also imports a 2.x-only library needs 2.x; a consumer whose
+# own code is on 1.x (invest, home, spec-studio, the navigator) keeps 1.x. CAPPED BELOW 3,
+# and the cap is load-bearing: an uncapped `mcp` once broke korean-gpt-coach's production
+# (2026-08-12) and this repo's first CI run (2026-08-13), because a local venv holding the
+# old major passes forever while a fresh resolve does not. Lift it by teaching
+# `quern._mcp` the next major and running the suite on it, never by widening the range.
+host = ["mcp[cli]>=1.2,<3"]
 
 [project.scripts]
 quern = "quern.cli:main"

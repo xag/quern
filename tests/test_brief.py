@@ -9,6 +9,7 @@ number that predicts future cost — words.
 
 from quern import KindDef, Quern, Quantity, said_words, set_node
 from quern.brief import brief
+from quern._mcp import call_tool
 
 
 def ledger() -> Quern:
@@ -82,15 +83,15 @@ def _call(ws, args: dict) -> str:
     resolves a workspace, reads the EFFECTIVE tree, and passes its flags through."""
     import asyncio
 
-    from mcp.server.fastmcp import FastMCP
+    from quern._mcp import new_server
 
     from quern.host import register_tree_tools
 
-    mcp = FastMCP("t")
+    mcp = new_server("t")
     register_tree_tools(mcp, lambda: ws)
-    res = asyncio.run(mcp.call_tool("tree_brief", args))
+    res = asyncio.run(call_tool(mcp, "tree_brief", args))
     out = res[1] if isinstance(res, tuple) else res
-    # A str-returning FastMCP tool comes back as {'result': <text>}. Assert the shape
+    # A str-returning tool comes back as {'result': <text>}. Assert the shape
     # rather than str()-ing whatever arrives: a repr of the wrong object still contains
     # the text, so a fallback here would quietly turn a broken return into a green test.
     assert isinstance(out, dict) and "result" in out, f"unexpected tool return: {out!r}"

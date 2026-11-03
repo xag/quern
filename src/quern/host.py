@@ -26,7 +26,7 @@ import json
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from mcp.server.fastmcp import FastMCP
+from ._mcp import Server
 
 from . import (brief as briefmod, library as librarymod, roll as rollmod,
                solver as solvermod, tree as treemod)
@@ -180,7 +180,7 @@ def commit_changes(ws: "Workspace", changes: list[dict[str, Any]],
             "acknowledged": sorted(new)}
 
 
-def register_tree_tools(mcp: FastMCP, get_ws: Resolver) -> None:
+def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
     """Register the tree_* tools and the solver:// resource on `mcp`, each acting
     on the Workspace `get_ws()` returns for the current caller."""
 

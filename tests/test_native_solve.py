@@ -14,6 +14,7 @@ import pytest
 from quern import Quern, Node
 from quern.solver import SolverDef, SolverError, run_native, stamp
 from quern.tree import NATIVE, register_native
+from quern._mcp import call_tool
 
 
 class Ws:
@@ -64,13 +65,13 @@ def natives():
 
 
 def _solve(ws, args):
-    from mcp.server.fastmcp import FastMCP
+    from quern._mcp import new_server
 
     from quern.host import register_tree_tools
 
-    mcp = FastMCP("t")
+    mcp = new_server("t")
     register_tree_tools(mcp, lambda: ws)
-    res = asyncio.run(mcp.call_tool("tree_solve", args))
+    res = asyncio.run(call_tool(mcp, "tree_solve", args))
     return res[1] if isinstance(res, tuple) else res
 
 
@@ -165,13 +166,13 @@ class SplitWs:
 
 
 def _solver_tool(ws, args):
-    from mcp.server.fastmcp import FastMCP
+    from quern._mcp import new_server
 
     from quern.host import register_tree_tools
 
-    mcp = FastMCP("t")
+    mcp = new_server("t")
     register_tree_tools(mcp, lambda: ws)
-    res = asyncio.run(mcp.call_tool("tree_solver", args))
+    res = asyncio.run(call_tool(mcp, "tree_solver", args))
     out = res[1] if isinstance(res, tuple) else res
     return out.get("result", out) if isinstance(out, dict) else out
 

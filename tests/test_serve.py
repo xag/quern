@@ -13,10 +13,11 @@ import sys
 
 from quern import Quern
 from quern.serve import DirectoryWorkspace, build_server
+from quern._mcp import call_tool
 
 
 def _call(mcp, name, args):
-    res = asyncio.run(mcp.call_tool(name, args))
+    res = asyncio.run(call_tool(mcp, name, args))
     contents, structured = res if isinstance(res, tuple) else (res, None)
     if isinstance(structured, dict) and set(structured) == {"result"}:
         return structured["result"]
@@ -73,7 +74,9 @@ def test_the_server_starts_over_stdio_and_lists_its_tools(tmp_path):
             async with ClientSession(read, write) as session:
                 init = await session.initialize()
                 tools = await session.list_tools()
-                return init.serverInfo.name, sorted(t.name for t in tools.tools)
+                # The wire name: 2.x spells the attribute server_info, 1.x serverInfo.
+            name = init.model_dump(by_alias=True)["serverInfo"]["name"]
+            return name, sorted(t.name for t in tools.tools)
 
     name, tools = asyncio.run(ask())
     assert name == "quern"

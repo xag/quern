@@ -13,6 +13,7 @@ import pytest
 
 from quern import Quern, KindDef, Rule, design_target, set_node
 from quern.library import Library
+from quern._mcp import call_tool
 
 
 class Ws:
@@ -61,12 +62,12 @@ class Ws:
 
 @pytest.fixture()
 def tools(tmp_path):
-    from mcp.server.fastmcp import FastMCP
+    from quern._mcp import new_server
 
     from quern.host import register_tree_tools
 
     ws = Ws(tmp_path)
-    mcp = FastMCP("t")
+    mcp = new_server("t")
     register_tree_tools(mcp, lambda: ws)
     return mcp, ws
 
@@ -74,7 +75,7 @@ def tools(tmp_path):
 def _call(mcp, name, args):
     """A tool's answer: text tools come back wrapped as {"result": "..."} by the
     server, exactly as the navigator's bridge unwraps them."""
-    res = asyncio.run(mcp.call_tool(name, args))
+    res = asyncio.run(call_tool(mcp, name, args))
     contents, structured = res if isinstance(res, tuple) else (res, None)
     if isinstance(structured, dict) and set(structured) == {"result"}:
         return structured["result"]

@@ -29,8 +29,8 @@ import json
 from importlib import resources
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
-
+from . import _mcp
+from ._mcp import Server
 from .host import Resolver, register_tree_tools, slice_at
 
 APP_URI = "ui://quern/navigator.html"
@@ -50,30 +50,15 @@ def app_html() -> str:
     return (resources.files("quern") / "app.html").read_text(encoding="utf-8")
 
 
-def declare_ui_capability(mcp: FastMCP) -> None:
+def declare_ui_capability(mcp: Server) -> None:
     """Declare the MCP Apps extension in the server's initialize capabilities.
 
-    The SDK's ServerCapabilities predates the extension but allows extra
-    fields, so the declaration rides initialization as data. Idempotent —
-    `register_app` calls it, and a consumer registering a second app over the
-    same server may call it again freely."""
-    server = mcp._mcp_server
-    if getattr(server.create_initialization_options, "_declares_ui", False):
-        return
-    orig = server.create_initialization_options
-
-    def with_ui(notification_options=None, experimental_capabilities=None):
-        opts = orig(notification_options, experimental_capabilities)
-        ext = getattr(opts.capabilities, "extensions", None) or {}
-        ext[UI_EXTENSION] = {"mimeTypes": [APP_MIME]}
-        opts.capabilities.extensions = ext  # ServerCapabilities: extra="allow"
-        return opts
-
-    with_ui._declares_ui = True
-    server.create_initialization_options = with_ui
+    Idempotent — `register_app` calls it, and a consumer registering a second app
+    over the same server may call it again freely."""
+    _mcp.declare_extension(mcp, UI_EXTENSION, {"mimeTypes": [APP_MIME]})
 
 
-def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
+def register_app(mcp: Server, get_ws: Resolver) -> None:
     """Register the navigator UI resource and its `tree_app` entry tool.
 
     Call alongside `register_tree_tools` — the app drives the tree through
@@ -109,8 +94,8 @@ def register_app(mcp: FastMCP, get_ws: Resolver) -> None:
 
 # --- the dev bridge: the same verbs over plain HTTP, for a plain browser ------
 
-def _bridge_tools(get_ws: Resolver) -> FastMCP:
-    """A private FastMCP carrying the REAL tool surface, so the dev server serves the
+def _bridge_tools(get_ws: Resolver) -> Server:
+    """A private MCP server carrying the REAL tool surface, so the dev server serves the
     same code the model calls.
 
     This used to be a hand-written `_dispatch` that re-implemented each verb over the
@@ -120,7 +105,7 @@ def _bridge_tools(get_ws: Resolver) -> FastMCP:
     the genuine tools costs one in-process server object and removes the entire class of
     bug — a verb that works for the model now works for the browser by construction.
     """
-    mcp = FastMCP("quern-navigator")
+    mcp = _mcp.new_server("quern-navigator")
     register_tree_tools(mcp, get_ws)
     register_app(mcp, get_ws)
     return mcp
@@ -129,7 +114,7 @@ def _bridge_tools(get_ws: Resolver) -> FastMCP:
 def _envelope(structured: Any, content: Any) -> dict[str, Any]:
     """A tool result in the shape the page's `norm()` reads, for either transport.
 
-    FastMCP gives a `-> str` tool an output schema of `{result: <string>}` and sends the
+    The SDK gives a `-> str` tool an output schema of `{result: <string>}` and sends the
     wrapper as structuredContent. The page wants text tools as `{text: ...}`, so the
     wrapper is unwrapped here — and, more importantly, in `norm()` itself, because the
     real MCP transport delivers that same wrapper and the page was reading `.text` off
@@ -143,12 +128,11 @@ def _envelope(structured: Any, content: Any) -> dict[str, Any]:
     return {"content": [{"type": "text", "text": text}]} if text is not None else {}
 
 
-def _dispatch(mcp: FastMCP, name: str, args: dict[str, Any]) -> dict[str, Any]:
+def _dispatch(mcp: Server, name: str, args: dict[str, Any]) -> dict[str, Any]:
     """Call a real registered tool and hand back its MCP result envelope."""
     import asyncio
 
-    res = asyncio.run(mcp.call_tool(name, args))
-    content, structured = res if isinstance(res, tuple) else (None, res)
+    content, structured = asyncio.run(_mcp.call_tool(mcp, name, args))
     return _envelope(structured, content)
 
 

@@ -29,8 +29,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from mcp.server.fastmcp import FastMCP
-
+from . import _mcp
+from ._mcp import Server
 from .app_host import register_app
 from .host import register_tree_tools
 from .library import Library
@@ -85,11 +85,11 @@ class DirectoryWorkspace:
 
 
 def build_server(root: Path | str, label: str | None = None,
-                 host: str = "127.0.0.1", port: int = 8000) -> FastMCP:
+                 host: str = "127.0.0.1", port: int = 8000) -> Server:
     """The server, unstarted: every `tree_*` verb and the navigator app over the
     directory's Workspace. Tests call the tools on it directly; `serve` runs it."""
     ws = DirectoryWorkspace(root, label)
-    mcp = FastMCP(
+    mcp = _mcp.new_server(
         "quern", host=host, port=port,
         instructions=(
             f"A quern tree at {ws.root.resolve()}: nodes with kinds, params, links and "
@@ -105,4 +105,4 @@ def build_server(root: Path | str, label: str | None = None,
 def serve(root: Path | str = ".quern", transport: str = "stdio",
           host: str = "127.0.0.1", port: int = 8000) -> None:
     """Run the server until the client hangs up (stdio) or Ctrl-C (HTTP)."""
-    build_server(root, host=host, port=port).run(transport=transport)  # type: ignore[arg-type]
+    _mcp.run(build_server(root, host=host, port=port), transport)
