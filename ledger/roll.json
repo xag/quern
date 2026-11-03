@@ -140,6 +140,21 @@
     "digest": "a906a3c2859f"
   },
   {
+    "path": "an-entry-moved-with-its-words-is-a-move",
+    "kind": "decision",
+    "digest": "2a2d248dddf5"
+  },
+  {
+    "path": "an-entry-moved-with-its-words-is-a-move/alt-roll-by-id",
+    "kind": "alternative",
+    "digest": "75526030d105"
+  },
+  {
+    "path": "an-entry-moved-with-its-words-is-a-move/alt-tombstone-every-moved-entry",
+    "kind": "alternative",
+    "digest": "163e8e790a60"
+  },
+  {
     "path": "every-checkable-claim-ships-with-its-proof",
     "kind": "decision",
     "digest": "775ef1a75241"

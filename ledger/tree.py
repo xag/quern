@@ -552,6 +552,43 @@ def build() -> Quern:
         ),
 
         Node(
+            id="an-entry-moved-with-its-words-is-a-move",
+            kind="decision",
+            name="An entry that left its path and sits at one new path with the same id, kind "
+                 "and words is reported as moved, and not as gone",
+            links={"rests_on": ["the-roll-digests-what-an-entry-says"]},
+            payload={
+                "rationale":
+                    "The roll exists to see an entry leave the record or say something else. "
+                    "A ledger re-arranged under new branches does neither: every entry is "
+                    "still there saying what it said, and reading each one as a deletion "
+                    "fails every check until the author tombstones entries that never left. "
+                    "With the digest on the roll, sameness is a fact, so the move is computed "
+                    "and named (`compare(...)['moved']`) rather than excused by hand.",
+                "scope":
+                    "A move that also rewords, re-kinds or renames is no move and stays a "
+                    "deletion. Two candidate places for one entry are no move, since which "
+                    "one it became would be a guess. An entry recorded before digests cannot "
+                    "be shown unchanged and stays a deletion.",
+            },
+            children=[
+                Node(id="alt-tombstone-every-moved-entry", kind="alternative",
+                     name="Tombstone each moved entry at its old path",
+                     payload={"why":
+                              "A tombstone says an entry left on purpose; these did not leave. "
+                              "The record would then claim dozens of retractions that never "
+                              "happened, and the structure a ledger most needs to grow (its "
+                              "branches) would cost a tombstone per entry each time."}),
+                Node(id="alt-roll-by-id", kind="alternative",
+                     name="Key the roll by id instead of path",
+                     payload={"why":
+                              "Ids are unique only among siblings, so a roll by id cannot tell "
+                              "two entries of the same id apart, and a move would stop being "
+                              "visible at all. The path stays the key; a move is read off it."}),
+            ],
+        ),
+
+        Node(
             id="the-working-set-is-computed",
             kind="decision",
             name="Reading a ledger costs one line per current claim: the brief drops "

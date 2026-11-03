@@ -136,7 +136,8 @@ def vanished(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
     A rename is a deletion and an addition, and is reported as the deletion — which
     is the point, because rewriting a node in place while keeping its meaning is the
     move that erases a record most quietly and reads, in a diff, like an edit."""
-    spared = set(excused)
+    previous = list(previous)
+    spared = set(excused) | {m["was"] for m in moved(tree, previous)}
     here = {p for p, _ in tree.walk("")}
 
     def is_spared(path: str) -> bool:
@@ -145,6 +146,33 @@ def vanished(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
 
     return [dict(e) for e in previous
             if e["path"] not in here and not is_spared(e["path"])]
+
+
+def moved(tree: Quern | TreeStore,
+          previous: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
+    """Entries that left their path on the roll and sit at one new path with the same
+    id, the same kind and the same words: a tree re-arranged under new branches, every
+    entry still saying what it said. `was`/`now` are the two paths.
+
+    Not a vanishing, because nothing left the record and nothing was rewritten, and
+    the roll's job is to see those two. A move that also changes the words, the kind
+    or the id is no move: it stays a deletion, and the record goes red as before. Two
+    candidates for one entry are no move either, since which one it became is a guess.
+    An entry recorded without a digest cannot be shown unchanged, so it is no move."""
+    previous = list(previous)
+    on_roll = {e["path"] for e in previous}
+    here = [(p, n) for p, n in tree.walk("")]
+    paths = {p for p, _ in here}
+    out = []
+    for e in previous:
+        if e["path"] in paths or not e.get("digest"):
+            continue
+        name = e["path"].rsplit("/", 1)[-1]
+        found = [p for p, n in here if p not in on_roll and p.rsplit("/", 1)[-1] == name
+                 and n.kind == e.get("kind") and digest(n) == e["digest"]]
+        if len(found) == 1:
+            out.append({"was": e["path"], "now": found[0], "kind": e.get("kind", "")})
+    return out
 
 
 def compare(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
@@ -162,7 +190,8 @@ def compare(tree: Quern | TreeStore, previous: Iterable[dict[str, Any]],
     previous = list(previous)
     return {"vanished": vanished(tree, previous, excused),
             "rewritten": rewritten(tree, previous),
-            "rekinded": rekinded(tree, previous)}
+            "rekinded": rekinded(tree, previous),
+            "moved": moved(tree, previous)}
 
 
 def audit(tree: Quern | TreeStore, repo: str | Path, relpath: str,

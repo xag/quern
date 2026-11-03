@@ -8,7 +8,7 @@ import json
 
 from quern import Quern, set_node
 from quern.roll import (
-    AMENDED, audit, committed, compare, digest, dumps, read, rekinded, rewritten,
+    AMENDED, audit, committed, compare, digest, dumps, moved, read, rekinded, rewritten,
     roll, vanished, write,
 )
 
@@ -301,6 +301,44 @@ def test_compare_answers_all_three_against_a_roll_the_caller_holds(tmp_path):
     assert was != now and now == digest(tree.get("key-for-key"))
 
 
+def rearranged(tree: Quern) -> Quern:
+    """The same entries under a new branch, every word kept."""
+    set_node(tree, "part", {"kind": "component"})
+    part = tree.get("part")
+    part.children = [c for c in tree.root.children if c.id == "key-for-key"]
+    tree.root.children = [c for c in tree.root.children if c.id != "key-for-key"]
+    return tree
+
+
+def test_an_entry_moved_with_its_words_is_a_move_not_a_deletion():
+    before = roll(ledger())
+    tree = rearranged(ledger())
+
+    assert vanished(tree, before) == []
+    assert compare(tree, before)["moved"] == [
+        {"was": "key-for-key", "now": "part/key-for-key", "kind": "decision"},
+        {"was": "key-for-key/alt-fallback", "now": "part/key-for-key/alt-fallback", "kind": "alternative"}]
+
+
+def test_an_entry_moved_and_reworded_is_still_a_deletion():
+    before = roll(ledger())
+    tree = rearranged(ledger())
+    set_node(tree, "part/key-for-key", {"payload": {"rationale": "reworded on the way"}})
+
+    assert [e["path"] for e in vanished(tree, before)] == ["key-for-key"]
+    assert [m["was"] for m in moved(tree, before)] == ["key-for-key/alt-fallback"]
+
+
+def test_an_entry_with_two_places_it_could_have_moved_to_is_no_move():
+    before = roll(ledger())
+    tree = rearranged(ledger())
+    set_node(tree, "other", {"kind": "component"})
+    set_node(tree, "other/key-for-key", {"kind": "decision",
+                                         "payload": {"rationale": "blank strings ship silently"}})
+
+    assert "key-for-key" in [e["path"] for e in vanished(tree, before)]
+
+
 def test_compare_excuses_the_removals_the_caller_names():
     before = roll(ledger())
     tree = ledger()
@@ -311,4 +349,4 @@ def test_compare_excuses_the_removals_the_caller_names():
 def test_comparing_a_tree_with_its_own_roll_finds_nothing():
     tree = ledger()
     assert compare(tree, roll(tree)) == {
-        "vanished": [], "rewritten": [], "rekinded": []}
+        "vanished": [], "rewritten": [], "rekinded": [], "moved": []}
