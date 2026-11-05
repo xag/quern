@@ -1,0 +1,59 @@
+# Every version on main is on PyPI.
+#
+# Consumers install quern by version from an index. A version that exists only as a git
+# rev forces them to pin the rev, and a wheel installed from an index cannot carry a git
+# requirement, so every consumer that ships its own wheel has to vendor quern inside it.
+# A release done by hand is a step that gets skipped, and each skip puts consumers there.
+#
+# So the release follows the version: once the tests pass on a main commit whose
+# pyproject version is not on PyPI yet, this builds it, publishes it, tags it v<version>
+# and makes the GitHub release. A commit that keeps the version releases nothing.
+# Bumping `version` is the release decision; nothing else is needed.
+#
+# Publishing uses PyPI trusted publishing (OIDC): no token is stored in the repo, and
+# only this workflow, in this repo, can publish quern.
+name: release
+
+on:
+  workflow_run:
+    workflows: [tests]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  release:
+    # After a push to main whose tests passed, or by hand on main.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # trusted publishing
+      contents: write   # tag and GitHub release
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # The commit the tests passed on, never a later one that landed meanwhile.
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.13"
+      - name: Is this version already released?
+        id: version
+        run: |
+          version=$(python -c "import tomllib; print(tomllib.load(open('pyproject.toml','rb'))['project']['version'])")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          status=$(curl -s -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/quern/$version/json")
+          if [ "$status" = 200 ]; then echo "released=true" >> "$GITHUB_OUTPUT"; else echo "released=false" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.version.outputs.released == 'false'
+        run: uv build
+      - if: steps.version.outputs.released == 'false'
+        run: uv publish --trusted-publishing always
+      - if: steps.version.outputs.released == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+        run: gh release create "v$VERSION" dist/* --target "$SHA" --title "$VERSION" --generate-notes
