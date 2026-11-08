@@ -10,8 +10,11 @@
 # and makes the GitHub release. A commit that keeps the version releases nothing.
 # Bumping `version` is the release decision; nothing else is needed.
 #
-# Publishing uses PyPI trusted publishing (OIDC): no token is stored in the repo, and
-# only this workflow, in this repo, can publish quern.
+# Publishing uses the repo secret PYPI_TOKEN: a PyPI token restricted to the quern project
+# (a ProjectName caveat added to the account token), so a leak can publish quern and
+# nothing else. Trusted publishing would store no token at all, but it is set up only
+# through a logged-in form on pypi.org, which an agent with the vault cannot reach; the
+# first release under it failed for want of that form.
 name: release
 
 on:
@@ -30,7 +33,6 @@ jobs:
        github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     permissions:
-      id-token: write   # trusted publishing
       contents: write   # tag and GitHub release
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +52,9 @@ jobs:
       - if: steps.version.outputs.released == 'false'
         run: uv build
       - if: steps.version.outputs.released == 'false'
-        run: uv publish --trusted-publishing always
+        env:
+          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_TOKEN }}
+        run: uv publish
       - if: steps.version.outputs.released == 'false'
         env:
           GH_TOKEN: ${{ github.token }}

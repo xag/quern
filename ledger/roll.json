@@ -195,6 +195,26 @@
     "digest": "2049da734a2f"
   },
   {
+    "path": "pypi-releases-publish-with-a-quern-only-token",
+    "kind": "decision",
+    "digest": "1b9af27a9e8c"
+  },
+  {
+    "path": "pypi-releases-publish-with-a-quern-only-token/alt-account-token",
+    "kind": "alternative",
+    "digest": "b6876687daa4"
+  },
+  {
+    "path": "pypi-releases-publish-with-a-quern-only-token/alt-publish-by-hand",
+    "kind": "alternative",
+    "digest": "8adc06977d0b"
+  },
+  {
+    "path": "pypi-releases-publish-with-a-quern-only-token/alt-trusted-publishing",
+    "kind": "alternative",
+    "digest": "5e63f1a90737"
+  },
+  {
     "path": "the-boundary-sits-at-text-not-at-the-package-api",
     "kind": "decision",
     "digest": "c1acaf1852eb"

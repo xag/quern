@@ -1697,5 +1697,41 @@ def build() -> Quern:
                               "would be kept on inputs it never showed."}),
             ],
         ),
+
+        Node(
+            id="pypi-releases-publish-with-a-quern-only-token",
+            kind="decision",
+            name="The release workflow publishes to PyPI with a token restricted to the quern "
+                 "project, held in the repo secret PYPI_TOKEN",
+            payload={
+                "rationale":
+                    "Every version on main reaches PyPI through .github/workflows/release.yml. "
+                    "The token in the secret is the account token with a ProjectName caveat "
+                    "naming quern, added offline: PyPI refused it for another project "
+                    "(403, project-scoped token is not valid) and accepted it for quern. A "
+                    "leak can publish quern and nothing else. A new token restricted the same "
+                    "way replaces it; the account token never goes into the repo.",
+            },
+            children=[
+                Node(id="alt-trusted-publishing", kind="alternative",
+                     name="PyPI trusted publishing: the workflow gets a credential per run "
+                          "and nothing is stored",
+                     payload={"why":
+                              "It is turned on only through a form on pypi.org behind the "
+                              "owner's login and 2FA, which the agent that releases cannot "
+                              "reach. The first release under it, 0.1.2, failed for want of "
+                              "that form and was published by hand."}),
+                Node(id="alt-account-token", kind="alternative",
+                     name="Store the account-wide token as the secret",
+                     payload={"why":
+                              "A leak through any step the workflow runs would publish to "
+                              "every package on the account."}),
+                Node(id="alt-publish-by-hand", kind="alternative",
+                     name="No automatic release; publish each version by hand",
+                     payload={"why":
+                              "A release done by hand is a step that gets skipped, and each "
+                              "skip leaves consumers pinning a git rev."}),
+            ],
+        ),
     ]
     return quern
