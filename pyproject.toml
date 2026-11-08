@@ -24,9 +24,10 @@ dependencies = [
     # one — recording that only happens in development is recording that is absent from
     # every run a user could report.
     # Distribution name; the module is `flight_recorder`. The floor is the PyPI release
-    # the suite was run against (241 tests, 2026-09-06); development resolves the git rev
-    # under [tool.uv.sources] instead, which a built wheel does not carry.
-    "xag-flight-recorder>=0.8.0",
+    # the suite was run against (293 tests, 2026-11-08): 0.11.1 is the rev pinned under
+    # [tool.uv.sources], which development resolves and a built wheel does not carry. Below it
+    # a trace is not masked by the boundary's redact and scrub, so the floor moves with the pin.
+    "xag-flight-recorder>=0.11.1",
 ]
 
 [project.urls]
