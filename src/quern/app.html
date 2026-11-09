@@ -617,7 +617,9 @@ function value(v) {
     return `<ul class="vlist">${v.map(x => `<li>${value(x)}</li>`).join("")}</ul>`;
   }
   if (typeof v === "object") {
-    const url = typeof v.url === "string" ? v.url : null;
+    // Only a web address becomes a link: a `javascript:` url in someone's ledger would run
+    // in the page of whoever opened it, with the page's own bridge to the workspace.
+    const url = typeof v.url === "string" && /^https?:\/\//i.test(v.url) ? v.url : null;
     const rest = Object.entries(v).filter(([k]) => k !== "url");
     if (url && rest.every(([, x]) => typeof x === "string")) {
       const at = Math.max(0, rest.findIndex(([, x]) => / /.test(x)));

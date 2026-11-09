@@ -170,6 +170,23 @@ def test_the_outline_opens_a_tree_by_its_sections():
     assert "tsecthead" in html
 
 
+def test_every_link_the_page_builds_from_data_is_a_web_address():
+    """A ledger is read by people who did not write it. A `javascript:` url in a payload,
+    made a link, runs in the reader's page with its bridge to the workspace - so every
+    href built from a value takes that value from an expression that admits http(s) only.
+    Checked over the page's source: each `href="${esc(name)}"` names a variable whose
+    defining line matches the http(s) pattern."""
+    import re
+    html = app_html()
+    names = set(re.findall(r'href="\$\{esc\((\w+)\)\}"', html))
+    assert names, "the page builds no link from data - this law has nothing to read"
+    for name in names:
+        defs = [line for line in html.splitlines()
+                if re.search(rf"\b(const|let)\s+[^;]*\b{name}\b\s*=|\(\s*{name}\s*,|\(\s*\(?{name}\b", line)]
+        assert any("https?:" in line for line in defs), (
+            f"href built from `{name}`, whose definition admits any scheme")
+
+
 def test_a_writable_workspace_slice_carries_no_writable_flag(tmp_path):
     """Only a refusal is reported, so every existing host keeps its edit controls."""
     from quern.host import slice_at
