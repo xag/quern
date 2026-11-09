@@ -168,3 +168,9 @@ def test_the_outline_opens_a_tree_by_its_sections():
     html = app_html()
     assert "sectionKinds" in html and "d.section" in html
     assert "tsecthead" in html
+
+
+def test_a_writable_workspace_slice_carries_no_writable_flag(tmp_path):
+    """Only a refusal is reported, so every existing host keeps its edit controls."""
+    from quern.host import slice_at
+    assert "writable" not in slice_at(WS(tmp_path), "a")

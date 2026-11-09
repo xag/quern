@@ -807,6 +807,12 @@ def slice_at(ws: "Workspace", path: str = "",
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
+    # Whether this node can be written here, asked of the workspace's own guard, so a
+    # viewer offers no edit it would refuse. A guard refuses with PermissionError.
+    try:
+        ws.assert_editable(path)
+    except PermissionError:
+        data["writable"] = False
     return data
 
 

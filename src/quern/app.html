@@ -170,6 +170,44 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
   color: var(--fg2); padding: 4px 6px; user-select: none; }
 .treebar label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
 .linkmeaning { font-size: 11px; margin: 1px 0 4px 12px; }
+
+pre.payload { white-space: pre-wrap; word-break: break-word; max-height: none; }
+.fields { margin: 14px 0 6px; max-width: 780px; }
+.field { margin: 0 0 14px; }
+.flabel { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); margin-bottom: 3px; }
+.fval { font-size: 14px; line-height: 1.55; }
+.fval p { margin: 0 0 8px; }
+.fval p:last-child { margin-bottom: 0; }
+#node a { color: var(--accent); text-decoration: none; }
+#node a:hover { text-decoration: underline; }
+.vlist { margin: 0; padding-left: 18px; }
+.vlist li { margin: 3px 0; }
+.vobj { margin: 0; }
+.vobj dt { font-size: 11px; color: var(--fg2); }
+.vobj dd { margin: 0 0 4px; }
+.facts { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; margin: 4px 0 0; }
+.kidcard { border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; margin: 6px 0;
+  cursor: pointer; max-width: 780px; }
+.kidcard:hover { border-color: var(--accent); }
+.kidhead { display: flex; gap: 8px; align-items: baseline; }
+.kidbody { margin-top: 4px; }
+.kidbody .field { margin-bottom: 4px; }
+.kidbody .fval { font-size: 13px; }
+.kidbody .flabel { display: inline; margin-right: 6px; }
+.kidbody .field.inline .fval { display: inline; }
+.contents h2.sect { font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+  color: var(--fg2); margin: 18px 0 2px; cursor: pointer; }
+.contents h2.sect:hover { color: var(--accent); }
+.entryrow { padding: 5px 8px; border-radius: 6px; cursor: pointer; max-width: 860px; }
+.entryrow:hover { background: var(--bg3); }
+.entryrow .ename { font-weight: 600; }
+.entryrow .ex { font-size: 12px; margin-top: 1px; }
+details.kinddesc { font-style: normal; }
+details.kinddesc summary { cursor: pointer; font-style: italic; }
+details.kinddesc[open] summary { margin-bottom: 4px; }
+details.raw > summary { cursor: pointer; color: var(--fg2); font-size: 11px;
+  text-transform: uppercase; letter-spacing: .08em; }
+.tname { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
 </style>
 </head>
 <body>
@@ -177,7 +215,7 @@ dialog .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top
   <span id="wslabel" class="chip">quern</span>
   <nav id="crumbs"></nav>
   <div id="searchbox">
-    <input id="search" placeholder="search id, kind, name, meta…" autocomplete="off">
+    <input id="search" placeholder="search" autocomplete="off">
     <div id="hits"></div>
   </div>
 </header>
@@ -216,7 +254,9 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g,
   c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 let mode = null, mcpApp = null;
+let readonly = false;   // true where the slice says the workspace refuses writes
 let current = { path: "", node: null, semantics: {} };
+let shownPath = "";   // the node on screen, so a refresh keeps its scroll
 const cache = new Map();     // path -> node slice (depth 2)
 const expanded = new Set([""]);
 let staleSet = new Set();    // paths some node supersedes — not current belief
@@ -301,10 +341,14 @@ async function go(path) {
   cache.set(path, d);
   if (d.superseded) staleSet = new Set(d.superseded);
   current = { path, node: d, semantics: d.semantics || {} };
+  readonly = d.writable === false;
   expanded.add(path);
   if (sectionKinds().has(d.kind)) openSections.add(path);
   revealGroup(path);
+  const moved = path !== shownPath;
+  shownPath = path;
   renderAll();
+  if (moved) $("#node").scrollTop = 0;   // a node opens at its top, not at the list's scroll
 }
 
 function childPath(base, id) { return base ? base + "/" + id : id; }
@@ -484,7 +528,7 @@ function outline(node, path, hideKind = false) {
       .filter(([, q]) => q && q.grounded === false).map(([k]) => k).sort();
     const red = redByPath.get(p) || [];
     row.innerHTML = `<span class="twist">${hasKids ? (expanded.has(p) ? "▾" : "▸") : ""}</span>
-      <span class="tid mono">${esc(c.id)}</span>
+      <span class="tname" title="${esc((c.name ? c.name + " — " : "") + p)}">${esc(c.name || c.id)}</span>
       ${c.kind && !hideKind ? `<span class="tkind" title="${esc(kinds[c.kind]?.description || "")}">${esc(c.kind)}</span>` : ""}
       ${hollow.length ? `<span class="tflag" title="ungrounded — the unsound value this entry carries">!${esc(hollow.join(","))}</span>` : ""}
       ${red.length ? `<span class="tred" title="${esc(red.join(", "))}">RED</span>` : ""}`;
@@ -527,12 +571,120 @@ function provBadge(q) {
   return `<span class="prov ${known ? label : ""}">${esc(label || "?")}</span> ${g}`;
 }
 
+
+/* ---------- payload as a document ---------- */
+/* A link reads as the service it opens, not its address: the first short label of the host. */
+function linkLabel(u) {
+  try {
+    const parts = new URL(u).hostname.replace(/^www\./, "").split(".");
+    return (parts.find(p => p.length <= 16 && !/^\d+$/.test(p)) || parts[0]) + " ↗";
+  } catch { return u; }
+}
+/* The name of a node the page has already read, so a link shows what it points at. */
+function nameOf(p) {
+  for (const s of cache.values()) {
+    const hit = findIn(s, p, s === cache.get("") ? "" : null);
+    if (hit) return hit;
+  }
+  return null;
+}
+function findIn(slice, p, base) {
+  if (base === null) return null;
+  for (const c of slice.children || []) {
+    const cp = childPath(base, c.id);
+    if (cp === p) return c.name || null;
+    if (p.startsWith(cp + "/")) return findIn(c, p, cp);
+  }
+  return null;
+}
+function inline(s) {
+  return String(s).split(/(https?:\/\/[^\s<>"'\])]+)/g).map((p, i) => i % 2
+    ? `<a href="${esc(p)}" target="_blank" rel="noopener" title="${esc(p)}">${esc(linkLabel(p))}</a>`
+    : esc(p).replace(/`([^`]+)`/g, "<code>$1</code>")).join("");
+}
+function prose(s) {
+  return String(s).split(/\n{2,}/).map(p => `<p>${inline(p).replace(/\n/g, "<br>")}</p>`).join("");
+}
+function isShort(v) {
+  return typeof v === "number" || typeof v === "boolean" ||
+    (typeof v === "string" && v.length <= 60 && !v.includes("\n") && !/https?:\/\//.test(v));
+}
+function fieldLabel(k) { return String(k).replace(/_/g, " "); }
+function value(v) {
+  if (v == null) return "";
+  if (Array.isArray(v)) {
+    if (v.every(isShort)) return v.map(x => `<span class="chip">${esc(x)}</span>`).join(" ");
+    return `<ul class="vlist">${v.map(x => `<li>${value(x)}</li>`).join("")}</ul>`;
+  }
+  if (typeof v === "object") {
+    const url = typeof v.url === "string" ? v.url : null;
+    const rest = Object.entries(v).filter(([k]) => k !== "url");
+    if (url && rest.every(([, x]) => typeof x === "string")) {
+      const at = Math.max(0, rest.findIndex(([, x]) => / /.test(x)));
+      const first = rest[at], others = rest.filter((_, i) => i !== at);
+      return `<a href="${esc(url)}" target="_blank" rel="noopener" title="${esc(url)}">${esc(first ? first[1] : linkLabel(url))}</a>`
+        + others.map(([k, x]) => ` <span class="muted">· ${esc(fieldLabel(k))}</span> ${inline(x)}`).join("");
+    }
+    return `<dl class="vobj">${Object.entries(v).map(([k, x]) =>
+      `<dt>${esc(fieldLabel(k))}</dt><dd>${value(x)}</dd>`).join("")}</dl>`;
+  }
+  if (typeof v === "string") return v.length > 140 || v.includes("\n") ? prose(v) : inline(v);
+  return esc(v);
+}
+/* Long fields read as text, in the order they were written; short ones on one line under them. */
+function fields(payload, compact = false) {
+  const all = Object.entries(payload || {});
+  const body = all.filter(([, v]) => !isShort(v));
+  const facts = all.filter(([, v]) => isShort(v));
+  return body.map(([k, v]) => `<div class="field${compact ? " inline" : ""}">
+      <div class="flabel">${esc(fieldLabel(k))}</div><div class="fval">${value(v)}</div></div>`).join("")
+    + (facts.length ? `<div class="facts">${facts.map(([k, v]) =>
+      `<span><span class="muted">${esc(fieldLabel(k))}</span> ${esc(v)}</span>`).join("")}</div>` : "");
+}
+function kidCard(c, path) {
+  return `<div class="kidcard" data-go="${esc(childPath(path, c.id))}">
+    <div class="kidhead"><b>${esc(c.name || c.id)}</b>
+      ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}</div>
+    ${Object.keys(c.payload || {}).length ? `<div class="kidbody">${fields(c.payload, true)}</div>` : ""}</div>`;
+}
+function excerpt(c) {
+  const t = Object.values(c.payload || {}).find(v => typeof v === "string" && v.length > 60);
+  if (!t) return "";
+  const one = t.replace(/\s*\(?https?:\/\/[^\s)]+\)?/g, "").replace(/\s+/g, " ");
+  return one.length > 170 ? one.slice(0, 170) + "…" : one;
+}
+function entryRow(c, p) {
+  const red = (redByPath.get(p) || []).length;
+  return `<div class="entryrow" data-go="${esc(p)}">
+    <div><span class="ename">${esc(c.name || c.id)}</span>
+      ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}
+      ${red ? `<span class="tred">RED</span>` : ""}</div>
+    ${excerpt(c) ? `<div class="muted ex">${esc(excerpt(c))}</div>` : ""}</div>`;
+}
+/* A branch opens as its table of contents: each section, then each entry by name with
+   the first lines of what it says. */
+/* A folder: a section kind, or a node that holds entries and says nothing itself. */
+function isFolder(c, secs) {
+  return secs.has(c.kind) || (!c.kind && !Object.keys(c.payload || {}).length && !Object.keys(c.params || {}).length
+    && (c.children || []).length > 0);
+}
+function contents(n, path) {
+  const secs = sectionKinds();
+  return (n.children || []).map(c => {
+    const p = childPath(path, c.id);
+    if (!isFolder(c, secs)) return entryRow(c, p);
+    const s = cache.get(p) || c;
+    return `<h2 class="sect" data-go="${esc(p)}">${esc(c.name || c.id)}
+        <span class="muted">${(s.children || []).length}</span></h2>`
+      + (s.children || []).map(e => entryRow(e, childPath(p, e.id))).join("");
+  }).join("");
+}
+
 function renderNode() {
   const n = current.node, path = current.path;
   const kinds = current.semantics.kinds || {};
   const kd = n.kind ? kinds[n.kind] : null;
   const el = $("#node");
-
   const params = Object.entries(n.params || {});
   const links = Object.entries(n.links || {});
   const linkedFrom = Object.entries(n.linked_from || {});
@@ -540,74 +692,61 @@ function renderNode() {
   const payload = n.payload || {};
   const meta = n.meta || {};
   const kids = n.children || [];
+  const branch = !path || isFolder(n, sectionKinds());
+  const btn = (id, label, cls = "") => readonly ? "" : `<button id="${id}" class="${cls}">${label}</button>`;
+  const desc = kd?.description || "";
+  const cut = desc.search(/\.(\s+[A-Z`'"(]|$)/);
+  const chip = t => { const nm = nameOf(t); return `<span class="chip linkchip${nm ? "" : " mono"}${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}" title="${esc(t)}">${esc(nm || t)}</span>`; };
 
   el.innerHTML = `
-    <h1 id="nname" contenteditable="plaintext-only" spellcheck="false"
-        title="click to edit the name">${esc(n.name || n.id || "(root)")}</h1>
+    <h1 id="nname" ${readonly ? "" : `contenteditable="plaintext-only" spellcheck="false" title="click to edit the name"`}>${esc(path ? (n.name || n.id) : wsLabel)}</h1>
     <div class="path mono">${esc(path || "/")}
       ${n.kind ? `&nbsp;<span class="chip kind">${esc(n.kind)}</span>` : ""}</div>
     ${supersededBy.length ? `<div class="stalebanner">superseded — no longer current belief.
-      Replaced by ${supersededBy.map(t =>
-        `<span class="chip mono linkchip" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}</div>` : ""}
-    ${kd ? `<div class="kinddesc">${esc(kd.description || "")}</div>` : ""}
+      Replaced by ${supersededBy.map(chip).join(" ")}</div>` : ""}
+    ${desc && !branch ? (cut > 0 && cut < desc.length - 2
+      ? `<details class="kinddesc"><summary>${esc(desc.slice(0, cut + 1))}</summary>${esc(desc.slice(cut + 1))}</details>`
+      : `<div class="kinddesc">${esc(desc)}</div>`) : ""}
 
-    <section class="block"><div class="blockhead"><h2>Params</h2>
-      <button id="addparam">+ param</button></div>
-      ${params.length ? `<table><tr><th>name</th><th>value</th><th>provenance</th><th>source</th></tr>
-        ${params.map(([k, q]) => `<tr class="rowbtn" data-param="${esc(k)}"
-            title="${esc(kd?.params?.[k] || "")}">
-          <td class="mono">${esc(k)}</td>
-          <td>${esc(q.value)}${q.unit ? " " + esc(q.unit) : ""}${q.tolerance != null ? ` <span class="muted">±${esc(q.tolerance)}</span>` : ""}</td>
-          <td>${provBadge(q)}</td>
-          <td class="muted">${esc(q.source || "")}</td></tr>`).join("")}
-      </table>` : `<span class="muted">none</span>`}
-    </section>
+    ${branch ? `<div class="contents">${contents(n, path)}</div>` : `
+      <div class="fields">${fields(payload)}</div>
+      ${kids.length || !readonly ? `<section class="block"><div class="blockhead">
+        <h2>${kids.length ? esc(kindCounts(kids)) : "Children"}</h2>${btn("addchild", "+ child")}</div>
+        ${kids.map(c => kidCard(c, path)).join("")}</section>` : ""}`}
 
-    <section class="block"><div class="blockhead"><h2>Links</h2>
-      <button id="addlink">+ link</button></div>
-      ${links.length ? links.map(([name, targets]) => `<div>
+    ${links.length || !readonly ? `<section class="block"><div class="blockhead"><h2>Links</h2>${btn("addlink", "+ link")}</div>
+      ${links.map(([name, targets]) => `<div>
         <span class="muted" title="${esc(kd?.links?.[name] || "")}">${esc(name)}:</span>
-        ${targets.map(t => `<span class="chip mono linkchip${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}">${esc(t)}</span>`).join(" ")}
+        ${targets.map(chip).join(" ")}
         ${kd?.links?.[name] ? `<div class="linkmeaning muted">${esc(kd.links[name])}</div>` : ""}
-      </div>`).join("") : `<span class="muted">none</span>`}
-    </section>
+      </div>`).join("")}</section>` : ""}
 
     ${linkedFrom.length ? `<section class="block"><div class="blockhead"><h2>Linked here</h2></div>
       ${linkedFrom.map(([name, sources]) => `<div>
         <span class="muted" title="nodes whose '${esc(name)}' names this one">&larr; ${esc(name)}:</span>
-        ${sources.map(s => `<span class="chip mono linkchip${staleSet.has(s) ? " stale" : ""}" data-go="${esc(s)}">${esc(s)}</span>`).join(" ")}
-      </div>`).join("")}
-    </section>` : ""}
+        ${sources.map(chip).join(" ")}</div>`).join("")}</section>` : ""}
 
-    <section class="block"><div class="blockhead"><h2>Payload</h2>
-      <button id="editpayload">edit</button></div>
-      ${Object.keys(payload).length
-        ? `<pre class="payload mono">${esc(JSON.stringify(payload, null, 1))}</pre>`
-        : `<span class="muted">empty</span>`}
-    </section>
+    ${params.length || !readonly ? `<section class="block"><div class="blockhead"><h2>Params</h2>${btn("addparam", "+ param")}</div>
+      <table><tr><th>name</th><th>value</th><th>provenance</th><th>source</th></tr>
+        ${params.map(([k, q]) => `<tr class="rowbtn" data-param="${esc(k)}" title="${esc(kd?.params?.[k] || "")}">
+          <td class="mono">${esc(k)}</td>
+          <td>${esc(q.value)}${q.unit ? " " + esc(q.unit) : ""}${q.tolerance != null ? ` <span class="muted">±${esc(q.tolerance)}</span>` : ""}</td>
+          <td>${provBadge(q)}</td>
+          <td class="muted">${inline(q.source || "")}</td></tr>`).join("")}
+      </table></section>` : ""}
 
-    <section class="block"><div class="blockhead"><h2>Meta</h2>
-      <button id="editmeta">edit</button></div>
-      ${Object.keys(meta).length
-        ? Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)} = ${esc(v)}</span> `).join("")
-        : `<span class="muted">empty</span>`}
-    </section>
+    ${path ? `<details class="block raw"><summary>record</summary>
+      <p>${Object.entries(meta).map(([k, v]) => `<span class="chip">${esc(k)} = ${esc(v)}</span>`).join(" ")}
+        ${btn("editmeta", "edit meta")}</p>
+      <pre class="payload mono">${esc(JSON.stringify(payload, null, 1))}</pre>${btn("editpayload", "edit payload")}
+      ${btn("delnode", "delete this node", "danger")}</details>` : ""}`;
 
-    <section class="block"><div class="blockhead"><h2>Children (${kids.length})</h2>
-      <button id="addchild">+ child</button></div>
-      ${kd && kd.section ? `<p class="muted">${esc(kindCounts(kids))}</p>` : ""}
-      ${kids.map(c => `<div class="kidrow" data-go="${esc(childPath(path, c.id))}"
-          title="${esc(kinds[c.kind]?.description || "")}">
-        <span class="mono">${esc(c.id)}</span>
-        ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}
-        <span class="muted">${esc(c.name || "")}</span></div>`).join("")}
-    </section>
-
-    <section class="block">
-      ${path ? `<button id="delnode" class="danger">delete this node</button>` : ""}
-    </section>`;
-
-  el.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
+  el.querySelectorAll("[data-go]").forEach(x => x.onclick = e => {
+    if (e.target.closest("a")) return;
+    e.stopPropagation(); go(x.dataset.go);
+  });
+  if (readonly) return;
+  const on = (s, f) => { const x = $(s); if (x) x.onclick = f; };
   $("#nname").onblur = async () => {
     const name = $("#nname").textContent.trim();
     if (path && name !== (n.name || "")) {
@@ -616,17 +755,16 @@ function renderNode() {
   };
   el.querySelectorAll("tr[data-param]").forEach(tr =>
     tr.onclick = () => paramDialog(tr.dataset.param, (n.params || {})[tr.dataset.param]));
-  $("#addparam").onclick = () => paramDialog("", null);
-  $("#addlink").onclick = () => linkDialog();
-  $("#editpayload").onclick = () => jsonDialog("payload", payload);
-  $("#editmeta").onclick = () => jsonDialog("meta", meta);
-  $("#addchild").onclick = () => childDialog();
-  const del = $("#delnode");
-  if (del) del.onclick = async () => {
+  on("#addparam", () => paramDialog("", null));
+  on("#addlink", () => linkDialog());
+  on("#editpayload", () => jsonDialog("payload", payload));
+  on("#editmeta", () => jsonDialog("meta", meta));
+  on("#addchild", () => childDialog());
+  on("#delnode", async () => {
     if (!confirm(`Delete '${path}' and its whole branch?`)) return;
     if (!await commit([{ op: "delete", path }], "deleted")) return;
     cache.clear(); go(path.split("/").slice(0, -1).join("/"));
-  };
+  });
 }
 
 async function refresh() { cache.delete(current.path); await go(current.path); }
@@ -840,6 +978,7 @@ function boot(rootSlice) {
   $("#wslabel").textContent = wsLabel;
   cache.set("", rootSlice);
   current = { path: "", node: rootSlice, semantics: rootSlice.semantics || {} };
+  readonly = rootSlice.writable === false;
   renderAll();
   // Verdicts arrive after the first paint, deliberately: a tree with expensive rules
   // should show its outline immediately and gain the RED markers a moment later, not

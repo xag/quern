@@ -854,6 +854,54 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-navigator-shows-what-an-entry-says",
+            kind="decision",
+            name="The navigator shows a node's payload as a document read from its JSON "
+                 "shapes, and offers no edit the workspace would refuse",
+            links={"rests_on": ["the-navigator-is-vocabulary-blind"]},
+            payload={
+                "rationale":
+                    "The navigator is the link people get when someone shares a tree with "
+                    "them, and they open an entry for what it says: a decision's rationale, "
+                    "an alternative's why. The page used to print the payload as one JSON "
+                    "block with no wrapping and a height cap, under params, meta and edit "
+                    "buttons that took as much room, so a reader scrolled sideways to read a "
+                    "sentence and could not click a URL inside it.\n\n"
+                    "The payload is now laid out from its shape alone. A long string is "
+                    "prose with its URLs as links; short scalars share one line; a list of "
+                    "short values is chips, any other list bullets; an object holding a "
+                    "`url` is one link labelled by its first string with a space. Children "
+                    "show with their payload, so a decision's alternatives read with their "
+                    "why on the decision itself. A folder (a section kind, or a node with "
+                    "children and nothing of its own) opens as the list of its entries. The "
+                    "outline shows names. The raw JSON and the meta stay one click away.\n\n"
+                    "The slice asks the workspace's own guard whether the node can be "
+                    "written and says `writable: false` when it refuses, so a read-only "
+                    "page shows no control that fails on click.",
+                "note":
+                    "`url` is the one key the page reads by name. It is a link convention, "
+                    "like a URL inside a string, not a word of any vocabulary.",
+            },
+            children=[
+                Node(id="alt-renderers-per-kind", kind="alternative",
+                     name="Let each vocabulary register a renderer for its kinds",
+                     payload={"why":
+                              "Every consumer would ship page code beside its vocabulary, "
+                              "and the viewer would have to know which kinds it is "
+                              "showing, which the-navigator-is-vocabulary-blind forbids. "
+                              "The JSON shapes already say what is prose, what is a list "
+                              "and what is a link."}),
+                Node(id="alt-keep-the-json-block", kind="alternative",
+                     name="Keep the payload as formatted JSON and only wrap its lines",
+                     payload={"why":
+                              "Wrapping fixes the sideways scroll and nothing else: quotes, "
+                              "keys and escaped newlines stay between the reader and the "
+                              "sentence, URLs stay unclickable, and alternatives still "
+                              "have to be opened one by one."}),
+            ],
+        ),
+
+        Node(
             id="the-working-set-is-a-tool-not-only-a-command",
             kind="decision",
             name="tree_brief puts the brief on the model surface, and returns the rendered "

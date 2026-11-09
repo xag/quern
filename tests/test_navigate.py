@@ -150,6 +150,12 @@ class TestTheViewerCannotWrite:
         with pytest.raises(NotImplementedError):
             getattr(self._ws(), attr)
 
+    def test_the_slice_tells_the_page_not_to_offer_edits(self):
+        """The page shows no edit control the workspace would refuse: every one of them
+        failed on click before the slice carried the guard's answer."""
+        from quern.host import slice_at
+        assert slice_at(self._ws(), "")["writable"] is False
+
 
 @pytest.mark.skipif(os.name != "nt", reason="only a Windows path carries a drive colon")
 def test_an_absolute_path_is_not_split_at_its_drive_letter(tmp_path):

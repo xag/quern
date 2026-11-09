@@ -395,6 +395,21 @@
     "digest": "ec92043486da"
   },
   {
+    "path": "the-navigator-shows-what-an-entry-says",
+    "kind": "decision",
+    "digest": "d8b2d667005f"
+  },
+  {
+    "path": "the-navigator-shows-what-an-entry-says/alt-keep-the-json-block",
+    "kind": "alternative",
+    "digest": "cec85351e154"
+  },
+  {
+    "path": "the-navigator-shows-what-an-entry-says/alt-renderers-per-kind",
+    "kind": "alternative",
+    "digest": "f63aa7596b55"
+  },
+  {
     "path": "the-obvious-predicates-are-computed-never-remembered",
     "kind": "decision",
     "digest": "448633e1f876"
