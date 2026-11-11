@@ -1747,6 +1747,66 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-host-carries-the-caller-to-the-workspace",
+            kind="decision",
+            name="A host given `identify(ctx)` hands the caller to a resolver that takes one "
+                 "argument and a guard that takes two, and stamps each node a write makes "
+                 "with `meta.created_by` / `meta.updated_by`; what a caller is stays the "
+                 "embedding server's (#70)",
+            payload={
+                "why":
+                    "A host that authenticates each request could pass the identity only "
+                    "through ambient state, and every write was anonymous. Each tool takes "
+                    "the MCP request context, which both SDK majors inject, and the caller "
+                    "is read from it once per call. The new arguments are given only to a "
+                    "resolver or guard whose signature takes them, so every existing "
+                    "workspace keeps working. A refusal reaches the caller as a "
+                    "`ToolError`, the one exception MCP 2.x reports with its message.",
+            },
+            children=[
+                Node(id="alt-a-contextvar-the-workspace-reads", kind="alternative",
+                     name="Set the caller in a context variable the workspace reads",
+                     payload={"why": "That is the ambient state the issue names; a "
+                                     "workspace would depend on how the host runs."}),
+                Node(id="alt-a-hosted-service", kind="alternative",
+                     name="Ship a hosted server with sign-in, HTTP routing and storage",
+                     payload={"why": "The issue as rewritten asks for the two seams a "
+                                     "consumer had to step outside the host for, not a "
+                                     "service; sign-in is the organisation's."}),
+            ],
+        ),
+
+        Node(
+            id="a-directory-store-refuses-a-write-that-lost-the-race",
+            kind="decision",
+            name="DirectoryWorkspace starts each call from tree.json as it is on disk and "
+                 "saves under a file lock only over the version it read; a write that lost "
+                 "the race is refused with TreeChanged, never saved over the other (#70)",
+            links={"rests_on": ["the-server-is-the-workspace-nobody-should-have-to-write"]},
+            payload={
+                "why":
+                    "Two processes over one directory each wrote their own copy and one "
+                    "change was lost without an error. The tree stays one readable file. "
+                    "The host's commit snapshots the in-memory tree and mutates it in "
+                    "place, so the tree is reloaded only between calls, in the resolver "
+                    "`fresh`, never in the middle of a write. Held by a test of two "
+                    "processes writing at once that fails without the check.",
+            },
+            children=[
+                Node(id="alt-hold-the-lock-for-the-whole-write", kind="alternative",
+                     name="Take the lock when a write starts and release it on save",
+                     payload={"why": "A write refused by the commit gate never saves, and "
+                                     "its lock would block every other process until "
+                                     "this one's next call."}),
+                Node(id="alt-reload-on-every-read-of-the-tree", kind="alternative",
+                     name="Reload inside the `quern` property whenever the file changed",
+                     payload={"why": "Would swap the tree object under a commit that holds "
+                                     "a snapshot of it, and save the other process's tree "
+                                     "with this write missing."}),
+            ],
+        ),
+
+        Node(
             id="a-rules-verdict-is-kept-while-what-it-read-is-unchanged",
             kind="decision",
             name="run_rules may keep a rule's verdict on a node while the digest of every "

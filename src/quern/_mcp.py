@@ -15,15 +15,22 @@ from __future__ import annotations
 from typing import Any
 
 try:
-    from mcp.server.mcpserver import MCPServer as Server
+    from mcp.server.mcpserver import Context, MCPServer as Server
+    from mcp.server.mcpserver.exceptions import ToolError
 
     MAJOR = 2
 except ImportError:  # mcp 1.x
-    from mcp.server.fastmcp import FastMCP as Server
+    from mcp.server.fastmcp import Context, FastMCP as Server
+    from mcp.server.fastmcp.exceptions import ToolError
 
     MAJOR = 1
 
-__all__ = ["Server", "MAJOR", "new_server", "run", "call_tool", "declare_extension",
+# `Context` is what a tool declares to be handed the request it serves; both majors inject
+# a parameter annotated with it, optional or not, and leave it out of the tool's schema.
+# `ToolError` is a refusal a tool raises on purpose: 2.x hands the caller its message and
+# reports any other exception as a bare "Error executing tool", so a reason meant for the
+# caller is raised as one.
+__all__ = ["Context", "Server", "ToolError", "MAJOR", "new_server", "run", "call_tool", "declare_extension",
            "capabilities"]
 
 

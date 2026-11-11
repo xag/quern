@@ -30,8 +30,8 @@ from importlib import resources
 from typing import Any
 
 from . import _mcp
-from ._mcp import Server
-from .host import Resolver, register_tree_tools, slice_at
+from ._mcp import Context, Server
+from .host import Identify, Resolver, register_tree_tools, resolve, slice_at
 
 APP_URI = "ui://quern/navigator.html"
 APP_MIME = "text/html;profile=mcp-app"
@@ -58,7 +58,7 @@ def declare_ui_capability(mcp: Server) -> None:
     _mcp.declare_extension(mcp, UI_EXTENSION, {"mimeTypes": [APP_MIME]})
 
 
-def register_app(mcp: Server, get_ws: Resolver) -> None:
+def register_app(mcp: Server, get_ws: Resolver, identify: Identify | None = None) -> None:
     """Register the navigator UI resource and its `tree_app` entry tool.
 
     Call alongside `register_tree_tools` — the app drives the tree through
@@ -75,19 +75,20 @@ def register_app(mcp: Server, get_ws: Resolver) -> None:
         meta={"ui": {"resourceUri": APP_URI, "visibility": ["model", "app"],
                      "csp": _CSP}},
     )
-    def tree_app() -> dict[str, Any]:
+    def tree_app(ctx: Context | None = None) -> dict[str, Any]:
         """Open the Quern navigator — an interactive view of the tree and its
         semantics (kinds, params with provenance, links, rules) where the user
         can browse and coedit. Returns the root slice; the UI then navigates
         and edits through the same tree_* tools you use."""
-        ws = get_ws()
+        caller = identify(ctx) if identify is not None and ctx is not None else None
+        ws = resolve(get_ws, caller)
         if isinstance(ws, str):
             return {"error": ws}
         # The root slice tree_get would return, plus the one thing the app needs and a
         # tree read has no business carrying: whose workspace this is. Shared with
         # tree_get rather than rebuilt — the two copies had already drifted apart in
         # how they pruned.
-        data = slice_at(ws, "", 2)
+        data = slice_at(ws, "", 2, caller)
         data["label"] = ws.label
         return data
 

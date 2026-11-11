@@ -22,11 +22,12 @@ Importing this needs the MCP SDK: install `quern[host]`.
 from __future__ import annotations
 
 import base64
+import inspect
 import json
 from pathlib import Path
 from typing import Any, Callable, Protocol
 
-from ._mcp import Server
+from ._mcp import Context, Server, ToolError
 
 from . import (brief as briefmod, library as librarymod, roll as rollmod,
                solver as solvermod, tree as treemod)
@@ -36,7 +37,14 @@ from .tree import Quern, KindDef
 
 class Workspace(Protocol):
     """One domain's live Quern plus the seams the generic tools need. A resolver
-    hands the host the caller's active Workspace (or an error string) per call."""
+    hands the host the caller's active Workspace (or an error string) per call.
+
+    The caller reaches the workspace (#70): when the host is given an `identify`, the
+    value it returns for a request is handed to a resolver that takes one argument and to
+    an `assert_editable(path, caller)` that takes two, and stamped on every node a write
+    makes (`meta.created_by`, `meta.updated_by`). What a caller is - a login, a token's
+    subject - is the embedding server's and the workspace's; the host only carries it. A
+    resolver of no argument and a one-argument guard are called as before."""
 
     label: str
 
@@ -52,7 +60,57 @@ class Workspace(Protocol):
     def starter_vocabulary(self) -> list[KindDef]: ...   # domain default kinds
 
 
-Resolver = Callable[[], "Workspace | str"]
+Resolver = Callable[..., "Workspace | str"]
+Identify = Callable[[Any], Any]
+
+
+def _takes(fn: Callable, n: int) -> bool:
+    """Whether `fn` can be called with `n` positional arguments."""
+    try:
+        params = list(inspect.signature(fn).parameters.values())
+    except (TypeError, ValueError):
+        return False
+    if any(p.kind is p.VAR_POSITIONAL for p in params):
+        return True
+    return sum(p.kind in (p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD) for p in params) >= n
+
+
+def resolve(get_ws: Resolver, caller: Any = None) -> "Workspace | str":
+    """The caller's workspace: `get_ws(caller)` for a resolver that takes the caller."""
+    return get_ws(caller) if _takes(get_ws, 1) else get_ws()
+
+
+def guard(ws: "Workspace", path: str, caller: Any = None) -> None:
+    """The workspace's write guard, told who is writing when it takes the caller."""
+    if _takes(ws.assert_editable, 2):
+        ws.assert_editable(path, caller)
+    else:
+        ws.assert_editable(path)
+
+
+def _refusing(ws: "Workspace", path: str, caller: Any) -> None:
+    """The guard, its refusal raised as a `ToolError` so the caller reads the reason on
+    either MCP major (2.x reports any other exception without its message)."""
+    try:
+        guard(ws, path, caller)
+    except PermissionError as e:
+        raise ToolError(str(e)) from e
+
+
+def write_node(ws: "Workspace", path: str, node: dict[str, Any], caller: Any = None) -> None:
+    """`set_node` on the live tree, stamped with the caller: `updated_by` on every write,
+    `created_by` when the write makes the node, and kept when a write replaces `meta`."""
+    before = ws.quern.get(path)
+    created = before.meta.get("created_by") if before is not None else None
+    treemod.set_node(ws.quern, path, node)
+    if caller is None:
+        return
+    after = ws.quern.get(path)
+    if before is None:
+        after.meta["created_by"] = str(caller)
+    elif created is not None:
+        after.meta["created_by"] = created
+    after.meta["updated_by"] = str(caller)
 
 _MAX_REPORTED = 8
 
@@ -141,7 +199,8 @@ def _restore(live: Quern, snapshot: Quern) -> None:
 
 
 def commit_changes(ws: "Workspace", changes: list[dict[str, Any]],
-                   acknowledge: list[str] | None = None) -> dict[str, Any]:
+                   acknowledge: list[str] | None = None,
+                   caller: Any = None) -> dict[str, Any]:
     """Apply a change-set transactionally under the one invariant of authoring:
     **the committed tree's red set never changes silently.**
 
@@ -166,9 +225,9 @@ def commit_changes(ws: "Workspace", changes: list[dict[str, Any]],
         for change in changes:
             op = change.get("op", "set")
             path = change["path"]
-            ws.assert_editable(path)
+            guard(ws, path, caller)
             if op == "set":
-                treemod.set_node(ws.quern, path, change.get("node") or {})
+                write_node(ws, path, change.get("node") or {}, caller)
             elif op == "delete":
                 treemod.delete_node(ws.quern, path)
             else:
@@ -197,12 +256,21 @@ def commit_changes(ws: "Workspace", changes: list[dict[str, Any]],
             "acknowledged": sorted(new)}
 
 
-def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
+def register_tree_tools(mcp: Server, get_ws: Resolver,
+                        identify: Identify | None = None) -> None:
     """Register the tree_* tools and the solver:// resource on `mcp`, each acting
-    on the Workspace `get_ws()` returns for the current caller."""
+    on the Workspace `get_ws()` returns for the current caller.
+
+    `identify`, supplied by the embedding server, turns the request a tool serves (the
+    MCP `Context`) into the caller; see `Workspace` for where the caller goes."""
+
+    def at(ctx: Any) -> tuple[Any, Any]:
+        caller = identify(ctx) if identify is not None and ctx is not None else None
+        return resolve(get_ws, caller), caller
 
     @mcp.tool()
-    def tree_set(path: str, node: dict[str, Any]) -> str:
+    def tree_set(path: str, node: dict[str, Any],
+            ctx: Context | None = None) -> str:
         """Create or update the node at `path` (e.g. 'wardrobe/frame'). Fields given
         replace those fields; missing intermediates become plain groups. A node:
         {kind, name, params: {name: {value, unit, provenance, tolerance, source}},
@@ -217,33 +285,35 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         The write answers with any rule it broke — on the branch itself or on one
         that contains it. Treat that as the verdict: it is the same thing tree_check
         would tell you, said at the moment you caused it."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
-        ws.assert_editable(path)
-        treemod.set_node(ws.quern, path, node)
+        _refusing(ws, path, caller)
+        write_node(ws, path, node, caller)
         ws.save()
         return f"set '{path}'." + _broke(ws, path)
 
     @mcp.tool(structured_output=True)
-    def tree_get(path: str = "", depth: int | None = None) -> dict[str, Any]:
+    def tree_get(path: str = "", depth: int | None = None,
+            ctx: Context | None = None) -> dict[str, Any]:
         """Read the Quern at `path` (default: whole tree), pruned to `depth` levels if
         given. Each slice arrives with its own semantics: the kinds present (with
         the operations they afford — full contract at operation://{kind}/{name}),
         the rules that apply, the solvers whose reads cover the slice. A workspace
         may expose derived branches (recomputed from their source on every read) —
         inspect and link to them, don't edit."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
-        return slice_at(ws, path, depth)
+        return slice_at(ws, path, depth, caller)
 
     @mcp.tool(structured_output=True)
     def tree_find(query: str | None = None, kind: str | None = None,
                   has_param: str | None = None, links_to: str | None = None,
                   under: str = "", current_only: bool = False,
                   payload: dict[str, Any] | None = None,
-                  limit: int = 20) -> dict[str, Any]:
+                  limit: int = 20,
+            ctx: Context | None = None) -> dict[str, Any]:
         """Search the Quern instead of walking it — when the user names an element,
         locate it in one call. `query` is a case-insensitive substring over a
         node's prose — id, name, kind, meta, every string in its payload and the
@@ -257,7 +327,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         `current_only` drops nodes another node supersedes (the "what do we hold
         now?" query). Returns paths + a one-line summary each; then tree_get the
         one you meant. Purely structural."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
         hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
@@ -273,7 +343,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
             "truncated": len(hits) >= limit}
 
     @mcp.tool()
-    def tree_brief(all: bool = False, fat: bool = False, under: str = "") -> str:
+    def tree_brief(all: bool = False, fat: bool = False, under: str = "",
+            ctx: Context | None = None) -> str:
         """The working set — one line per current entry: kind, path, name, the links
         it declares, the params still ungrounded, the rules red on it; under headings
         where the tree has sections (a kind declared `section`), `under=PATH` for one
@@ -286,18 +357,19 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         appends each entry's word count and sorts by it (the curation view: the
         first line is the first thing to tighten). Vocabulary-blind, like every
         verb here — kinds are labels, and nothing in it knows what a debt is."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         return briefmod.brief(ws.effective(), all=all, fat=fat, under=under)
 
     @mcp.tool()
-    def tree_delete(path: str) -> str:
+    def tree_delete(path: str,
+            ctx: Context | None = None) -> str:
         """Delete the node at `path`, with its whole branch."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
-        ws.assert_editable(path)
+        _refusing(ws, path, caller)
         node = treemod.delete_node(ws.quern, path)
         ws.save()
         out = f"deleted '{path}' ({len(node.children)} children went with it)"
@@ -308,7 +380,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
 
     @mcp.tool(structured_output=True)
     def tree_commit(changes: list[dict[str, Any]],
-                    acknowledge: list[str] | None = None) -> dict[str, Any]:
+                    acknowledge: list[str] | None = None,
+            ctx: Context | None = None) -> dict[str, Any]:
         """Apply a change-set — [{op: 'set'|'delete', path, node?}] — atomically,
         under authoring's one invariant: the committed tree's red set never changes
         silently. Green stays green; a set that would CREATE reds is refused whole
@@ -317,11 +390,11 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         this over bare tree_set when a change should stand or fall with its
         consequences; drafts that are legitimately incomplete belong in one
         change-set with what completes them."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
         try:
-            return commit_changes(ws, changes, acknowledge)
+            return commit_changes(ws, changes, acknowledge, caller)
         except Exception as e:
             return {"error": str(e)}
 
@@ -329,7 +402,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
     def tree_vocabulary(kind: str | None = None, description: str | None = None,
                         params: dict[str, str] | None = None,
                         links: dict[str, str] | None = None,
-                        operations: dict[str, dict[str, Any]] | None = None) -> str:
+                        operations: dict[str, dict[str, Any]] | None = None,
+            ctx: Context | None = None) -> str:
         """The tree's semantics, as data. No arguments: list every kind defined
         (stored + pinned packages + the domain's starter kinds). With kind +
         description: define or refine what that kind means, and optionally what its
@@ -338,7 +412,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         contract that makes sense on it (fetch the full contract at
         operation://{kind}/{name}, execute with tree_solve). Nothing branches on
         kinds — they mean exactly what this vocabulary says."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         voc = ws.quern.vocabulary
@@ -380,7 +454,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
     @mcp.tool()
     def tree_rule(name: str | None = None, expr: str | None = None,
                   description: str = "", kind: str | None = None,
-                  path: str | None = None, remove: bool = False) -> str:
+                  path: str | None = None, remove: bool = False,
+            ctx: Context | None = None) -> str:
         """The tree's checks, as data. No arguments: list the rules. With name +
         expr: register one — a boolean expression whose builtins are STRUCTURAL only
         (param, nodes, params_of, count, sum/len/abs/min/max, ctx, superseded,
@@ -396,7 +471,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         solve('geometry/bbox_h', 'pieces/x'). Contracts come from packages. Scope
         with `kind` (per node of that kind; its params + `self` in scope) or `path`;
         neither = global. Rules run in tree_check; `remove` deletes one."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         rules = ws.quern.rules
@@ -427,7 +502,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         return f"registered rule '{name}' — it will run in tree_check"
 
     @mcp.tool()
-    def tree_check(path: str = "", rule: str | list[str] | None = None) -> str:
+    def tree_check(path: str = "", rule: str | list[str] | None = None,
+            ctx: Context | None = None) -> str:
         """Run every applicable rule at or under `path` — the domain's data checks.
         Structural only; domain summaries (e.g. geometry's bounding box / volume via
         tree_measure) are registered by the domain's own tools, not here.
@@ -438,7 +514,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         also prints what each evaluation READ: every param, solve, linked and ctx
         call with its arguments and the value it returned, so a red arrives with the
         values behind it. A name no rule carries is an error, never an empty pass."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         try:
@@ -462,7 +538,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
 
     @mcp.tool(structured_output=True)
     def tree_roll(against: list[dict[str, Any]] | None = None,
-                  excused: list[str] | None = None) -> dict[str, Any]:
+                  excused: list[str] | None = None,
+            ctx: Context | None = None) -> dict[str, Any]:
         """What the tree holds now, as {path, kind, digest} per node — and, given a
         roll you kept from last time, what changed since.
 
@@ -478,7 +555,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         `excused` spares paths whose removal was intended, and spares their whole
         subtree. The comparison is against the roll you hold, never against git —
         a gate diffing a committed roll is `quern.roll.audit`, not this."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
         tree = ws.effective()
@@ -491,7 +568,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
     def tree_solver(name: str | None = None, description: str = "",
                     wasm_b64: str | None = None, reads: list[str] | None = None,
                     params_doc: dict[str, str] | None = None,
-                    medium: str = "wasm", remove: bool = False) -> str:
+                    medium: str = "wasm", remove: bool = False,
+            ctx: Context | None = None) -> str:
         """The tree's artifacts, as data — capabilities you submit, stored by
         content hash and served from artifact://{sha}. No arguments: list them.
         With name + wasm_b64 (base64 of the content, whatever the medium): register
@@ -506,7 +584,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         wasm output may enter the tree as derived — the other media serve
         experience and guidance, never values. `reads` declares the only branch
         prefixes wasm may see."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         # A READ sees the effective tree — pinned package solvers included, which is most
@@ -576,7 +654,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         (client-run)'. The hash IS the identity: what you fetched is what everyone
         else runs. (artifact://{sha} is the same store's general channel, media
         beyond wasm included.)"""
-        ws = get_ws()
+        ws = resolve(get_ws)
         if isinstance(ws, str):
             raise ValueError(ws)
         return librarymod.solver_blob(ws.blob_dir, ws.library, sha)
@@ -591,7 +669,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         hash (tree_solver, or the package that ships it). Only wasm output may
         enter the tree as derived; whatever a user does in a web bundle comes
         back through tree_set, stamped as user input."""
-        ws = get_ws()
+        ws = resolve(get_ws)
         if isinstance(ws, str):
             raise ValueError(ws)
         return librarymod.solver_blob(ws.blob_dir, ws.library, sha)
@@ -604,7 +682,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         to in this workspace (None when nothing provides it yet). Execute through
         the existing verb — tree_solve(contract, path) — or fetch the module at
         solver://{sha} and run it client-side."""
-        ws = get_ws()
+        ws = resolve(get_ws)
         if isinstance(ws, str):
             raise ValueError(ws)
         eff = ws.effective()
@@ -620,7 +698,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
                            "solver": solver.model_dump() if solver else None})
 
     @mcp.tool(structured_output=True)
-    def tree_solve(name: str, path: str = "", params: dict[str, Any] | None = None) -> dict[str, Any]:
+    def tree_solve(name: str, path: str = "", params: dict[str, Any] | None = None,
+            ctx: Context | None = None) -> dict[str, Any]:
         """Run a registered solver on a branch it may read — sandboxed wasm, or a
         native contract a package ships (native contracts see the effective tree;
         wasm sees only the slice at `path`). Returns diagnostics and proposals —
@@ -629,7 +708,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         measured one. Nothing is written: apply the proposals you accept with
         tree_set. Clients may instead fetch a wasm module at solver://<sha> and run
         the same ABI locally."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
         effective = ws.effective()
@@ -680,7 +759,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
     @mcp.tool()
     def tree_package(name: str | None = None, install: str | None = None,
                      uninstall: str | None = None,
-                     publish: dict[str, Any] | None = None) -> str:
+                     publish: dict[str, Any] | None = None,
+            ctx: Context | None = None) -> str:
         """The semantic package library — capitalized vocabulary, rules and solvers,
         shared across every account on this server. No arguments: list the library
         and this workspace's pins. install='name@version' pins a package — its whole
@@ -697,7 +777,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
         artifacts are stored content-addressed, served from artifact://{sha},
         never executed). requires pin exact versions of already-published
         packages. Versions are immutable — ship a new one to evolve."""
-        ws = get_ws()
+        ws, caller = at(ctx)
         if isinstance(ws, str):
             return ws
         lib = ws.library
@@ -794,7 +874,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver) -> None:
 
 
 def slice_at(ws: "Workspace", path: str = "",
-             depth: int | None = None) -> dict[str, Any]:
+             depth: int | None = None, caller: Any = None) -> dict[str, Any]:
     """One slice of a workspace's effective tree, with the semantics and the relational
     envelope that make it readable on its own.
 
@@ -827,7 +907,7 @@ def slice_at(ws: "Workspace", path: str = "",
     # Whether this node can be written here, asked of the workspace's own guard, so a
     # viewer offers no edit it would refuse. A guard refuses with PermissionError.
     try:
-        ws.assert_editable(path)
+        guard(ws, path, caller)
     except PermissionError:
         data["writable"] = False
     return data

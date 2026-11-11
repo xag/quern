@@ -1,5 +1,20 @@
 [
   {
+    "path": "a-directory-store-refuses-a-write-that-lost-the-race",
+    "kind": "decision",
+    "digest": "59837597fada"
+  },
+  {
+    "path": "a-directory-store-refuses-a-write-that-lost-the-race/alt-hold-the-lock-for-the-whole-write",
+    "kind": "alternative",
+    "digest": "ee398bf581ff"
+  },
+  {
+    "path": "a-directory-store-refuses-a-write-that-lost-the-race/alt-reload-on-every-read-of-the-tree",
+    "kind": "alternative",
+    "digest": "bdf792cb3e20"
+  },
+  {
     "path": "a-host-tool-runs-on-the-event-loop",
     "kind": "debt",
     "digest": "bc610e8aa603"
@@ -428,6 +443,21 @@
     "path": "the-host-can-be-asked-one-question/alt-the-roll-stays-a-gate-concern",
     "kind": "alternative",
     "digest": "7fec4a164a3b"
+  },
+  {
+    "path": "the-host-carries-the-caller-to-the-workspace",
+    "kind": "decision",
+    "digest": "95bfa83e70c3"
+  },
+  {
+    "path": "the-host-carries-the-caller-to-the-workspace/alt-a-contextvar-the-workspace-reads",
+    "kind": "alternative",
+    "digest": "2824d4fc5efc"
+  },
+  {
+    "path": "the-host-carries-the-caller-to-the-workspace/alt-a-hosted-service",
+    "kind": "alternative",
+    "digest": "aedf2a9c2b5f"
   },
   {
     "path": "the-host-surface",
