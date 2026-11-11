@@ -118,11 +118,14 @@ quern serve path/to/dir --transport streamable-http --port 8000
 
 Point any MCP client at it (`{"command": "quern", "args": ["serve", "/path/to/dir"]}`) and it holds every `tree_*` verb and the navigator app over an empty tree: define kinds with `tree_vocabulary` or pin a published vocabulary with `tree_package`, then author. This is the Workspace every hosted domain otherwise writes by hand, for the case where there is no domain yet — a tree, a client, and a first hour. A `Dockerfile` at the root builds the same server with the tree under `/data`. Several processes may share the directory: each call starts from `tree.json` as it is on disk, and a write that another process got in before is refused with `TreeChanged` (repeat it) rather than saved over the other change.
 
-**Checking it** is a separate act from reading it, and it is what makes a ledger worth keeping. A project's own gate is an ordinary Python module — quern ships one for itself:
+**Checking it** is a separate act from reading it, and it is what makes a ledger worth keeping. `quern check` runs every rule, compares the tree with the roll committed at HEAD so a deleted entry cannot pass unnoticed, rewrites the roll, and records the verdicts the brief reads:
 
 ```bash
-uv run python -m ledger.check   # exit 1 while any rule is red
+uv run quern check              # the ledger of the current directory
+uv run quern check --rev origin/main   # in CI: compare with the base, not with HEAD
 ```
+
+It exits 1 when something is unaccounted for: a red no entry expects, an expectation whose red has gone, or an entry that left without a tombstone. A red an entry expects (`meta["expected:<rule>"]`) is printed and passes. A project whose check does more calls `quern.check.check()` from its own script.
 
 This repo's own ledger is **red today, on purpose**: the host's compute boundary carries two open debts, recorded as data a gate can see, refusing to call the surface sound until the work is done. A caveat that fires is the pitch.
 

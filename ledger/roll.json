@@ -465,6 +465,21 @@
     "digest": "34728df7b159"
   },
   {
+    "path": "the-ledger-check-is-querns",
+    "kind": "decision",
+    "digest": "8163628d7b8f"
+  },
+  {
+    "path": "the-ledger-check-is-querns/alt-a-template-to-copy",
+    "kind": "alternative",
+    "digest": "18e5a835d2b5"
+  },
+  {
+    "path": "the-ledger-check-is-querns/alt-each-project-keeps-its-copy",
+    "kind": "alternative",
+    "digest": "e1f0538f7d29"
+  },
+  {
     "path": "the-navigator-is-vocabulary-blind",
     "kind": "decision",
     "digest": "93e4c9c54b09"

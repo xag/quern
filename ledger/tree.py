@@ -1936,5 +1936,35 @@ def build() -> Quern:
                               "skip leaves consumers pinning a git rev."}),
             ],
         ),
+        Node(
+            id="the-ledger-check-is-querns",
+            kind="decision",
+            name="The ledger check is `quern check` (quern.check): a project runs it instead "
+                 "of carrying its own copy, and a project whose check does more calls "
+                 "check() from its own script",
+            links={"rests_on": ["the-brief-reads-the-checks-verdicts-2"]},
+            payload={
+                "decided_on": "2026-11-11",
+                "rationale":
+                    "On 2026-11-11, 22 projects carried a ledger/check.py in 13 versions: the "
+                    "same rules run, the same roll comparison, the same exit code, each copy "
+                    "drifting alone. The brief reads the verdicts a project's check records, "
+                    "and one copy of the 22 recorded them. Every part the script used was "
+                    "already quern's (run_rules, reckon, roll.audit, NativeCache, verdicts), "
+                    "so the script is quern's too.",
+            },
+            children=[
+                Node(id="alt-each-project-keeps-its-copy", kind="alternative",
+                     name="Each project keeps its own ledger/check.py",
+                     payload={"why":
+                              "Thirteen versions of one script, and a fix to one reaches none "
+                              "of the others; that is how 21 of 22 never recorded verdicts."}),
+                Node(id="alt-a-template-to-copy", kind="alternative",
+                     name="Publish the script as a template each project copies at inception",
+                     payload={"why":
+                              "A copy drifts from the day it is made; the drift was the "
+                              "problem."}),
+            ],
+        ),
     ]
     return quern

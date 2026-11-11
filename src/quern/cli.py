@@ -165,6 +165,17 @@ def _cmd_brief(args: argparse.Namespace) -> None:
     print(text)
 
 
+def _cmd_check(args: argparse.Namespace) -> int:
+    from pathlib import Path
+
+    from .check import check
+    from .navigate import load_build, project_label
+    root = Path(args.project).resolve()
+    return check(root, load_build(root, args.module), rev=args.rev, roll=args.roll,
+                 cache_dir=args.verdicts, fresh=args.fresh,
+                 title=f"{project_label(root)} - ledger brief")
+
+
 def _cmd_get(args: argparse.Namespace) -> None:
     from pathlib import Path
 
@@ -331,6 +342,24 @@ def run(argv: list[str]) -> None:
                         "(default: .quern/check, else ledger)")
     p.add_argument("--write", metavar="FILE", help="write the brief to FILE instead of printing it")
     p.set_defaults(func=_cmd_brief)
+
+    p = sub.add_parser("check", help="run a project's ledger: the rules, the roll, and "
+                                     "exit 1 on anything unaccounted for")
+    p.add_argument("project", nargs="?", default=".",
+                   help="project root holding ledger/tree.py (default: current dir)")
+    p.add_argument("--module", metavar="PATH[:ATTR]",
+                   help="override the build entry (default: <project>/ledger/tree.py:build)")
+    p.add_argument("--rev", default=None,
+                   help="the revision whose committed roll the tree is compared with "
+                        "(default: $LEDGER_ROLL_REV, else HEAD; CI names its base)")
+    p.add_argument("--roll", default="ledger/roll.json",
+                   help="the roll's path under the project (default: ledger/roll.json)")
+    p.add_argument("--verdicts", default=".quern/check", metavar="DIR",
+                   help="where the natives' kept answers, the verdicts and the brief are "
+                        "written, under the project (default: .quern/check)")
+    p.add_argument("--fresh", action="store_true",
+                   help="run every native, keeping no answer from an earlier run")
+    p.set_defaults(func=_cmd_check)
 
     p = sub.add_parser("get", help="one entry in full, by its path or its id")
     p.add_argument("entry", help="the entry's path, or its id alone")
