@@ -80,6 +80,19 @@ def _relevant(node: str, path: str) -> bool:
             or path.startswith(f"{node}/") or node == "")
 
 
+# The verdicts each workspace's checks keep, in memory for the life of this process (#69):
+# a write is followed by a check, and a write touches one node, so the check judges again
+# only the rules whose reads that node moved. Keyed by the workspace's label, because a
+# host resolves its workspace on every call; a kept verdict is checked against the tree
+# it is asked about, so a stale key costs a judgement, never a wrong answer.
+_VERDICTS: dict[str, Any] = {}
+
+
+def _verdicts(ws: "Workspace"):
+    from .cache import VerdictCache
+    return _VERDICTS.setdefault(getattr(ws, "label", ""), VerdictCache(None))
+
+
 def _broke(ws: "Workspace", path: str) -> str:
     """What the write just broke, said at the moment it breaks.
 
@@ -89,11 +102,15 @@ def _broke(ws: "Workspace", path: str) -> str:
     openings and nothing in the loop to contradict it. A workspace with no rules sees no
     change: this says nothing when there is nothing to say.
     """
+    verdicts = _verdicts(ws)
     try:
-        results = treemod.run_rules(ws.effective(), "")
+        results = treemod.run_rules(ws.effective(), "", verdicts=verdicts)
     except Exception:  # a broken rule must never make a write look like it failed
         return " Render it with tree_render to see the result."
-    failed = [r for r in results if not r.ok and _relevant(r.node, path)]
+    # what the write turned red elsewhere counts too: a new link moves its target's verdict
+    moved = {(rule, node) for rule, node, _, after in verdicts.moved if after != "holds"}
+    failed = [r for r in results if not r.ok
+              and (_relevant(r.node, path) or (r.rule, r.node) in moved)]
     if not failed:
         return " Render it with tree_render to see the result."
     lines = [f"  FAIL {r.rule}" + (f" @ {r.node}" if r.node else "")
@@ -108,7 +125,7 @@ def _red_set(ws: "Workspace") -> dict[str, str]:
     """Every failing rule of the effective tree, keyed 'rule@node' -> detail. The unit
     the commit gate compares: not pass/fail counts, the named set — so a commit is
     judged by which reds it creates, never by arithmetic that could cancel out."""
-    results = treemod.run_rules(ws.effective(), "")
+    results = treemod.run_rules(ws.effective(), "", verdicts=_verdicts(ws))
     return {(f"{r.rule}@{r.node}" if r.node else r.rule): (r.detail or "")
             for r in results if not r.ok}
 

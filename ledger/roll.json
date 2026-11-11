@@ -150,6 +150,26 @@
     "digest": "69776d005abb"
   },
   {
+    "path": "a-rules-verdict-is-kept-while-what-it-read-is-unchanged",
+    "kind": "decision",
+    "digest": "b7da5ce39f51"
+  },
+  {
+    "path": "a-rules-verdict-is-kept-while-what-it-read-is-unchanged/alt-a-backlink-reads-the-whole-tree",
+    "kind": "alternative",
+    "digest": "1d76937b0aa8"
+  },
+  {
+    "path": "a-rules-verdict-is-kept-while-what-it-read-is-unchanged/alt-keep-verdicts-that-reach-a-native",
+    "kind": "alternative",
+    "digest": "3a6822fd9397"
+  },
+  {
+    "path": "a-rules-verdict-is-kept-while-what-it-read-is-unchanged/alt-rejudge-the-written-node",
+    "kind": "alternative",
+    "digest": "f3d68a0ccde7"
+  },
+  {
     "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it",
     "kind": "decision",
     "digest": "a9699a22af63"

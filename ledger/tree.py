@@ -1747,6 +1747,40 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-rules-verdict-is-kept-while-what-it-read-is-unchanged",
+            kind="decision",
+            name="run_rules may keep a rule's verdict on a node while the digest of every "
+                 "node its evaluation reached, the answer of every backlink query it asked, "
+                 "its bound params, the context and quern's code are unchanged; a rule that "
+                 "reaches `solve` is judged every time (#69)",
+            links={"rests_on": ["a-natives-answer-is-kept-while-what-it-read-is-unchanged"]},
+            payload={
+                "why":
+                    "A write touches one node and every rule was judged again on every "
+                    "node. quern.cache.VerdictCache records what each evaluation reached "
+                    "and gives the verdict back while all of it is as it was; the host's "
+                    "after-write checks keep one per workspace, and a write's reply names "
+                    "the reds it made on other nodes. Held by a test that a cached run "
+                    "answers what a fresh one does over 300 random writes.",
+            },
+            children=[
+                Node(id="alt-rejudge-the-written-node", kind="alternative",
+                     name="Judge again only the rules bound to the node written",
+                     payload={"why": "The node a write turns red is often not the node "
+                                     "written: a new link moves its target's verdict."}),
+                Node(id="alt-a-backlink-reads-the-whole-tree", kind="alternative",
+                     name="Count a backlink query as a read of the whole tree, as the "
+                          "native cache does",
+                     payload={"why": "Nearly every rule asks `superseded(self)`, which is "
+                                     "a backlink query, so nothing would be kept."}),
+                Node(id="alt-keep-verdicts-that-reach-a-native", kind="alternative",
+                     name="Keep the verdict of a rule that calls `solve`",
+                     payload={"why": "What a native read is not seen here; the native "
+                                     "cache keeps its answer on its own evidence."}),
+            ],
+        ),
+
+        Node(
             id="a-link-is-followed-to-any-depth-over-living-hops",
             kind="decision",
             name="`reach(node, rel)` follows a link to any depth, own targets first, each "

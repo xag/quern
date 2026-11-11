@@ -1186,7 +1186,7 @@ class RuleResult(BaseModel):
 def run_rules(tree: Quern | TreeStore, path: str = "",
               context: dict[str, Any] | None = None,
               solver_runner=None, rules: str | Iterable[str] | None = None,
-              trace: bool = False, cache=None) -> list[RuleResult]:
+              trace: bool = False, cache=None, verdicts=None) -> list[RuleResult]:
     """Evaluate every rule that applies at or under `path`.
 
     `context` is the caller-supplied evaluation payload (feeds, series windows,
@@ -1209,26 +1209,58 @@ def run_rules(tree: Quern | TreeStore, path: str = "",
     looking at.
 
     `cache` (quern.cache.NativeCache) keeps the answers of the natives that say what they
-    read, and gives one back while all of it is unchanged; without it every native runs."""
+    read, and gives one back while all of it is unchanged; without it every native runs.
+
+    `verdicts` (quern.cache.VerdictCache) keeps each rule's verdict on each node, and gives
+    it back while everything the rule read there is unchanged (#69); without it every rule
+    is judged on every node. A traced run judges everything."""
     out: list[RuleResult] = []
     if cache is not None:
         cache.begin(tree)
+    keep = verdicts if verdicts is not None and not trace else None
+    if keep is not None:
+        keep.begin(tree, context)
     env = rule_env(tree, context or {}, solver_runner, cache=cache)
     for rule in _selected_rules(tree, rules):
         for node_path, variables in _rule_bindings(tree, rule, path):
-            reads: list[Read] | None = [] if trace else None
-            try:
-                value = compile_expr(rule.expr).evaluate(env, variables, reads)
-                out.append(RuleResult(rule=rule.name, node=node_path, ok=bool(value),
-                                      verdict="holds" if value else "broken",
-                                      reads=reads or []))
-            except Absent as e:
-                out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
-                                      verdict="absent", detail=str(e), reads=reads or []))
-            except Exception as e:  # a broken rule must report, not crash the check
-                out.append(RuleResult(rule=rule.name, node=node_path, ok=False,
-                                      verdict="error", detail=str(e), reads=reads or []))
+            if keep is None:
+                out.append(_judge(rule, node_path, variables, env, trace))
+                continue
+            kept = keep.lookup(rule, node_path, variables)
+            if kept is not None:
+                out.append(RuleResult(rule=rule.name, node=node_path, ok=kept["ok"],
+                                      verdict=kept["verdict"], detail=kept.get("detail")))
+                continue
+            # judged over a tree that records what the evaluation reaches; a rule that
+            # reaches a native is not kept, since what the native read is not seen here
+            traced = keep.tracer()
+            traced_env = rule_env(traced, context or {}, solver_runner, cache=cache)
+            solved: list[bool] = []
+            solve = traced_env["solve"]
+            traced_env["solve"] = lambda *a: (solved.append(True), solve(*a))[1]
+            result = _judge(rule, node_path, variables, traced_env, False)
+            keep.keep(rule, node_path, variables, result.verdict, result.ok, result.detail,
+                      traced, keepable=not solved)
+            out.append(result)
+    if keep is not None:
+        keep.end()
     return out
+
+
+def _judge(rule: Rule, node_path: str, variables: Any, env: dict[str, Any],
+           trace: bool) -> RuleResult:
+    """One rule's verdict on one node."""
+    reads: list[Read] | None = [] if trace else None
+    try:
+        value = compile_expr(rule.expr).evaluate(env, variables, reads)
+        return RuleResult(rule=rule.name, node=node_path, ok=bool(value),
+                          verdict="holds" if value else "broken", reads=reads or [])
+    except Absent as e:
+        return RuleResult(rule=rule.name, node=node_path, ok=False,
+                          verdict="absent", detail=str(e), reads=reads or [])
+    except Exception as e:  # a broken rule must report, not crash the check
+        return RuleResult(rule=rule.name, node=node_path, ok=False,
+                          verdict="error", detail=str(e), reads=reads or [])
 
 
 def _selected_rules(tree: Quern | TreeStore,

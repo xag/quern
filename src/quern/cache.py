@@ -378,3 +378,150 @@ class NativeCache:
         tmp = path.with_suffix(".tmp")
         tmp.write_text(json.dumps(traces, ensure_ascii=False), encoding="utf-8")
         os.replace(tmp, path)
+
+
+# --- a rule's verdict ------------------------------------------------------------------
+
+
+class _VerdictTree(TracedTree):
+    """A traced tree that records each backlink query instead of noting the whole tree.
+    Nearly every rule asks one (`superseded(self)` is `backlinks('supersedes', self)`), so
+    taking it for a read of everything would keep nothing; its answer is what is kept."""
+
+    def __init__(self, tree: Any):
+        super().__init__(tree)
+        object.__setattr__(self, "_backlinks", set())
+
+    def backlinks(self, name: str, target: str):
+        self._backlinks.add((name, target))
+        return self._tree.backlinks(name, target)
+
+
+class VerdictCache:
+    """A rule's verdict on a node, kept while everything the rule read there is unchanged
+    (#69). Hand it to `run_rules(..., verdicts=...)`.
+
+    `run_rules` used to judge every rule on every node after every write, though a write
+    touches one node. Each evaluation runs over a tree that records what it reached: the
+    nodes it read (kept as the digest of each one's subtree), the backlink queries it asked
+    (kept as their answers), and the node's bound params. The verdict comes back while the
+    rule's text, the run's context, quern's code and every one of those reads are as they
+    were; otherwise the rule is judged again. A node a write turns red is often not the node
+    written - a new link makes its target's `backlinked` answer move - and the recorded
+    query is what sends that target back to judgement.
+
+    A rule that reaches `solve` is judged every time: what a native read is the native
+    cache's business (`NativeCache`), which still answers it. A traced run (`trace=True`)
+    judges everything, since a kept verdict has no reads to hand back.
+
+    `directory` keeps the verdicts on disk under it, one file per rule; None keeps them in
+    memory for the life of the object. After a run, `moved` lists `(rule, node, before,
+    after)` for each verdict that changed since the one kept: what a writer wants to see."""
+
+    def __init__(self, directory: str | os.PathLike | None = CHECK_DEFAULT):
+        self.dir = Path(directory) if directory is not None else None
+        self._rules: dict[str, dict[str, dict]] = {}
+        self._dirty: set[str] = set()
+        self._code = _code_identity(_sha)
+        self._tree: Any = None
+        self._digests: dict[str, str] = {}
+        self._index: dict[tuple[str, str], list[str]] | None = None
+        self._ctx = ""
+        self.reused = 0
+        self.judged = 0
+        self.moved: list[tuple[str, str, str, str]] = []
+
+    # --- one run ---
+
+    def begin(self, tree: Any, context: dict | None) -> None:
+        self._tree, self._digests, self._index = tree, {}, None
+        self._ctx = _sha(context or {})
+        self.reused = self.judged = 0
+        self.moved = []
+
+    def end(self) -> None:
+        if self.dir is None:
+            self._dirty.clear()
+            return
+        for key in self._dirty:
+            path = self.dir / "verdicts" / f"{key[:32]}.json"
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(self._rules[key], ensure_ascii=False), encoding="utf-8")
+            os.replace(tmp, path)
+        self._dirty.clear()
+
+    def tracer(self) -> _VerdictTree:
+        return _VerdictTree(self._tree)
+
+    def lookup(self, rule: Any, node: str, variables: Any) -> dict | None:
+        """The kept verdict, as `{verdict, ok, detail}`, when nothing it read has moved."""
+        e = self._entries(rule).get(node)
+        if (e is not None and e.get("vars") == self._vars(variables)
+                and e.get("ctx") == self._ctx
+                and all(self._digest(p) == d for p, d in e.get("nodes", {}).items())
+                and all(self._backlinks(n, t) == a for n, t, a in e.get("back", []))):
+            self.reused += 1
+            return e
+        return None
+
+    def keep(self, rule: Any, node: str, variables: Any, verdict: str, ok: bool,
+             detail: str | None, traced: _VerdictTree, keepable: bool) -> None:
+        self.judged += 1
+        entries = self._entries(rule)
+        before = entries.get(node)
+        if before is not None and before.get("verdict") != verdict:
+            self.moved.append((rule.name, node, before["verdict"], verdict))
+        key = self._key(rule)
+        if not keepable or traced._wrote:
+            if entries.pop(node, None) is not None:
+                self._dirty.add(key)
+            return
+        entries[node] = {
+            "verdict": verdict, "ok": ok, "detail": detail,
+            "vars": self._vars(variables), "ctx": self._ctx,
+            "nodes": {p: self._digest(p) for p in sorted(traced._paths)},
+            "back": [[n, t, self._backlinks(n, t)] for n, t in sorted(traced._backlinks)],
+        }
+        self._dirty.add(key)
+
+    # --- what was read ---
+
+    def _key(self, rule: Any) -> str:
+        return _sha(rule.name, rule.expr, rule.kind, rule.path, self._code)
+
+    def _entries(self, rule: Any) -> dict[str, dict]:
+        key = self._key(rule)
+        if key not in self._rules:
+            data: dict = {}
+            if self.dir is not None:
+                try:
+                    data = json.loads((self.dir / "verdicts" / f"{key[:32]}.json")
+                                      .read_text(encoding="utf-8"))
+                except (OSError, ValueError):
+                    data = {}
+            self._rules[key] = data if isinstance(data, dict) else {}
+        return self._rules[key]
+
+    @staticmethod
+    def _vars(variables: Any) -> str:
+        return _sha(dict(variables), sorted(getattr(variables, "absent", ())))
+
+    def _digest(self, path: str) -> str:
+        if path not in self._digests:
+            self._digests[path] = _subtree_digest(self._tree, path)
+        return self._digests[path]
+
+    def _backlinks(self, name: str, target: str) -> list[str]:
+        """The answer the tree gives now, from one pass over an in-memory tree's links
+        (built on first need, once per run) or from the store's own index."""
+        if not hasattr(self._tree, "root"):
+            return list(self._tree.backlinks(name, target))
+        if self._index is None:
+            index: dict[tuple[str, str], list[str]] = {}
+            for p, n in self._tree.walk(""):
+                for rel, targets in n.links.items():
+                    for t in targets:
+                        index.setdefault((rel, t), []).append(p)
+            self._index = {k: sorted(v) for k, v in index.items()}
+        return self._index.get((name, target), [])
