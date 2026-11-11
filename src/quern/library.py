@@ -24,7 +24,12 @@ refused, so a pin (`Quern.packages`) means the same thing forever — packaged
 clients freeze on pins and never go stale, live environments move their pins.
 
 Merging is by precedence, never by magic: a tree's own vocabulary, rules and
-solvers always win over package ones; among packages, install order decides.
+solvers always win over package ones. Among packages a name is settled only by a
+stated relation: a package that requires another may redefine its names (the
+extender wins), and a tree that pins two unrelated packages defining one name says
+which it uses (`Quern.prefer`). Two unrelated definitions of one name with no such
+statement are refused — pin order used to decide, and a failing rule from the
+package pinned second vanished without a word.
 The library interprets nothing — it stores, validates and serves.
 """
 
@@ -229,7 +234,8 @@ class Library:
                    "freezes this meaning across libraries, not just this one")
         return log
 
-    def resolve(self, tree: Quern, strict: bool = True) -> list[Package]:
+    def resolve(self, tree: Quern, strict: bool = True,
+                check_clashes: bool = True) -> list[Package]:
         """The pinned packages and their dependency closure, in deterministic
         order: each pin followed depth-first by its requires, already-seen
         skipped — so a package precedes its dependencies and `effective`'s
@@ -243,7 +249,12 @@ class Library:
         anyway would be exactly the silent drift the hash exists to catch. Read
         paths may pass strict=False to keep serving while tree_package reports
         the hole; there the first version encountered wins and a mismatched
-        package is skipped like a missing one."""
+        package is skipped like a missing one.
+
+        Strict, it also refuses a name two unrelated packages define that the
+        tree does not settle (`clashes`). Locking and syncing pass
+        check_clashes=False: they move and verify bytes and never see the tree's
+        `prefer`, so the clash is judged where the tree is composed."""
         out: list[Package] = []
         chosen: dict[str, str] = {}
 
@@ -278,36 +289,113 @@ class Library:
                 visit(req, f"required by {ref.name}@{ref.version}")
         for ref in tree.packages:
             visit(ref, "pinned")
+        if strict and check_clashes:
+            problems = clashes(tree, out)
+            if problems:
+                raise ValueError("; ".join(problems))
         return out
 
     def effective(self, tree: Quern, strict: bool = True) -> Quern:
         """A composed copy where package semantics apply, the tree's own always
-        winning — precedence, never merge magic."""
+        winning, then the package the tree prefers for a name, then the extender
+        over what it requires. Strict, a clash nothing settles is refused (in
+        `resolve`); non-strict, for read paths that must keep serving, the package
+        met first in the closure wins and the clash is left for a strict path to
+        report."""
         eff = tree.model_copy(deep=True)
-        kinds = {k.kind for k in eff.vocabulary}
-        rules = {r.name for r in eff.rules}
-        solvers = {s.name for s in eff.solvers}
+        taken = {"kind": {k.kind for k in eff.vocabulary}, "rule": {r.name for r in eff.rules},
+                 "calculation": {s.name for s in eff.solvers}}
+        lists = {"kind": eff.vocabulary, "rule": eff.rules, "calculation": eff.solvers}
         for pkg in self.resolve(tree, strict=strict):
-            for k in pkg.vocabulary:
-                if k.kind not in kinds:
-                    eff.vocabulary.append(k)
-                    kinds.add(k.kind)
-            for r in pkg.rules:
-                if r.name not in rules:
-                    eff.rules.append(r)
-                    rules.add(r.name)
-            for s in pkg.solvers:
-                if s.name not in solvers:
-                    eff.solvers.append(s)
-                    solvers.add(s.name)
+            for category, name, item in _named(pkg):
+                wanted = tree.prefer.get(name)
+                if name in taken[category] or (wanted and wanted != pkg.name):
+                    continue
+                lists[category].append(item)
+                taken[category].add(name)
         return eff
+
+
+def _named(pkg: Package):
+    """(category, name, item) for every name a package defines."""
+    for k in pkg.vocabulary:
+        yield "kind", k.kind, k
+    for r in pkg.rules:
+        yield "rule", r.name, r
+    for s in pkg.solvers:
+        yield "calculation", s.name, s
+
+
+def clashing_names(tree: Quern, packages: list[Package]) -> set[str]:
+    """The names two unrelated packages among `packages` both define and the tree does
+    not define itself — the names a `prefer` entry may settle."""
+    return {name for name, _a, _b, _category in _unrelated(tree, packages)}
+
+
+def _unrelated(tree: Quern, packages: list[Package]):
+    """(category:name, a, b) for each name two packages define with neither requiring
+    the other, the tree not defining it itself; one pair per name."""
+    requires = {p.name: {r.name for r in p.requires} for p in packages}
+
+    def below(name: str) -> set[str]:
+        seen: set[str] = set()
+        stack = list(requires.get(name, ()))
+        while stack:
+            n = stack.pop()
+            if n not in seen:
+                seen.add(n)
+                stack.extend(requires.get(n, ()))
+        return seen
+
+    own = {"kind": {k.kind for k in tree.vocabulary}, "rule": {r.name for r in tree.rules},
+           "calculation": {s.name for s in tree.solvers}}
+    owners: dict[tuple[str, str], list[str]] = {}
+    for pkg in packages:
+        for category, name, _ in _named(pkg):
+            owners.setdefault((category, name), []).append(pkg.name)
+    for (category, name), pkgs in owners.items():
+        if len(pkgs) < 2 or name in own[category]:
+            continue
+        pairs = [(a, b) for i, a in enumerate(pkgs) for b in pkgs[i + 1:]
+                 if b not in below(a) and a not in below(b)]
+        if pairs:
+            yield name, pairs[0][0], pairs[0][1], category
+
+
+def clashes(tree: Quern, packages: list[Package]) -> list[str]:
+    """What composing `packages` into `tree` would settle by accident: a kind, rule or
+    calculation name two of them define when neither requires the other (directly or
+    through its own requires) and the tree neither defines the name itself nor
+    `prefer`s one of them — and every `prefer` entry that settles no such clash, or
+    names a package that does not define the name. Empty when nothing is left to pin
+    order."""
+    problems: list[str] = []
+    clashing: set[str] = set()
+    for name, a, b, category in _unrelated(tree, packages):
+        clashing.add(name)
+        if name not in tree.prefer:
+            problems.append(
+                f"{category} '{name}' is defined by both {a} and {b}, and neither requires "
+                f"the other: make one require the other, or say which this tree uses with "
+                f"prefer={{'{name}': '<package>'}}")
+    defined: dict[str, set[str]] = {}
+    for pkg in packages:
+        for _category, name, _ in _named(pkg):
+            defined.setdefault(name, set()).add(pkg.name)
+    for name, pkg in tree.prefer.items():
+        if pkg not in defined.get(name, set()):
+            problems.append(f"prefer names {pkg} for '{name}', which {pkg} does not define")
+        elif name not in clashing:
+            problems.append(f"prefer for '{name}' settles nothing: no two unrelated packages "
+                            f"this tree pins define it; drop it")
+    return problems
 
 
 def lock_refs(library: Library, pins: list[PackageRef]) -> list[PackageRef]:
     """The flattened dependency closure of `pins`, every entry hash-bearing —
     what a lockfile records. Exact names, exact versions, exact bytes: a lock
     that leaves any of the three open is not a lock."""
-    closure = library.resolve(Quern(packages=pins))
+    closure = library.resolve(Quern(packages=pins), check_clashes=False)
     return [PackageRef(name=p.name, version=p.version, sha256=package_digest(p))
             for p in closure]
 
@@ -367,7 +455,7 @@ def sync(source: Library, dest: Library, refs: list[PackageRef]) -> list[str]:
         raise ValueError("refusing to sync without content pins: "
                          + ", ".join(f"{r.name}@{r.version}" for r in hashless)
                          + " carry no sha256 — a lock is exact or it is not a lock")
-    closure = source.resolve(Quern(packages=refs))  # verifies every pinned hash
+    closure = source.resolve(Quern(packages=refs), check_clashes=False)  # verifies every pinned hash
     log: list[str] = []
     done: set[tuple[str, str]] = set()
 

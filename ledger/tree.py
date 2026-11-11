@@ -1937,6 +1937,38 @@ def build() -> Quern:
             ],
         ),
         Node(
+            id="a-name-two-packages-define-is-settled-by-a-stated-relation",
+            kind="decision",
+            name="When two packages a tree pins define one name (a kind, a rule or a calculation), "
+                 "composition refuses it unless one requires the other (the extender wins) or the tree "
+                 "says which it uses (Quern.prefer); a native registered again from another module is "
+                 "refused unless it says replaces=True",
+            payload={
+                "decided_on": "2026-11-11",
+                "the_owner": "We should better handle clashes between names, they will happen again as more "
+                             "people use quern and contribute packages. Quern should have a solution by "
+                             "design.",
+                "rationale":
+                    "Pin order used to decide, silently. Two packages both defining kind `piece` and a "
+                    "rule `sound`: the second's meaning and its failing rule vanished and the run stayed "
+                    "green. A clash is now named at composition, where the tree and its preferences are "
+                    "known; locking and syncing only move bytes and leave it there. A preference that "
+                    "settles nothing is refused, as a stale expectation is.",
+            },
+            children=[
+                Node(id="alt-qualified-names", kind="alternative",
+                     name="Qualify every name with its package (furniture-design:piece), imported under aliases",
+                     payload={"why": "No clash could happen, but every tree, rule and package in the estate "
+                                     "would be rewritten, and the owner chose refusal."}),
+                Node(id="alt-both", kind="alternative",
+                     name="Refuse by default and also allow qualified names",
+                     payload={"why": "Two ways to name one kind, for a case `prefer` already covers."}),
+                Node(id="alt-keep-pin-order", kind="alternative",
+                     name="Keep the first package pinned winning",
+                     payload={"why": "A failing rule disappears without a word."}),
+            ],
+        ),
+        Node(
             id="the-ledger-check-is-querns",
             kind="decision",
             name="The ledger check is `quern check` (quern.check): a project runs it instead "

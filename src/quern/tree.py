@@ -229,6 +229,12 @@ class Quern(BaseModel):
     `packages` pins library packages whose semantics apply here too; the tree's
     own entries always win over package ones.
 
+    `prefer` says which package's definition of a name this tree uses when two
+    packages it pins both define that name (a kind, a rule or a calculation) and
+    neither requires the other — `{"piece": "furniture-design"}`. Without it such
+    a clash is refused rather than settled by pin order (quern.library). Every
+    entry must settle a clash that exists; one that settles nothing is refused too.
+
     A Quern is also the in-memory `TreeStore`: the methods below are the structural
     protocol a scaled store (`quern.store.SqliteStore`) implements with indexes on
     disk. The free functions further down delegate here, so every call site works
@@ -238,6 +244,7 @@ class Quern(BaseModel):
     rules: list[Rule] = Field(default_factory=list)
     solvers: list["SolverDef"] = Field(default_factory=list)
     packages: list[PackageRef] = Field(default_factory=list)
+    prefer: dict[str, str] = Field(default_factory=dict)  # name -> the package whose definition wins
     root: Node = Field(default_factory=lambda: Node(id="tree"))
 
     def get(self, path: str, depth: int | None = None) -> Node | None:
@@ -1020,7 +1027,7 @@ NATIVE_READS: dict[str, tuple] = {}  # ...and, when it says, what it reads: (rea
 
 def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = (), *,
                     reads=None, env: "tuple[str, ...] | list[str]" = (),
-                    spawns: bool = False) -> None:
+                    spawns: bool = False, replaces: bool = False) -> None:
     """Install a first-class implementation of a solver contract. The name is the
     contract (e.g. 'geometry/volume'); the callable takes (tree, *args). Natives
     are an optimisation of content, never a semantics of their own: if a native
@@ -1035,6 +1042,11 @@ def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = (), *,
     is code-side too. The publish gate reads this registry and refuses a native
     contract it cannot see satisfied.
 
+    A name is one contract. Registering it again from another module is refused unless
+    that module says `replaces=True`: two packages that happen to pick the same name
+    would otherwise have the last import decide which code answers every rule that
+    calls it. The same module registering again (a reload, a re-import) is allowed.
+
     `reads` lets a check keep the native's answers (quern.cache.NativeCache): a function
     of the call's `(tree, *args)` naming the files and directories the call reads that it
     may not open while it runs - state the process loaded earlier - or None when a call
@@ -1043,6 +1055,12 @@ def register_native(name: str, fn, spec: "list[Demonstration] | tuple" = (), *,
     starts, and what it reaches on the loopback, read nothing `reads` does not name. Without `reads` the native is called on
     every run.
     """
+    held = NATIVE.get(name)
+    if (held is not None and not replaces
+            and getattr(held, "__module__", None) != getattr(fn, "__module__", None)):
+        raise ValueError(
+            f"native '{name}' is already registered by {getattr(held, '__module__', '?')}; "
+            f"{getattr(fn, '__module__', '?')} may take it over only with replaces=True")
     NATIVE[name] = fn
     if spec:
         NATIVE_SPEC[name] = list(spec)

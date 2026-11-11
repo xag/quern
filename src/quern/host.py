@@ -760,13 +760,17 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
     def tree_package(name: str | None = None, install: str | None = None,
                      uninstall: str | None = None,
                      publish: dict[str, Any] | None = None,
+                     prefer: dict[str, str] | None = None,
             ctx: Context | None = None) -> str:
         """The semantic package library — capitalized vocabulary, rules and solvers,
         shared across every account on this server. No arguments: list the library
         and this workspace's pins. install='name@version' pins a package — its whole
         dependency closure applies (its requires, transitively), your own entries
         always winning; a broken closure (missing dep, two versions of one name) is
-        refused at pin time. The pin records the package's content digest, so it
+        refused at pin time, and so is a name (kind, rule or solver) two pinned
+        packages both define when neither requires the other. prefer={name: package}
+        says which package's definition this workspace uses for such a name, alone or
+        with install; an entry that settles no clash is refused. The pin records the package's content digest, so it
         keeps meaning these exact semantics even against another library. uninstall removes the pin. publish submits {name,
         version, description, requires: [{name, version}], vocabulary, rules,
         solvers: [{name, description, reads, wasm_b64, medium: wasm|web|prose}],
@@ -821,21 +825,37 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
             trial.append(treemod.PackageRef(
                 name=pname, version=version,
                 sha256=librarymod.package_digest(pkg)))
-            try:  # refuse a broken closure loudly at pin time, not on first read
-                lib.resolve(Quern(packages=trial))
+            chosen = {**ws.quern.prefer, **(prefer or {})}
+            try:  # refuse a broken closure or an unsettled clash at pin time, not on first read
+                lib.resolve(Quern(packages=trial, prefer=chosen))
             except ValueError as e:
                 return f"not pinned: {e}"
             pins[:] = trial
+            ws.quern.prefer = chosen
             ws.save()
             return (f"pinned {pname}@{version} "
                     f"(sha256:{trial[-1].sha256[:12]}…) — its semantics (and its "
                     "requires' closure) apply here now, yours winning")
+        if prefer is not None:
+            chosen = {**ws.quern.prefer, **prefer}
+            try:
+                lib.resolve(Quern(packages=ws.quern.packages, prefer=chosen))
+            except ValueError as e:
+                return f"not preferred: {e}"
+            ws.quern.prefer = chosen
+            ws.save()
+            return "this workspace now uses " + ", ".join(
+                f"{p}'s '{n}'" for n, p in sorted(prefer.items()))
         if uninstall is not None:
             pins = ws.quern.packages
             before = len(pins)
             pins[:] = [p for p in pins if p.name != uninstall]
             if len(pins) == before:
                 return f"no pin on '{uninstall}'"
+            # a preference that no longer settles a clash would make the tree refused
+            still = librarymod.clashing_names(ws.quern, lib.resolve(ws.quern, strict=False))
+            ws.quern.prefer = {n: p for n, p in ws.quern.prefer.items()
+                               if n in still and p != uninstall}
             ws.save()
             return f"unpinned '{uninstall}'"
         if name is not None:

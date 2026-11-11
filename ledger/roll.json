@@ -85,6 +85,26 @@
     "digest": "9a1f01eb9df6"
   },
   {
+    "path": "a-name-two-packages-define-is-settled-by-a-stated-relation",
+    "kind": "decision",
+    "digest": "eadecb4002ff"
+  },
+  {
+    "path": "a-name-two-packages-define-is-settled-by-a-stated-relation/alt-both",
+    "kind": "alternative",
+    "digest": "dd4103487683"
+  },
+  {
+    "path": "a-name-two-packages-define-is-settled-by-a-stated-relation/alt-keep-pin-order",
+    "kind": "alternative",
+    "digest": "6a2ea49755c2"
+  },
+  {
+    "path": "a-name-two-packages-define-is-settled-by-a-stated-relation/alt-qualified-names",
+    "kind": "alternative",
+    "digest": "9644d776a2a7"
+  },
+  {
     "path": "a-native-contract-is-unmetered",
     "kind": "debt",
     "digest": "bde53ac0b6ff"
