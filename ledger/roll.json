@@ -55,6 +55,21 @@
     "digest": "c9bdda60a1d2"
   },
   {
+    "path": "a-link-is-followed-to-any-depth-over-living-hops",
+    "kind": "decision",
+    "digest": "d19c84a343a1"
+  },
+  {
+    "path": "a-link-is-followed-to-any-depth-over-living-hops/alt-a-depth-argument",
+    "kind": "alternative",
+    "digest": "ea81e746224e"
+  },
+  {
+    "path": "a-link-is-followed-to-any-depth-over-living-hops/alt-filter-reach-by-currency",
+    "kind": "alternative",
+    "digest": "9a1f01eb9df6"
+  },
+  {
     "path": "a-native-contract-is-unmetered",
     "kind": "debt",
     "digest": "bde53ac0b6ff"
@@ -98,6 +113,26 @@
     "path": "a-rule-binds-a-list-element/alt-short-circuit-the-quantifier",
     "kind": "alternative",
     "digest": "debad4ca2889"
+  },
+  {
+    "path": "a-rule-names-a-value-and-a-position",
+    "kind": "decision",
+    "digest": "907a16fab121"
+  },
+  {
+    "path": "a-rule-names-a-value-and-a-position/alt-a-position-verb",
+    "kind": "alternative",
+    "digest": "cdb821a51b53"
+  },
+  {
+    "path": "a-rule-names-a-value-and-a-position/alt-a-sequence-field-in-the-data",
+    "kind": "alternative",
+    "digest": "5e3c43c2e0a3"
+  },
+  {
+    "path": "a-rule-names-a-value-and-a-position/alt-named-expressions-on-the-rule",
+    "kind": "alternative",
+    "digest": "7dd3b4734942"
   },
   {
     "path": "a-rule-reads-the-payload",

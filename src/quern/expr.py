@@ -34,7 +34,10 @@ cond)` when it holds for all of them (#45's last case: several facts about the S
 element, which a path mapped over a list cannot state, because it loses which element a
 value came from). They parse as calls and are evaluated here, not looked up in the
 environment, so no environment can shadow them; inside `cond` the bound name is a variable
-like `self`.
+like `self`. `some(x, i, xs, cond)` and `every(x, i, xs, cond)` also bind `i` to the
+element's position, from 0 (#66: a payload list's order can be the only record of which
+entry came last). `let(name, value, body)` evaluates `value` once and binds it in `body`
+(#65: a condition a rule states over several pairs is written once, not pasted per pair).
 
 `and` and `or` evaluate BOTH sides, as this grammar always has. Short-circuiting
 would change what existing rules answer — an expression whose right half raises
@@ -208,27 +211,50 @@ _COMPARE = {"<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
 
 
 # The binding forms. Evaluated by the grammar, never looked up in an environment.
-_BINDERS = {"some": any, "every": all}
+_BINDERS = {"some": any, "every": all, "let": None}
+
+
+def _bound_names(term: Call) -> tuple[list[str], Any, Any]:
+    """`(names, source, body)` of a binding form, or ValueError naming its shape.
+
+    `some`/`every` take `(x, xs, cond)` or `(x, i, xs, cond)`, the second binding the
+    element's position in the list from 0 (#66: a list's order can be the only record of
+    which entry came last). `let` takes `(name, value, body)` (#65)."""
+    args = term.args
+    if term.fn == "let":
+        if len(args) != 3 or not isinstance(args[0], Var):
+            raise ValueError("let(name, value, body): the first argument is a name")
+        return [args[0].name], args[1], args[2]
+    if len(args) not in (3, 4) or not all(isinstance(a, Var) for a in args[:-2]):
+        raise ValueError(f"{term.fn}(name, list, condition): the first argument is a name "
+                         f"({term.fn}(name, position, list, condition) names the position "
+                         "second)")
+    return [a.name for a in args[:-2]], args[-2], args[-1]
 
 
 def _bind(term: Call, env: dict[str, Any], variables: dict[str, Any],
-          reads: list[Read] | None) -> bool:
-    if len(term.args) != 3 or not isinstance(term.args[0], Var):
-        raise ValueError(f"{term.fn}(name, list, condition): the first argument is a name")
-    name = term.args[0].name
-    items = _run(term.args[1], env, variables, reads)
+          reads: list[Read] | None) -> Any:
+    names, source, body = _bound_names(term)
+    if term.fn == "let":
+        # The value is computed once and read by name after: a condition a rule states
+        # over several pairs is written once, and evaluated once.
+        value = _run(source, env, variables, reads)
+        if reads is not None:
+            reads.append(Read(call="let", args=[names[0], value], value=value))
+        return _run(body, env, {**variables, names[0]: value}, reads)
+    items = _run(source, env, variables, reads)
     if items is None:
         items = []
     if not isinstance(items, (list, tuple)):
-        raise ValueError(f"{term.fn}: '{name}' ranges over a list, not a "
+        raise ValueError(f"{term.fn}: '{names[0]}' ranges over a list, not a "
                          f"{type(items).__name__}")
     # Every element is evaluated, as both sides of `and`/`or` are: stopping at the first
     # answer would turn green a rule whose later elements raise.
-    held = [bool(_run(term.args[2], env, {**variables, name: item}, reads))
-            for item in items]
+    held = [bool(_run(body, env, {**variables, **dict(zip(names, (item, i)))}, reads))
+            for i, item in enumerate(items)]
     value = _BINDERS[term.fn](held)
     if reads is not None:
-        reads.append(Read(call=term.fn, args=[name, list(items)], value=value))
+        reads.append(Read(call=term.fn, args=[names[0], list(items)], value=value))
     return value
 
 
@@ -298,10 +324,15 @@ def _static_reads(term: Term) -> Reads:
     # A name a binding form binds is not a free name the caller must supply, and the
     # binding forms are the grammar's own, not functions an environment must provide.
     def visit(t: Term, bound: frozenset[str]) -> None:
-        if isinstance(t, Call) and t.fn in _BINDERS and len(t.args) == 3                 and isinstance(t.args[0], Var):
-            visit(t.args[1], bound)
-            visit(t.args[2], bound | {t.args[0].name})
-            return
+        if isinstance(t, Call) and t.fn in _BINDERS:
+            try:
+                binds, source, body = _bound_names(t)
+            except ValueError:
+                pass                         # malformed: reported when it runs
+            else:
+                visit(source, bound)
+                visit(body, bound | set(binds))
+                return
         if isinstance(t, Call):
             functions.add(t.fn)
             if (t.fn == "ctx" and t.args and isinstance(t.args[0], Lit)

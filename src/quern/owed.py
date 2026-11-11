@@ -83,6 +83,8 @@ GRAMMAR_VERBS = {
     "linked": ("query", "returns paths and asserts nothing; assertions over it "
                "encode what the link MEANS, which is the domain's"),
     "linked_current": ("query", "same — currency-filtered traversal"),
+    "reach": ("query", "the same traversal to any depth; asserts nothing"),
+    "reach_current": ("query", "same — over living hops only"),
     "backlinked": ("query", "same — the symmetric read"),
     "unsupported": ("domain-meaning", "whether a superseded target is a defect "
                     "depends on the link: rests_on legitimately convicts, "
@@ -140,7 +142,7 @@ class Cell:
 def _mentions(rule: Rule, name: str) -> bool:
     # the quoted name is how the grammar reaches both params and links:
     # param(self, 'p'), params_of(..., 'p'), unsupported/linked/linked_current/
-    # backlinked(self, 'l')
+    # reach/reach_current/backlinked(self, 'l')
     return f"'{name}'" in rule.expr or f'"{name}"' in rule.expr
 
 

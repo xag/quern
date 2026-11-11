@@ -1747,6 +1747,67 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-link-is-followed-to-any-depth-over-living-hops",
+            kind="decision",
+            name="`reach(node, rel)` follows a link to any depth, own targets first, each "
+                 "once, cycles cut, the node left out; `reach_current` takes only hops "
+                 "`linked_current` would (#64)",
+            links={"rests_on": ["the-weakest-domains-demand-lands-first"]},
+            payload={
+                "why":
+                    "A relation that nests (a member of a group part of a larger group) "
+                    "was checked one hop deep, and a client two groups down came out red. "
+                    "The verb is structural like `linked`: what the link means stays the "
+                    "domain's. A superseded node ends the walk in `reach_current`, since "
+                    "past it the relation no longer holds.",
+            },
+            children=[
+                Node(id="alt-a-depth-argument", kind="alternative",
+                     name="`linked(node, rel, depth)` with a fixed number of hops",
+                     payload={"why": "A fixed depth is the limit the issue removes; the "
+                                     "domain does not know how deep its groups nest."}),
+                Node(id="alt-filter-reach-by-currency", kind="alternative",
+                     name="`reach_current` as `reach` with superseded nodes dropped from "
+                          "the answer",
+                     payload={"why": "A member reached only through a superseded group "
+                                     "would still count as inside the larger one."}),
+            ],
+        ),
+
+        Node(
+            id="a-rule-names-a-value-and-a-position",
+            kind="decision",
+            name="`let(name, value, body)` names a value once, and `some`/`every` take "
+                 "`(x, i, xs, cond)` to bind an element's position; both are binding "
+                 "forms of the grammar (#65, #66)",
+            links={"rests_on": ["a-rule-binds-a-list-element"]},
+            payload={
+                "why":
+                    "A rule stating one condition over several pairs pasted it per pair "
+                    "(1,081 characters and 19 `linked` calls for a one-sentence rule), and "
+                    "a list's order, the only record of which try came last when dates "
+                    "tie, was invisible. Both parse as calls the evaluator binds, so no "
+                    "syntax is added and no environment can shadow them; `let` evaluates "
+                    "its value once and the trace shows it once.",
+            },
+            children=[
+                Node(id="alt-named-expressions-on-the-rule", kind="alternative",
+                     name="A `defs` field on Rule holding named sub-expressions",
+                     payload={"why": "The name would live away from the expression, and "
+                                     "a package format change for what one binding form "
+                                     "covers."}),
+                Node(id="alt-a-position-verb", kind="alternative",
+                     name="`position(x, xs)` returning where an element sits",
+                     payload={"why": "Two equal elements make it ambiguous; the binding "
+                                     "knows which element it handed over."}),
+                Node(id="alt-a-sequence-field-in-the-data", kind="alternative",
+                     name="Record a `seq` number in every list element",
+                     payload={"why": "Copies into the data what the list already says, "
+                                     "the move #45 was opened against."}),
+            ],
+        ),
+
+        Node(
             id="pypi-releases-publish-with-a-quern-only-token",
             kind="decision",
             name="The release workflow publishes to PyPI with a token restricted to the quern "

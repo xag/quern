@@ -586,6 +586,37 @@ def linked_current(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     return [t for t in linked(tree, path, rel) if not is_superseded(tree, t)]
 
 
+def reach(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """Every node reachable from `path` over `rel`, to any depth (#64): the node's own
+    targets first, then theirs, each once, cycles cut, and the node itself left out. A
+    relation that nests - a member of a group that is part of a larger group - is
+    checked one hop deep with `linked`, and the grammar has no recursion to go further.
+
+    Structural like `linked`, which each hop is: what `rel` means is the domain's."""
+    return _reach(path, lambda p: linked(tree, p, rel))
+
+
+def reach_current(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
+    """`reach` over living hops only: each hop is a `linked_current` hop, so past a
+    superseded node the relation no longer holds and nothing beyond it is reached."""
+    return _reach(path, lambda p: linked_current(tree, p, rel))
+
+
+def _reach(path: str, step) -> list[str]:
+    start = "/".join(_segs(path))
+    seen, out, frontier = {start}, [], [start]
+    while frontier:
+        nxt = []
+        for p in frontier:
+            for t in step(p):
+                if t not in seen:
+                    seen.add(t)
+                    out.append(t)
+                    nxt.append(t)
+        frontier = nxt
+    return out
+
+
 def states(tree: Quern | TreeStore, path: str, name: str) -> bool:
     """Does the node state this param at all — through its `uses` chain, like every
     param read? The floor predicate a declared param implies (`quern owed`): the
@@ -1368,6 +1399,9 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         # is the symmetric read: who points at me.
         "linked": lambda p, rel: linked(tree, p, rel),
         "linked_current": lambda p, rel: linked_current(tree, p, rel),
+        # ...and the same link followed to any depth (#64), for a relation that nests
+        "reach": lambda p, rel: reach(tree, p, rel),
+        "reach_current": lambda p, rel: reach_current(tree, p, rel),
         "backlinked": lambda p, rel: sorted(
             tree.backlinks(rel, "/".join(_segs(p)))),
         # the floor verbs (`quern owed` emits rules over these): presence for a
