@@ -99,6 +99,20 @@ class OperationDef(BaseModel):
     medium: str = "wasm"
 
 
+# What a kind or a rule says to a person who is not reading its prose: {language tag:
+# {message id: pattern}}, each pattern a WHOLE sentence in Fluent syntax
+# (projectfluent.org), whose variables are filled only with an entry's own text or a
+# number - never with another message. A sentence is never assembled from terms, because
+# assembling one builds a language's grammar into the code that glues it: "remplacée par
+# « {$by} »" agrees with a decision and "remplacé par « {$by} »" with a debt, so each kind
+# owns its own. Plural and gender are the pattern's own business, through Fluent's
+# selectors. The ids are the vocabulary's and its readers' to agree on (the core names
+# none); publication holds every language of an item to the same ids with the same
+# variables, so a translation can be missing a sentence only by not existing. None, not
+# {}, so a package that predates the field keeps its digest.
+Messages = dict[str, dict[str, str]]
+
+
 class KindDef(BaseModel):
     """One vocabulary entry: what a `kind` means, in prose the next client reads.
 
@@ -123,6 +137,8 @@ class KindDef(BaseModel):
     would be worth less than no check, because it would read as a check. None rather
     than False so a package that predates the field serializes unchanged and keeps
     its digest.
+
+    `messages` is what the kind says to a person, per language: see `Messages`.
     """
 
     kind: str
@@ -132,6 +148,7 @@ class KindDef(BaseModel):
     operations: dict[str, OperationDef] = Field(default_factory=dict)
     convention: bool | None = None
     section: bool | None = None
+    messages: Messages | None = None
 
 
 class Rule(BaseModel):
@@ -143,6 +160,8 @@ class Rule(BaseModel):
     Scope: `kind` runs the rule once per node of that kind (its params are in
     scope, `self` is its path); `path` pins it to one branch; neither = global.
     No predefined semantics: the rule carries its own meaning in `description`.
+    `messages` is what it says to a person, per language (`Messages`): most often the
+    sentence shown where it does not hold.
     """
 
     name: str
@@ -150,6 +169,7 @@ class Rule(BaseModel):
     description: str = ""
     kind: str | None = None
     path: str | None = None
+    messages: Messages | None = None
 
 
 class Demonstration(BaseModel):

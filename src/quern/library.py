@@ -38,6 +38,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 from typing import Any
 
@@ -553,6 +554,10 @@ def validate_package(package: Package, blob_dir: Path,
             + (f"; {len(conventions)} convention(s) held to naming nothing: "
                + ", ".join(conventions) if conventions else ""))
 
+    said = check_messages(package)
+    if said:
+        log.append(said)
+
     if package.rules and not package.examples:
         raise ValueError("a package with rules must carry examples that exercise them")
 
@@ -702,6 +707,65 @@ def _demonstrate(contract: str, cases: list[Demonstration], stage: Quern,
     scenarios = ", ".join(d.because for d in cases if d.because)
     log.append(f"contract '{contract}': {len(cases)} demonstration(s) hold ({source})"
                + (f" — {scenarios}" if scenarios else ""))
+
+
+_LANGUAGE_TAG = re.compile(r"[a-z]{2,3}(-[A-Za-z0-9]{2,8})*")
+
+
+def check_messages(package: Package) -> str:
+    """Hold what a package's kinds and rules say to people (`tree.Messages`) to the one
+    thing about it that is mechanical: every pattern is a Fluent pattern, and every
+    language of an item says the same messages with the same variables. A translation
+    that drops a sentence, or a variable the reader fills, is refused here rather than
+    found by somebody reading a blank. Whether the words are right is a reader's to judge.
+
+    Raises ValueError on the first failure; returns a proof-log line ('' when the
+    package says nothing to people)."""
+    from fluent.syntax import FluentParser, ast as fl
+    from fluent.syntax.visitor import Visitor
+
+    parser = FluentParser(with_spans=False)
+
+    def variables(where: str, pattern: str) -> set[str]:
+        res = parser.parse(f"m = {pattern}\n")
+        bad = [e for e in res.body if isinstance(e, fl.Junk)]
+        if bad or len(res.body) != 1:
+            why = "; ".join(a.message for e in bad for a in e.annotations) or "not one message"
+            raise ValueError(f"{where} is not a Fluent pattern: {why}")
+        found: set[str] = set()
+
+        class Vars(Visitor):
+            def visit_VariableReference(self, node):
+                found.add(node.id.name)
+                self.generic_visit(node)
+
+        Vars().visit(res.body[0])
+        return found
+
+    items = [(f"kind '{k.kind}'", k.messages) for k in package.vocabulary if k.messages] \
+        + [(f"rule '{r.name}'", r.messages) for r in package.rules if r.messages]
+    languages: set[str] = set()
+    for what, messages in items:
+        shape: dict[str, dict[str, set[str]]] = {}
+        for lang, said in messages.items():
+            if not _LANGUAGE_TAG.fullmatch(lang):
+                raise ValueError(f"{what}: '{lang}' is not a language tag (fr, en, pt-BR)")
+            shape[lang] = {mid: variables(f"{what}, {lang}, '{mid}'", p) for mid, p in said.items()}
+        first, *rest = sorted(shape)
+        for lang in rest:
+            if set(shape[lang]) != set(shape[first]):
+                odd = sorted(set(shape[lang]) ^ set(shape[first]))
+                raise ValueError(f"{what}: {first} and {lang} do not say the same messages ({', '.join(odd)})")
+            for mid in shape[first]:
+                if shape[lang][mid] != shape[first][mid]:
+                    raise ValueError(
+                        f"{what}, '{mid}': {first} fills {sorted(shape[first][mid])} and {lang} fills "
+                        f"{sorted(shape[lang][mid])} - a translation says the same thing with the same blanks")
+        languages |= set(shape)
+    if not items:
+        return ""
+    return (f"{len(items)} item(s) say what they mean to people in {', '.join(sorted(languages))}: "
+            "every language the same messages with the same variables")
 
 
 def _collect_kinds(node: Node, acc: set[str]) -> None:

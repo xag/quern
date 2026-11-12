@@ -59,6 +59,9 @@ KINDDEF_FIELDS_EXEMPT = {
     "convention": "names a namespace, never a node; the matrix skips it whole",
     "section": "structure, not a claim: the brief and the navigator fold by it, "
                "and a rule binds beneath it as anywhere",
+    "messages": "what the kind says to people, per language; claims nothing about a "
+                "node, and its one mechanical property (every language the same "
+                "messages and blanks) is gated at publish (library.check_messages)",
 }
 
 # THE SECOND DENOMINATOR: the verb table. The channel walk above proves the

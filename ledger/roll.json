@@ -230,6 +230,26 @@
     "digest": "a906a3c2859f"
   },
   {
+    "path": "a-vocabulary-says-whole-sentences-per-language",
+    "kind": "decision",
+    "digest": "f8c380b8adaf"
+  },
+  {
+    "path": "a-vocabulary-says-whole-sentences-per-language/alt-a-name-per-language",
+    "kind": "alternative",
+    "digest": "50e33ef145bd"
+  },
+  {
+    "path": "a-vocabulary-says-whole-sentences-per-language/alt-format-in-quern",
+    "kind": "alternative",
+    "digest": "b594f2fdd903"
+  },
+  {
+    "path": "a-vocabulary-says-whole-sentences-per-language/alt-words-in-each-reader",
+    "kind": "alternative",
+    "digest": "c29ac4e1a793"
+  },
+  {
     "path": "an-entry-moved-with-its-words-is-a-move",
     "kind": "decision",
     "digest": "2a2d248dddf5"

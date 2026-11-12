@@ -1998,5 +1998,40 @@ def build() -> Quern:
                               "problem."}),
             ],
         ),
+
+        Node(
+            id="a-vocabulary-says-whole-sentences-per-language",
+            kind="decision",
+            name="What a kind or a rule says to people lives on it, as `messages`: per language, "
+                 "whole sentences in Fluent syntax whose blanks take only an entry's own text or a "
+                 "number; publication holds every language of an item to the same messages with "
+                 "the same blanks",
+            payload={
+                "decided_on": "2026-11-12",
+                "the_owner": "this would only work for labels, not for sentences where multiple "
+                             "terms are stuck together ... ok",
+                "why": "A reader of a ledger (furniture's notes) had written the words for "
+                       "ledger@'s kinds and rules as a table in its own code, in one language, "
+                       "gluing terms into sentences: 'remplacé par' agrees with a debt and not with "
+                       "a decision. A table beside the vocabulary drifts from it, and every reader "
+                       "writes its own. Whole sentences owned by the item they speak of leave "
+                       "agreement to whoever writes them, and Fluent's selectors carry plural and "
+                       "gender. The field is None by default and left out of the canonical form, "
+                       "so no published package changes digest.",
+            },
+            children=[
+                Node(id="alt-a-name-per-language", kind="alternative",
+                     name="Give each kind and rule one name per language and let readers compose",
+                     payload={"why": "Composition builds one language's grammar into the reader's "
+                                     "code; the owner turned it down for exactly that."}),
+                Node(id="alt-words-in-each-reader", kind="alternative",
+                     name="Leave the words to each app that shows a ledger",
+                     payload={"why": "One table per app, each drifting from the vocabulary."}),
+                Node(id="alt-format-in-quern", kind="alternative",
+                     name="Ship a formatter (fluent.runtime) in quern",
+                     payload={"why": "It brings Babel to every install; quern checks the patterns "
+                                     "(fluent.syntax only) and a reader formats them."}),
+            ],
+        ),
     ]
     return quern

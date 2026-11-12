@@ -17,6 +17,7 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
 ]
 dependencies = [
+    "fluent-syntax>=0.19",
     "pydantic>=2",
     "wasmtime>=25",  # sandboxed solver runtime: fuel-metered, no ambient authority
     # The boundary (src/quern/boundary.py) is declared and recorded from every CLI run: the
