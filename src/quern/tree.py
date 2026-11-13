@@ -1397,20 +1397,26 @@ def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):
     as absent, the params its kind declares that it does not carry."""
     if rule.kind is not None:
         declared = {p for k in tree.vocabulary if k.kind == rule.kind for p in k.params}
-        for node_path, node in tree.walk(""):
-            if node.kind == rule.kind and node_path.startswith(under):
+        for node_path, node in tree.walk(under):
+            if node.kind == rule.kind:
                 variables = Bindings({k: q.value for k, q in node.params.items()},
                                      declared - set(node.params))
                 variables["self"] = node_path
                 yield node_path, variables
     else:
         target = rule.path or ""
-        if target.startswith(under) or under.startswith(target):
+        if _within(target, under) or _within(under, target):
             node = tree.get(target)
             variables = ({k: q.value for k, q in node.params.items()}
                          if node is not None else {})
             variables["self"] = target
             yield target, variables
+
+
+def _within(path: str, under: str) -> bool:
+    """Whether `path` is `under` or beneath it, id by id: 'a/b' is beneath 'a', not 'a/bc'."""
+    inner, outer = _segs(path), _segs(under)
+    return inner[:len(outer)] == outer
 
 
 def _iter_paths(node: Node, path: str):
