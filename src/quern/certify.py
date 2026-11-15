@@ -68,9 +68,15 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
                 solver_runner=None) -> dict[str, Any]:
     """What every criterion and level of the subject's kind says of the node at `path`.
 
-    {"subject", "kind", "criteria": [{"criterion", "name", "measures", "held", "reds":
+    {"subject", "kind", "criteria": [{"criterion", "name", "say", "measures", "held", "reds":
     [{"rule", "node", "verdict", "says", "messages", "detail", "why"}]}], "levels":
-    [{"level", "name", "reached", "blocked_by"}], "reached": [level paths]}
+    [{"level", "name", "say", "requires", "allows", "reached", "blocked_by"}],
+    "reached": [level paths]}
+
+    `say` is the criterion's or level's payload `say` as its standard wrote it (its name
+    for people, per language), None when it states none; `requires` and `allows` are the
+    level's own, so a reader lists what a use needs and what it opens without knowing
+    the standard.
 
     A criterion is held when every rule it names holds wherever it ran, on the subject
     or beneath it. A rule that is absent (a value it needs is not stated) or in error
@@ -108,14 +114,18 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
             rule = known[r.rule]
             reds.append({"rule": r.rule, "node": r.node, "verdict": r.verdict, "says": rule.description,
                          "messages": rule.messages, "detail": r.detail or "", "why": _why(tree, r.reads)})
-        criteria[cpath] = {"criterion": cpath, "name": c.name, "measures": c.payload.get("measures", ""),
+        criteria[cpath] = {"criterion": cpath, "name": c.name, "say": c.payload.get("say"),
+                           "measures": c.payload.get("measures", ""),
                            "held": not reds, "reds": reds}
 
     levels = []
     for lpath, lv in nodes:
         if lv.kind != LEVEL or kind not in _kinds(lv.payload.get("of")):
             continue
-        blocked = [c for c in lv.links.get("requires", []) if not criteria.get(c, {}).get("held")]
-        levels.append({"level": lpath, "name": lv.name, "reached": not blocked, "blocked_by": blocked})
+        requires = list(lv.links.get("requires", []))
+        blocked = [c for c in requires if not criteria.get(c, {}).get("held")]
+        levels.append({"level": lpath, "name": lv.name, "say": lv.payload.get("say"), "requires": requires,
+                       "allows": list(lv.payload.get("allows") or []), "reached": not blocked,
+                       "blocked_by": blocked})
     return {"subject": path, "kind": kind, "criteria": list(criteria.values()), "levels": levels,
             "reached": [lv["level"] for lv in levels if lv["reached"]]}
