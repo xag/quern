@@ -2035,6 +2035,39 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-reader-after-one-kind-asks-the-walk-for-it",
+            kind="decision",
+            name="`walk(under, kind=...)` gives the nodes of one kind alone, in document order, on every "
+                 "TreeStore; code that wants one kind of node asks for it there and never walks every node "
+                 "to keep a few. A kind rule's bindings, the rule grammar's `nodes(kind, under)` and the "
+                 "certificate's criteria and levels read this way, and the certificate reads through the "
+                 "protocol (no `tree.root`), so it runs on a store on disk",
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "Then memory management must be handled at the level of quern",
+                "why": "An adopter (furniture) judges each piece in a tree that mounts 7,559 nodes of "
+                       "knowledge, 50 MB as live objects in every process that holds it, on a 512 MB "
+                       "server. On SqliteStore the same judgement held 5 MB and gave the same findings, "
+                       "but took 8.2 s where memory took 0.2 s: each rule and calculation walked the "
+                       "whole tree to keep the nodes of one kind, and a store on disk parses every node "
+                       "it yields (152,736 nodes parsed for one piece). The kind is a column with an "
+                       "index; a walk that names it parses only those rows.",
+                "measured": "2026-11-16, a bench's piece with its knowledge: tree in memory +50.7 MB, "
+                            "on SqliteStore +4.8 MB, same findings, calculations and reds.",
+            },
+            children=[
+                Node(id="alt-cache-the-nodes-a-store-read", kind="alternative",
+                     name="Keep in the store the nodes it has parsed",
+                     payload={"why": "After one whole walk the cache is the tree in memory again, which "
+                                     "is what the store is opened to avoid."}),
+                Node(id="alt-readers-call-find", kind="alternative",
+                     name="Leave walk as it is and have readers call find(kind=...)",
+                     payload={"why": "find answers a search (a limit, ranked matches); a rule needs every "
+                                     "node of the kind under a path, in document order, which is a walk."}),
+            ],
+        ),
+
+        Node(
             id="a-certificate-is-what-the-trees-standards-say",
             kind="decision",
             name="Certification is run, not written: `quern.certify.certificate(tree, path)` reads the "

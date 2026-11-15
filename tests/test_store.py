@@ -86,6 +86,22 @@ def test_walk_preserves_document_order(stores):
            [p for p, _ in quern.walk("rooms/kitchen")]
 
 
+def test_a_walk_of_one_kind_gives_those_nodes_in_order_and_reads_no_other(stores, monkeypatch):
+    quern, store = stores
+    for under in ("", "programs", "programs/beta", "rooms", "nowhere"):
+        for kind in ("program", "fixture", "no-such-kind"):
+            want = [p for p, n in quern.walk(under) if n.kind == kind]
+            assert [p for p, _ in quern.walk(under, kind=kind)] == want
+            assert [p for p, _ in store.walk(under, kind=kind)] == want
+    assert [p for p, _ in quern.walk("", kind="program")] == ["programs/alpha", "programs/beta", "programs/gamma"]
+    # the store reads the nodes of that kind and no other: the point of asking for a kind
+    import quern.store as qs
+    read, real = [], qs._node_of
+    monkeypatch.setattr(qs, "_node_of", lambda path, doc: (read.append(path), real(path, doc))[1])
+    list(store.walk("", kind="program"))
+    assert read == ["programs/alpha", "programs/beta", "programs/gamma"]
+
+
 def test_find_parity(stores):
     quern, store = stores
     for kwargs in (

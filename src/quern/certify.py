@@ -41,13 +41,6 @@ def register_explainer(contract: str, fn: Callable[..., list[str]]) -> None:
     EXPLAINERS[contract] = fn
 
 
-def _walk(node: Node, path: str = ""):
-    for c in node.children:
-        p = f"{path}/{c.id}" if path else c.id
-        yield p, c
-        yield from _walk(c, p)
-
-
 def _kinds(value: Any) -> list[str]:
     return [value] if isinstance(value, str) else [str(v) for v in value or []]
 
@@ -89,11 +82,10 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
         raise ValueError(f"no node at '{path}'")
     kind = subject.kind
     known = {r.name: r for r in tree.rules}
-    nodes = list(_walk(tree.root))
 
     criteria: dict[str, dict[str, Any]] = {}
-    for cpath, c in nodes:
-        if c.kind != CRITERION or kind not in _kinds(c.payload.get("applies_to")):
+    for cpath, c in list(tree.walk("", kind=CRITERION)):   # a store on disk too: no tree.root
+        if kind not in _kinds(c.payload.get("applies_to")):
             continue
         names = [str(n) for n in c.payload.get("rules") or []]
         reds: list[dict[str, Any]] = []
@@ -119,8 +111,8 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
                            "held": not reds, "reds": reds}
 
     levels = []
-    for lpath, lv in nodes:
-        if lv.kind != LEVEL or kind not in _kinds(lv.payload.get("of")):
+    for lpath, lv in list(tree.walk("", kind=LEVEL)):
+        if kind not in _kinds(lv.payload.get("of")):
             continue
         requires = list(lv.links.get("requires", []))
         blocked = [c for c in requires if not criteria.get(c, {}).get("held")]

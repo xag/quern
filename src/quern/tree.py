@@ -314,16 +314,21 @@ class Quern(BaseModel):
         parent.children.remove(target)
         return target
 
-    def walk(self, under: str = ""):
+    def walk(self, under: str = "", kind: str | None = None):
         """(path, node) for the node at `under` (when it is not the root — the
-        root is an anchor, not a result) and every node beneath it."""
+        root is an anchor, not a result) and every node beneath it; with `kind`,
+        those of that kind alone, in the same order. A reader after one kind says
+        so: a store on disk then reads only those nodes (SqliteStore's kind index)
+        where reading every node to keep a few costs the whole tree each time."""
         start = self.get(under)
         if start is None:
             return
         anchor = "/".join(_segs(under))
-        if anchor:
+        if anchor and (kind is None or start.kind == kind):
             yield anchor, start
-        yield from _iter_paths(start, anchor)
+        for found in _iter_paths(start, anchor):
+            if kind is None or found[1].kind == kind:
+                yield found
 
     def children(self, path: str) -> list[str]:
         """Ids of the direct children at `path`, in order ([] when absent)."""
@@ -382,7 +387,7 @@ class TreeStore(Protocol):
     def get(self, path: str, depth: int | None = None) -> Node | None: ...
     def set(self, path: str, data: dict[str, Any]) -> Node: ...
     def delete(self, path: str) -> Node: ...
-    def walk(self, under: str = "") -> Iterator[tuple[str, Node]]: ...
+    def walk(self, under: str = "", kind: str | None = None) -> Iterator[tuple[str, Node]]: ...
     def children(self, path: str) -> list[str]: ...
     def backlinks(self, name: str, target: str) -> list[str]: ...
     def find(self, query: str | None = None, kind: str | None = None,
@@ -1397,12 +1402,11 @@ def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):
     as absent, the params its kind declares that it does not carry."""
     if rule.kind is not None:
         declared = {p for k in tree.vocabulary if k.kind == rule.kind for p in k.params}
-        for node_path, node in tree.walk(under):
-            if node.kind == rule.kind:
-                variables = Bindings({k: q.value for k, q in node.params.items()},
-                                     declared - set(node.params))
-                variables["self"] = node_path
-                yield node_path, variables
+        for node_path, node in tree.walk(under, kind=rule.kind):
+            variables = Bindings({k: q.value for k, q in node.params.items()},
+                                 declared - set(node.params))
+            variables["self"] = node_path
+            yield node_path, variables
     else:
         target = rule.path or ""
         if _within(target, under) or _within(under, target):
@@ -1448,8 +1452,7 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
 
     def nodes(kind: str | None = None, under: str = "") -> list[str]:
         anchor = "/".join(_segs(under))
-        return [p for p, n in tree.walk(under)
-                if p != anchor and (kind is None or n.kind == kind)]
+        return [p for p, _ in tree.walk(under, kind=kind) if p != anchor]
 
     def params_of(paths, name: str) -> list[float]:
         return [_param_of(tree, p, name) for p in paths]

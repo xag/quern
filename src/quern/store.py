@@ -172,19 +172,22 @@ class SqliteStore:
             self._db.execute("DELETE FROM links WHERE src=?", (anchor,))
         return node
 
-    def walk(self, under: str = "") -> Iterator[tuple[str, Node]]:
+    def walk(self, under: str = "", kind: str | None = None) -> Iterator[tuple[str, Node]]:
         anchor = "/".join(_segs(under))
+        of_kind, args = (" AND kind=?", (kind,)) if kind is not None else ("", ())
         if anchor:
             row = self._db.execute(
-                "SELECT doc FROM nodes WHERE path=?", (anchor,)).fetchone()
+                "SELECT doc, kind FROM nodes WHERE path=?", (anchor,)).fetchone()
             if row is None:
                 return
-            yield anchor, _node_of(anchor, row[0])
+            if kind is None or row[1] == kind:
+                yield anchor, _node_of(anchor, row[0])
             rows = self._db.execute(
-                "SELECT path, doc FROM nodes WHERE path >= ? AND path < ? "
-                "ORDER BY okey", (anchor + "/", anchor + _AFTER_SLASH))
+                "SELECT path, doc FROM nodes WHERE path >= ? AND path < ?"
+                + of_kind + " ORDER BY okey", (anchor + "/", anchor + _AFTER_SLASH, *args))
         else:
-            rows = self._db.execute("SELECT path, doc FROM nodes ORDER BY okey")
+            rows = self._db.execute(
+                "SELECT path, doc FROM nodes WHERE 1" + of_kind + " ORDER BY okey", args)
         for p, doc in rows:
             yield p, _node_of(p, doc)
 

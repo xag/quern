@@ -155,6 +155,21 @@
     "digest": "5c71675cf99d"
   },
   {
+    "path": "a-reader-after-one-kind-asks-the-walk-for-it",
+    "kind": "decision",
+    "digest": "b41018fb59b4"
+  },
+  {
+    "path": "a-reader-after-one-kind-asks-the-walk-for-it/alt-cache-the-nodes-a-store-read",
+    "kind": "alternative",
+    "digest": "6756533c9d85"
+  },
+  {
+    "path": "a-reader-after-one-kind-asks-the-walk-for-it/alt-readers-call-find",
+    "kind": "alternative",
+    "digest": "6d640554c150"
+  },
+  {
     "path": "a-rule-binds-a-list-element",
     "kind": "decision",
     "digest": "684a4e9fe65a"
