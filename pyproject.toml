@@ -76,6 +76,9 @@ dev = [
     # The test runner's plan (xag/testplan): needs sys.monitoring, so Python 3.12 and later; on 3.11,
     # which quern still supports, pytest runs every test as before.
     "testplan ; python_version >= '3.12'",
+    # The tests exercise the host (tests/test_app.py and others), so a plain `uv sync` must give them
+    # what the host extra gives a server: the daily run syncs without extras.
+    "mcp[cli]>=1.2,<3",
 ]
 
 [tool.pytest.ini_options]
