@@ -78,7 +78,7 @@ def test_the_spec_anticipates_the_scenarios_that_turn_a_gate_green_for_nothing()
 
     refusals = [d for spec in GROUNDING_SPEC.values() for d in spec
                 if d.expect_error is not None]
-    assert len(refusals) == 2, "absence must be demonstrated, not assumed"
+    assert len(refusals) == 3, "absence must be demonstrated, not assumed"
 
 
 def test_a_native_answering_wrongly_is_caught_by_its_own_spec():

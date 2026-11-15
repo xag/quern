@@ -2033,5 +2033,51 @@ def build() -> Quern:
                                      "(fluent.syntax only) and a reader formats them."}),
             ],
         ),
+
+        Node(
+            id="a-certificate-is-what-the-trees-standards-say",
+            kind="decision",
+            name="Certification is run, not written: `quern.certify.certificate(tree, path)` reads the "
+                 "`criterion` nodes of the subject's kind (the rules each names, what it measures) and "
+                 "the `level` nodes (the criteria a use requires), runs those rules on the subject and "
+                 "beneath it, and answers with each criterion held or its reds and each level reached "
+                 "or what blocks it. The runner knows no domain; a standard is a package's rules and "
+                 "the criteria and levels a tree holds, so a better standard changes every certificate "
+                 "it applies to and no code that reads them. A contract may register an explainer "
+                 "beside its native, so a red that is a count names what it counted. grounding gains "
+                 "thinly_witnessed (the params resting on fewer independent observations than asked, "
+                 "through lineage of any depth, over refs that agree) and disagreeing",
+            payload={
+                "decided_on": "2026-11-15",
+                "the_owner": "Rething the whole certification process based on that idea, that "
+                             "certification is based on a set of standards and rules enforced by other "
+                             "knowledge models. This way, knowledge models can improve and certification "
+                             "with it, without changing the code",
+                "why": "An adopter (furniture) had written what certified means for a tool in its own "
+                       "code: which uses, how many documents, what agrees. Each new criterion was a "
+                       "code change in the app, and the same question about a piece or its "
+                       "instructions would have been written again beside it. Rules already judge; "
+                       "what was missing was a way for data to say which rules a use requires, and "
+                       "one runner that reads it.",
+                "not_yet": "The meaning of criterion and level is to be published as certification@ "
+                           "(the ledger repo); the two grounding contracts are to be added to "
+                           "grounding@'s descriptors there.",
+            },
+            children=[
+                Node(id="alt-each-adopter-writes-its-grade", kind="alternative",
+                     name="Leave grading to each adopter's code",
+                     payload={"why": "What it was: the standard could not improve without the code, "
+                                     "and no two adopters graded the same way."}),
+                Node(id="alt-a-field-on-the-rule", kind="alternative",
+                     name="Give Rule a field naming its criterion and level",
+                     payload={"why": "A rule would then belong to one standard; as nodes, two "
+                                     "standards can require the same rule for different uses, and "
+                                     "the grouping is itself in the tree, checked like the rest."}),
+                Node(id="alt-a-score", kind="alternative",
+                     name="Answer with a score",
+                     payload={"why": "A number hides which use is reached and what blocks the next; "
+                                     "the levels reached and the reds are the grade."}),
+            ],
+        ),
     ]
     return quern

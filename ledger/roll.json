@@ -1,5 +1,25 @@
 [
   {
+    "path": "a-certificate-is-what-the-trees-standards-say",
+    "kind": "decision",
+    "digest": "a939b185a449"
+  },
+  {
+    "path": "a-certificate-is-what-the-trees-standards-say/alt-a-field-on-the-rule",
+    "kind": "alternative",
+    "digest": "f7a3c64d6892"
+  },
+  {
+    "path": "a-certificate-is-what-the-trees-standards-say/alt-a-score",
+    "kind": "alternative",
+    "digest": "a640b60b6323"
+  },
+  {
+    "path": "a-certificate-is-what-the-trees-standards-say/alt-each-adopter-writes-its-grade",
+    "kind": "alternative",
+    "digest": "52f4c3e550b3"
+  },
+  {
     "path": "a-directory-store-refuses-a-write-that-lost-the-race",
     "kind": "decision",
     "digest": "59837597fada"
