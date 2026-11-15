@@ -34,4 +34,6 @@ jobs:
           python-version: ${{ matrix.python }}
       - run: uv sync --all-extras --group dev
       - run: uv pip install "mcp[cli]==${{ matrix.mcp }}.*"
-      - run: uv run --no-sync pytest -q
+      # CI is a fresh checkout: it runs the whole suite, so the plan that picks tests under a budget
+      # (testplan, installed on 3.12 and later) is switched off here.
+      - run: uv run --no-sync pytest -q -p no:testplan
