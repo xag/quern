@@ -56,6 +56,7 @@ quern = "quern.cli:main"
 [tool.uv.sources]
 # Pinned by rev, always — the estate's fork-or-republish doctrine over resolver algebra.
 xag-flight-recorder = { git = "https://github.com/xag/flight-recorder", rev = "4d24784d9e6b7da1cb8c741984b0261fe096b9e7" }
+testplan = { git = "https://github.com/xag/testplan", rev = "9d45f80cd57eee30fe402d5ee8f8b06ed3ee8ca8" }
 
 [build-system]
 requires = ["hatchling"]
@@ -72,6 +73,9 @@ only-include = ["src/quern", "README.md", "LICENSE", "pyproject.toml"]
 [dependency-groups]
 dev = [
     "pytest>=9.1.1",
+    # The test runner's plan (xag/testplan): needs sys.monitoring, so Python 3.12 and later; on 3.11,
+    # which quern still supports, pytest runs every test as before.
+    "testplan ; python_version >= '3.12'",
 ]
 
 [tool.pytest.ini_options]
@@ -79,3 +83,7 @@ dev = [
 # of the shipped package (packages = ["src/quern"]). It is not installed, so put the root on
 # the path or the suite cannot see it.
 pythonpath = ["."]
+# Fail fast: stop at the first failure. testplan runs the tests whose code, data or packages
+# changed since they passed, last failures first then the fastest, under a time budget, and
+# keeps every run's times; the whole suite is the daily run's (testplan.daily), once a day.
+addopts = "-x"
