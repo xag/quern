@@ -330,6 +330,12 @@ class Quern(BaseModel):
             if kind is None or found[1].kind == kind:
                 yield found
 
+    def paths(self, under: str = "", kind: str | None = None) -> list[str]:
+        """The paths `walk(under, kind)` would give, without the nodes: for a reader
+        that wants where the nodes are and not what they say, which a store on disk
+        answers from its index without reading one."""
+        return [p for p, _ in self.walk(under, kind)]
+
     def children(self, path: str) -> list[str]:
         """Ids of the direct children at `path`, in order ([] when absent)."""
         node = self.get(path)
@@ -388,6 +394,7 @@ class TreeStore(Protocol):
     def set(self, path: str, data: dict[str, Any]) -> Node: ...
     def delete(self, path: str) -> Node: ...
     def walk(self, under: str = "", kind: str | None = None) -> Iterator[tuple[str, Node]]: ...
+    def paths(self, under: str = "", kind: str | None = None) -> list[str]: ...
     def children(self, path: str) -> list[str]: ...
     def backlinks(self, name: str, target: str) -> list[str]: ...
     def find(self, query: str | None = None, kind: str | None = None,
@@ -1452,7 +1459,7 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
 
     def nodes(kind: str | None = None, under: str = "") -> list[str]:
         anchor = "/".join(_segs(under))
-        return [p for p, _ in tree.walk(under, kind=kind) if p != anchor]
+        return [p for p in tree.paths(under, kind) if p != anchor]
 
     def params_of(paths, name: str) -> list[float]:
         return [_param_of(tree, p, name) for p in paths]

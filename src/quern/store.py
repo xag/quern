@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections import OrderedDict
 from pathlib import Path
 from typing import Any, Iterator
 
@@ -41,6 +42,8 @@ from .tree import (
     haystack,
     payload_matches,
 )
+
+_READ_KEPT = 1024   # rows a store keeps parsed (SqliteStore.get)
 
 # after '/' in ASCII: `path >= p || '/' AND path < p || '0'` is the subtree range
 _AFTER_SLASH = "0"
@@ -82,6 +85,7 @@ class SqliteStore:
 
     def __init__(self, path: Path | str) -> None:
         self._db = sqlite3.connect(str(path))
+        self._read: OrderedDict[str, Node | None] = OrderedDict()   # rows last read, parsed
         self._db.executescript(_SCHEMA)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
@@ -120,20 +124,31 @@ class SqliteStore:
             root = Node(id="tree")
             root.children = self._hydrate_children("", depth)
             return root
-        row = self._db.execute(
-            "SELECT doc FROM nodes WHERE path=?", (anchor,)).fetchone()
-        if row is None:
+        # The rows last read are kept parsed (a rule resolving params reads the same few
+        # nodes over and over) and dropped at any write. What is returned is a copy of the
+        # node alone: its params, links and payload are the kept row's, so a node read is
+        # changed by set(), never in place.
+        if anchor in self._read:
+            kept = self._read[anchor]
+            self._read.move_to_end(anchor)
+        else:
+            row = self._db.execute(
+                "SELECT doc FROM nodes WHERE path=?", (anchor,)).fetchone()
+            kept = _node_of(anchor, row[0]) if row is not None else None
+            self._read[anchor] = kept
+            if len(self._read) > _READ_KEPT:
+                self._read.popitem(last=False)
+        if kept is None:
             return None
-        node = _node_of(anchor, row[0])
-        if depth is None or depth > 0:
-            node.children = self._hydrate_children(
-                anchor, None if depth is None else depth - 1)
-        return node
+        children = (self._hydrate_children(anchor, None if depth is None else depth - 1)
+                    if depth is None or depth > 0 else [])
+        return kept.model_copy(update={"children": children})
 
     def set(self, path: str, data: dict[str, Any]) -> Node:
         segs = _segs(path)
         if not segs:
             raise ValueError("the root is not editable — address a child path")
+        self._read.clear()
         with self._db:
             parent = ""
             for seg in segs[:-1]:
@@ -166,6 +181,7 @@ class SqliteStore:
         node = self.get(anchor)
         if node is None:
             raise ValueError(f"no node at '{path}'")
+        self._read.clear()
         with self._db:
             self._delete_range(anchor)
             self._db.execute("DELETE FROM nodes WHERE path=?", (anchor,))
@@ -190,6 +206,17 @@ class SqliteStore:
                 "SELECT path, doc FROM nodes WHERE 1" + of_kind + " ORDER BY okey", args)
         for p, doc in rows:
             yield p, _node_of(p, doc)
+
+    def paths(self, under: str = "", kind: str | None = None) -> list[str]:
+        anchor = "/".join(_segs(under))
+        of_kind, args = (" AND kind=?", (kind,)) if kind is not None else ("", ())
+        if not anchor:
+            rows = self._db.execute("SELECT path FROM nodes WHERE 1" + of_kind + " ORDER BY okey", args)
+            return [p for (p,) in rows]
+        rows = self._db.execute(
+            "SELECT path FROM nodes WHERE (path = ? OR (path >= ? AND path < ?))" + of_kind
+            + " ORDER BY okey", (anchor, anchor + "/", anchor + _AFTER_SLASH, *args))
+        return [p for (p,) in rows]
 
     def children(self, path: str) -> list[str]:
         anchor = "/".join(_segs(path))
@@ -254,6 +281,7 @@ class SqliteStore:
         if self._db.execute("SELECT 1 FROM nodes LIMIT 1").fetchone():
             raise ValueError("the store already holds a tree — ingest into a "
                              "fresh one, or edit through set()")
+        self._read.clear()
         with self._db:
             for pos, child in enumerate(tree.root.children):
                 self._insert("", child, pos=pos)
@@ -385,9 +413,12 @@ def _doc_of(node: Node) -> str:
 
 
 def _node_of(path: str, doc: str) -> Node:
-    data = json.loads(doc)
-    data["id"] = path.rsplit("/", 1)[-1]
-    return Node.model_validate(data)
+    """The node a row keeps, read in one pass (the row's JSON validated as it is parsed)."""
+    node = Node.model_validate_json(doc)
+    name = path.rsplit("/", 1)[-1]
+    if node.id != name:
+        node.id = name
+    return node
 
 
 __all__ = ["SqliteStore"]

@@ -2068,6 +2068,38 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-node-read-is-changed-by-set-never-in-place",
+            kind="decision",
+            name="A node a TreeStore gave is changed by `set()`, never by changing the object: SqliteStore "
+                 "keeps the last 1,024 rows it read, parsed, drops them at any write, and gives a copy of "
+                 "the node alone whose params, links and payload are the kept row's. `paths(under, kind)` "
+                 "gives where nodes are without reading them, and a row is validated as it is parsed, in "
+                 "one pass",
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "Yes, don't hesitate to aggressively make quern more efficient",
+                "why": "Judging one piece on SqliteStore read 5,699 nodes one by one, most of them the same "
+                       "few (resolve_params and definition read a node and its definition at every param), "
+                       "and each read parsed its row twice (json, then the model): 1.08 s where the tree in "
+                       "memory took 0.26 s. The grammar's nodes(kind, under) parsed every node of the kind "
+                       "to keep its path. With the rows kept, paths() and one-pass parsing the same "
+                       "judgement takes 0.21 s with the same findings.",
+                "measured": "2026-11-16, a bench's piece beside 7,559 nodes of knowledge: 1.08 s, then 0.69 s "
+                            "(paths, one pass), then 0.21 s (rows kept).",
+            },
+            links={"rests_on": ["a-reader-after-one-kind-asks-the-walk-for-it"]},
+            children=[
+                Node(id="alt-give-the-kept-node-itself", kind="alternative",
+                     name="Give the kept node itself, as a tree in memory gives its live node",
+                     payload={"why": "A change made in place would show to later readers and never reach "
+                                     "the file: neither the tree in memory's behaviour nor a store's."}),
+                Node(id="alt-keep-every-row", kind="alternative",
+                     name="Keep every row read, without a bound",
+                     payload={"why": "After a walk of the tree that is the tree in memory again."}),
+            ],
+        ),
+
+        Node(
             id="a-certificate-is-what-the-trees-standards-say",
             kind="decision",
             name="Certification is run, not written: `quern.certify.certificate(tree, path)` reads the "

@@ -94,12 +94,18 @@ def test_a_walk_of_one_kind_gives_those_nodes_in_order_and_reads_no_other(stores
             assert [p for p, _ in quern.walk(under, kind=kind)] == want
             assert [p for p, _ in store.walk(under, kind=kind)] == want
     assert [p for p, _ in quern.walk("", kind="program")] == ["programs/alpha", "programs/beta", "programs/gamma"]
+    for under in ("", "programs", "programs/beta", "rooms", "nowhere"):
+        for kind in (None, "program", "fixture"):
+            want = [p for p, _ in quern.walk(under, kind)]
+            assert quern.paths(under, kind) == want and store.paths(under, kind) == want
     # the store reads the nodes of that kind and no other: the point of asking for a kind
     import quern.store as qs
     read, real = [], qs._node_of
     monkeypatch.setattr(qs, "_node_of", lambda path, doc: (read.append(path), real(path, doc))[1])
     list(store.walk("", kind="program"))
     assert read == ["programs/alpha", "programs/beta", "programs/gamma"]
+    read.clear()
+    assert store.paths("", "program") == ["programs/alpha", "programs/beta", "programs/gamma"] and read == []
 
 
 def test_a_param_keeps_the_grounding_it_was_given(stores):
@@ -110,6 +116,22 @@ def test_a_param_keeps_the_grounding_it_was_given(stores):
             "doubted": {"value": 3.0, "unit": "mm", "provenance": "measured", "grounded": False}}})
         got = store.get("readings/a").params
         assert (got["found"].grounded, got["doubted"].grounded) == (True, False)
+
+
+def test_a_node_read_again_after_a_write_is_the_node_as_written(stores):
+    """The disk store keeps the rows it last read; a write drops them, a delete too, and a node
+    that was not there is found once it is set."""
+    for store in stores:
+        assert store.get("readings/b", depth=0) is None
+        store.set("readings/b", {"kind": "clause", "name": "first"})
+        assert store.get("readings/b", depth=0).name == "first"
+        store.set("readings/b", {"name": "second"})
+        assert store.get("readings/b").name == "second"
+        store.set("readings/b/under", {"kind": "clause"})
+        assert [c.id for c in store.get("readings/b").children] == ["under"]
+        assert store.get("readings/b", depth=0).children == []
+        store.delete("readings/b")
+        assert store.get("readings/b") is None
 
 
 def test_find_parity(stores):

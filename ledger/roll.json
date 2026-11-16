@@ -155,6 +155,21 @@
     "digest": "5c71675cf99d"
   },
   {
+    "path": "a-node-read-is-changed-by-set-never-in-place",
+    "kind": "decision",
+    "digest": "154ed178c783"
+  },
+  {
+    "path": "a-node-read-is-changed-by-set-never-in-place/alt-give-the-kept-node-itself",
+    "kind": "alternative",
+    "digest": "dd0a6755db72"
+  },
+  {
+    "path": "a-node-read-is-changed-by-set-never-in-place/alt-keep-every-row",
+    "kind": "alternative",
+    "digest": "025b7ff4326e"
+  },
+  {
     "path": "a-reader-after-one-kind-asks-the-walk-for-it",
     "kind": "decision",
     "digest": "b41018fb59b4"
