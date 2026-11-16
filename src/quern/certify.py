@@ -2,7 +2,7 @@
 
 A standard is knowledge like any other: rules in a package, and, in the tree, the nodes
 that say what those rules are for. Two kinds are read here by name (their meaning is the
-`certification@` package's, quern.certification, published to the registry and pinned like any other):
+`certification@` package's, published to the registry and pinned like any other):
 
 - a `criterion` names the rules that judge one thing about a subject: payload
   `applies_to` (the kind of node it judges, or several), `rules` (their names) and

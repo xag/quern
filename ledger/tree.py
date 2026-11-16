@@ -2237,5 +2237,28 @@ def build() -> Quern:
                                      "quern's code reads."}),
             ],
         ),
+        Node(
+            id="certification-travels-the-registry-like-grounding",
+            kind="decision",
+            name="certification@ is not authored in quern: like grounding@, it is authored outside quern "
+                 "and published to the public registry (xag/quern-registry), from which a tree pins it by "
+                 "digest. quern ships only the code that reads it (quern.certify)",
+            links={"rests_on": ["a-certificate-is-what-the-trees-standards-say"],
+                   "supersedes": ["certification-is-authored-beside-its-reader"]},
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "when you say quern, you mean quern-registry? ... didn't you say it didn't "
+                             "belong there? ... I'm talking about quern registry",
+                "why": "The issue (xag/quern#71) asked for the package \"in the standard library, as "
+                       "grounding@ is\", which is the public registry. Moving it into quern broke quern's "
+                       "own rule that a plain import of quern brings in no package, for a reason found "
+                       "after the move.",
+            },
+            children=[
+                Node(id="alt-authored-in-quern", kind="alternative",
+                     name="Author it in quern as quern.certification",
+                     payload={"why": "Done in 0.1.7 and undone in 0.1.8; the owner meant the registry."}),
+            ],
+        ),
     ]
     return quern

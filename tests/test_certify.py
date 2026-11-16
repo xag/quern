@@ -121,14 +121,3 @@ def test_a_certificate_carries_what_the_standard_says_to_people_and_what_a_level
     assert shared["requires"] == ["standards/complete", "standards/reliable"] and shared["allows"] == []
     assert shared["blocked_by"] == ["standards/reliable"]
 
-
-def test_certification_is_the_package_the_registry_holds_and_proves_itself(tmp_path):
-    """quern.certification is certification@ as published (the same digest), and it passes the publish gate:
-    both kinds instantiated, both rules exercised and each refuted by its counter-example, en and fr alike."""
-    from quern.certification import PACKAGE
-    from quern.library import Library, package_digest
-
-    assert (PACKAGE.name, PACKAGE.version) == ("certification", "0.1.0")
-    assert package_digest(PACKAGE) == "db7a6e57beb60d8bdf24afef04a1be05c9fc8cb8293c06391d7ecc1a30d6f7b6"
-    log = Library(tmp_path).publish(PACKAGE, {})
-    assert any("2 rule(s) refuted by their counter-example" in line for line in log), log
