@@ -2183,9 +2183,8 @@ def build() -> Quern:
                        "instructions would have been written again beside it. Rules already judge; "
                        "what was missing was a way for data to say which rules a use requires, and "
                        "one runner that reads it.",
-                "not_yet": "The meaning of criterion and level is to be published as certification@ "
-                           "(the ledger repo); the two grounding contracts are to be added to "
-                           "grounding@'s descriptors there.",
+                "not_yet": "The two grounding contracts are to be added to grounding@'s descriptors "
+                           "in the public registry.",
             },
             children=[
                 Node(id="alt-each-adopter-writes-its-grade", kind="alternative",
@@ -2201,6 +2200,40 @@ def build() -> Quern:
                      name="Answer with a score",
                      payload={"why": "A number hides which use is reached and what blocks the next; "
                                      "the levels reached and the reds are the grade."}),
+            ],
+        ),
+        Node(
+            id="certification-is-authored-beside-its-reader",
+            kind="decision",
+            name="certification@, the kinds criterion and level and the two rules that keep them well "
+                 "formed, is authored in quern as quern.certification, beside quern.certify which reads "
+                 "them, and published from there to the public registry. A package that holds standards "
+                 "requires certification@ (its PackageRef, PACKAGE's name and version and digest) and "
+                 "takes its kinds and rules from quern.certification; it neither copies nor redefines them",
+            links={"rests_on": ["a-certificate-is-what-the-trees-standards-say"]},
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "If it's generic, why insist on putting it in furniture design, when the issue "
+                             "even asks for it in a generic package, and we discussed that too? (Earlier: "
+                             "\"Native quern?\")",
+                "why": "It names no domain and is read by quern's own code, so every adopter of certificates "
+                       "needs it, and an adopter is a Python package installed from an index or from git. "
+                       "Authored in the private ledger repo, an adopter could pin its published JSON but "
+                       "install it from nowhere, so the first adopter carried a copy of it (xag/quern#71, "
+                       "xag/furniture-design#2).",
+            },
+            children=[
+                Node(id="alt-the-ledger-repo", kind="alternative",
+                     name="Author it in the ledger repo beside ledger@, grounding@ and notebook@",
+                     payload={"why": "That repo is private and installs nowhere: each adopter then "
+                                     "carries a copy of the package."}),
+                Node(id="alt-a-copy-in-each-adopter", kind="alternative",
+                     name="Each adopter carries the published JSON in its own package",
+                     payload={"why": "Done once, in furniture-design; the owner: \"utterly stupid\"."}),
+                Node(id="alt-a-repo-of-its-own", kind="alternative",
+                     name="A public repo of its own for the package",
+                     payload={"why": "A second thing to install and pin beside quern, for two kinds only "
+                                     "quern's code reads."}),
             ],
         ),
     ]
