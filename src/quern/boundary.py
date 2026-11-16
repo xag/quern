@@ -7,10 +7,12 @@ turned out to be an exercise in how *narrow* an honest boundary is.
 
 quern is almost a pure function. It reads a directory, writes a directory, and computes
 digests over bytes — and a digest is not an input from the world, it is arithmetic. So the
-boundary is four things and no more:
+boundary is five things and no more:
 
 - **text on disk**, through `library.read_text` / `library.write_text`. Every package
   descriptor and every lockfile enters and leaves quern through that one pair.
+- **text over HTTP(S)**, through `library.fetch_text`: a package `require` fetches from a
+  registry served over the network.
 - **the registry's directory listing**, through `Library.list` — what packages exist is a
   question only the filesystem can answer.
 - **solver blobs**, through `solver_blob` — bytes off disk, content-addressed.
@@ -44,7 +46,7 @@ from .library import Library
 
 
 def boundary() -> Boundary:
-    """quern's four inputs, wrapped in place.
+    """quern's five inputs, wrapped in place.
 
     The seam sits at TEXT, not at the object API above it, and the choice is the whole
     difference between a replayable tape and a decorative one. Recording `Library.get` looks
@@ -63,7 +65,7 @@ def boundary() -> Boundary:
     it only ever does getattr/setattr on the target it is handed."""
     return Boundary(
         effects=[
-            (library, ["read_text", "write_text", "solver_blob"]),
+            (library, ["read_text", "write_text", "fetch_text", "solver_blob"]),
             (Library, ["list"]),
         ],
         # A registry that is missing, unreadable or holds a package that fails the proof gate

@@ -424,6 +424,79 @@ def consume(root: Path, registry: Path | str | None = None,
     return cache, refs
 
 
+PUBLIC_REGISTRY = "https://raw.githubusercontent.com/xag/quern-registry/main"
+
+
+def fetch_text(url: str) -> str | None:
+    """The other door text enters by: a registry read over HTTP(S). `None` when the address
+    holds nothing (404), as `read_text` answers for a missing file; any other failure raises.
+    Text, for the reason `read_text` gives: a package descriptor is UTF-8 JSON."""
+    import urllib.error
+    import urllib.request
+
+    try:
+        with urllib.request.urlopen(url, timeout=30) as answer:
+            return answer.read().decode("utf-8")
+    except urllib.error.HTTPError as e:
+        if e.code == 404:
+            return None
+        raise
+
+
+class RemoteLibrary(Library):
+    """A registry read over HTTP(S): `<url>/packages/<name>/<version>.json`, as a git host
+    serves a registry repo's raw files. Read-only, and it lists nothing: a reader asks for
+    the versions it pinned. Solver blobs are bytes and are not fetched; a package that
+    carries one is synced from a registry directory instead."""
+
+    def __init__(self, url: str) -> None:
+        self.url = url.rstrip("/")
+        self.root = Path(".")  # unused: every read goes to the url
+
+    @property
+    def blob_dir(self) -> Path:
+        raise ValueError(f"{self.url} is read over HTTP, which fetches no solver blob: sync a "
+                         "package that carries one from a registry directory")
+
+    def list(self) -> list[tuple[str, list[str]]]:
+        raise ValueError(f"{self.url} is read over HTTP and lists nothing: ask for a pinned version")
+
+    def get(self, name: str, version: str) -> Package | None:
+        rel = self._path(name, version).relative_to(self.root).as_posix()
+        raw = fetch_text(f"{self.url}/{rel}")
+        return None if raw is None else Package.model_validate_json(raw)
+
+    def publish(self, package: Package, wasm_blobs: dict[str, bytes]) -> list[str]:
+        raise ValueError(f"{self.url} is read over HTTP: publish into a registry checkout and push it")
+
+
+def cache_dir() -> Path:
+    """Where `require` keeps what it fetched: $QUERN_CACHE, else ~/.cache/quern/library."""
+    return Path(os.environ.get("QUERN_CACHE") or Path.home() / ".cache" / "quern" / "library")
+
+
+def require(ref: PackageRef, registry: Path | str | None = None) -> Package:
+    """A pinned package, for code that needs one when it is imported: an installed Python
+    package that builds on a registry package names it by its pin and gets it here, instead
+    of carrying a copy of it. The pin must carry its sha256.
+
+    Served from the cache (`cache_dir()`) when it holds the pinned content; else synced into
+    it, the proof re-run and its requires with it, from `registry`, else $QUERN_REGISTRY,
+    else the public registry over HTTPS. A path is a registry directory, a URL one served
+    over HTTP(S). Offline with a cache that holds it is not an error."""
+    if not ref.sha256:
+        raise ValueError(f"{ref.name}@{ref.version} carries no sha256: a package is required "
+                         "by its pin, digest included")
+    cache = Library(cache_dir())
+    held = cache.get(ref.name, ref.version)
+    if held is not None and package_digest(held) == ref.sha256:
+        return held
+    source = str(registry or os.environ.get("QUERN_REGISTRY") or PUBLIC_REGISTRY)
+    sync(RemoteLibrary(source) if source.startswith(("http://", "https://")) else Library(Path(source)),
+         cache, [ref])
+    return cache.get(ref.name, ref.version)
+
+
 def read_lock(path: Path) -> list[PackageRef]:
     """The lockfile's refs — the flattened, hash-bearing closure `lock_refs`
     computed. Missing file means nothing locked, not an error: the caller

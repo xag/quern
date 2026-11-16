@@ -2260,5 +2260,34 @@ def build() -> Quern:
                      payload={"why": "Done in 0.1.7 and undone in 0.1.8; the owner meant the registry."}),
             ],
         ),
+        Node(
+            id="an-installed-package-requires-a-registry-package-by-its-pin",
+            kind="decision",
+            name="Python code that builds on a registry package gets it with quern.library.require(ref): by "
+                 "its pin, digest included, from a cache (QUERN_CACHE, else ~/.cache/quern/library) when it "
+                 "holds that content, else synced into it with the proof re-run, from the registry given, else "
+                 "$QUERN_REGISTRY, else the public registry over HTTPS (RemoteLibrary). It never carries a "
+                 "copy of the package. Text over HTTP enters through library.fetch_text, on the boundary",
+            links={"rests_on": ["certification-travels-the-registry-like-grounding"]},
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "\"quern gives an installed Python package no way to load a pinned package from "
+                             "a registry.\" Fix this. And remove the copies, find a way, only keep it in "
+                             "quern registry.",
+                "why": "consume() serves a project checkout: it reads the checkout's quern.lock and syncs from "
+                       "a registry directory into the checkout's .quern/library. A package installed from an "
+                       "index or from git has neither, so the first one that needed certification@ carried a "
+                       "copy of it, then quern did.",
+            },
+            children=[
+                Node(id="alt-a-copy-in-the-package", kind="alternative",
+                     name="The package carries the registry package's JSON",
+                     payload={"why": "A copy of something the registry already holds; the owner: \"savage "
+                                     "duplication\"."}),
+                Node(id="alt-consume-from-the-installed-package", kind="alternative",
+                     name="Ship a quern.lock and a .quern/library inside the installed package and consume() it",
+                     payload={"why": "The synced library is a copy of the registry's content in the package."}),
+            ],
+        ),
     ]
     return quern
