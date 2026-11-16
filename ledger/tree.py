@@ -2183,8 +2183,9 @@ def build() -> Quern:
                        "instructions would have been written again beside it. Rules already judge; "
                        "what was missing was a way for data to say which rules a use requires, and "
                        "one runner that reads it.",
-                "not_yet": "The two grounding contracts are to be added to grounding@'s descriptors "
-                           "in the public registry.",
+                "not_yet": "The meaning of criterion and level is to be published as certification@ "
+                           "(the ledger repo); the two grounding contracts are to be added to "
+                           "grounding@'s descriptors there.",
             },
             children=[
                 Node(id="alt-each-adopter-writes-its-grade", kind="alternative",

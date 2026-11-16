@@ -340,6 +340,26 @@
     "digest": "163e8e790a60"
   },
   {
+    "path": "certification-is-authored-beside-its-reader",
+    "kind": "decision",
+    "digest": "91a4a67f2e6e"
+  },
+  {
+    "path": "certification-is-authored-beside-its-reader/alt-a-copy-in-each-adopter",
+    "kind": "alternative",
+    "digest": "a31893d70978"
+  },
+  {
+    "path": "certification-is-authored-beside-its-reader/alt-a-repo-of-its-own",
+    "kind": "alternative",
+    "digest": "f6b1cea6acd0"
+  },
+  {
+    "path": "certification-is-authored-beside-its-reader/alt-the-ledger-repo",
+    "kind": "alternative",
+    "digest": "85cf62a0f576"
+  },
+  {
     "path": "every-checkable-claim-ships-with-its-proof",
     "kind": "decision",
     "digest": "775ef1a75241"
