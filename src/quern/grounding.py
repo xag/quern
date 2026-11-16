@@ -97,7 +97,7 @@ def depends_untrusted(tree: Quern, path: str = "",
                 visit(owner, name, q)
             return
         head, _, name = ref.rpartition("/")
-        owner_node = get_node(tree, head)
+        owner_node = tree.get(head, depth=0)
         if owner_node is None or name not in owner_node.params:
             return  # dangling lineage: a broken ref, not a grounding claim to answer
         visit(head, name, owner_node.params[name])
@@ -135,7 +135,7 @@ def agree(a: Quantity, b: Quantity) -> bool:
 def _param(tree: Quern, ref: str) -> tuple[str, Quantity] | None:
     """The (owner path, quantity) a lineage ref 'path/param' names, or None."""
     head, _, name = ref.rpartition("/")
-    owner = get_node(tree, head) if head else None
+    owner = tree.get(head, depth=0) if head else None
     if owner is None or name not in owner.params:
         return None
     return head, owner.params[name]

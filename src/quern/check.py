@@ -37,7 +37,7 @@ from typing import Callable
 
 from .cache import CHECK_DEFAULT, NativeCache
 from .roll import audit, write
-from .tree import Quern, expectations, get_node, reckon, run_rules
+from .tree import Quern, expectations, reckon, run_rules
 
 ROLL_DEFAULT = "ledger/roll.json"
 
@@ -87,7 +87,7 @@ def check(root: str | Path, build: Callable[[], Quern], *, rev: str | None = Non
     if carried:
         out(f"{len(carried)} red carried on purpose, of {len(results)} rule(s):")
         for r in carried:
-            node = get_node(tree, r.node) if r.node else None
+            node = tree.get(r.node, depth=0) if r.node else None
             why = (expectations(node).get(r.rule) if node else "") or ""
             out(f"  red* {r.node or r.rule}: {why}")
         out("")
@@ -103,7 +103,7 @@ def check(root: str | Path, build: Callable[[], Quern], *, rev: str | None = Non
         out(f"{len(removals)} entr(y/ies) left the record without saying so.")
     out("")
     for r in news:
-        node = get_node(tree, r.node) if r.node else None
+        node = tree.get(r.node, depth=0) if r.node else None
         why = (node.payload.get("note") if node else None) or r.detail or ""
         out(f"  {r.node or r.rule}: {why}")
     for line in stale:

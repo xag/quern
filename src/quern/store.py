@@ -313,15 +313,31 @@ class SqliteStore:
         return _node_of(path, row[0]) if row else None
 
     def _hydrate_children(self, path: str, depth: int | None) -> list[Node]:
+        """The nodes under `path`, `depth` levels down (all of them for None), as a tree: read in
+        one query over the path range in document order, where a query per node made reading a
+        branch of 888 nodes 889 queries."""
         if depth is not None and depth < 0:
             return []
-        out = []
-        for p, doc in self._db.execute(
-                "SELECT path, doc FROM nodes WHERE parent=? ORDER BY pos", (path,)):
+        if path:
+            rows = self._db.execute(
+                "SELECT path, parent, doc FROM nodes WHERE path >= ? AND path < ? ORDER BY okey",
+                (path + "/", path + _AFTER_SLASH))
+        else:
+            rows = self._db.execute("SELECT path, parent, doc FROM nodes ORDER BY okey")
+        top = path.count("/") + 1 if path else 0   # the slashes in a child's path
+        held: dict[str, Node] = {}
+        out: list[Node] = []
+        for p, parent, doc in rows:
+            if depth is not None and p.count("/") - top > depth:
+                continue
             node = _node_of(p, doc)
-            node.children = self._hydrate_children(
-                p, None if depth is None else depth - 1)
-            out.append(node)
+            held[p] = node
+            if parent == path:
+                out.append(node)
+            else:
+                up = held.get(parent)
+                if up is not None:
+                    up.children.append(node)
         return out
 
     def _next_pos(self, parent: str) -> int:

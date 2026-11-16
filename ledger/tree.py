@@ -2100,6 +2100,32 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-verb-reads-only-what-it-answers-of",
+            kind="decision",
+            name="A verb of the rule grammar reads the node it answers of and nothing under it (`get(path, "
+                 "depth=0)`: payload, linked, unsupported, dangling, lineage, the certificate's subject, a "
+                 "red's expectations), and `kind(p)` gives a node's own kind, so a rule asks of one node what "
+                 "it asked of every node of a kind. SqliteStore reads a branch in one query over its path "
+                 "range, not one query per node",
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "Yes, don't hesitate to aggressively make quern more efficient",
+                "why": "An adopter's whole-tree check (7,559 nodes, 5,811 of them clauses under shop sources "
+                       "of up to 888) took 108 s in memory and 363 s on SqliteStore. `payload(parent(self), "
+                       "...)` read each clause's source with all its clauses, one query each; and with no way "
+                       "to ask a kind, the rules wrote `some(s, nodes('source'), s == parent(self))`, every "
+                       "source at every clause.",
+            },
+            links={"rests_on": ["a-reader-after-one-kind-asks-the-walk-for-it"]},
+            children=[
+                Node(id="alt-memoise-nodes-in-rule-env", kind="alternative",
+                     name="Keep the answers of nodes() for the length of a run",
+                     payload={"why": "It hides the quadratic shape of a rule rather than giving the rule "
+                                     "the question it means, and a tree changed during the run would be read stale."}),
+            ],
+        ),
+
+        Node(
             id="a-certificate-is-what-the-trees-standards-say",
             kind="decision",
             name="Certification is run, not written: `quern.certify.certificate(tree, path)` reads the "

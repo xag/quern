@@ -104,6 +104,7 @@ GRAMMAR_VERBS = {
     "at": ("query", "positional read for trace rules"),
     "index": ("query", "same"),
     "parent": ("query", "path arithmetic"),
+    "kind": ("query", "a node's own kind; which kinds may stand where is the domain's"),
     "before": ("query", "trace ordering; which orderings MUST hold is the "
                "model's claim, generated from the semantic-model vocabulary "
                "once its actions declare fields — the named next build"),

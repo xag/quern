@@ -135,6 +135,28 @@ def test_a_node_read_again_after_a_write_is_the_node_as_written(stores):
         assert store.get("readings/b") is None
 
 
+def test_a_rule_reads_a_nodes_kind_and_payload_without_what_is_under_it(stores, monkeypatch):
+    """kind(p) is a node's own kind, '' for none; payload(), linked() and kind() read the node
+    alone, so a rule over thousands of leaves does not read their parent's branch at each."""
+    from quern.tree import Rule, run_rules
+    import quern.store as qs
+    quern, store = stores
+    for s in (quern, store):
+        s.set("lib", {"kind": "source", "payload": {"authority": "maker"}})
+        for i in range(30):
+            s.set(f"lib/c{i}", {"kind": "clause"})
+        s.rules = [Rule(name="a-clause-sits-in-a-source", kind="clause",
+                        expr="kind(parent(self)) == 'source' and payload(parent(self), 'authority', '') != ''")]
+    got = [{(r.node, r.ok) for r in run_rules(s, rules=["a-clause-sits-in-a-source"])} for s in (quern, store)]
+    assert got[0] == got[1] and len(got[0]) == 30 and all(ok for _, ok in got[0])
+    hydrated = []
+    real = qs.SqliteStore._hydrate_children
+    monkeypatch.setattr(qs.SqliteStore, "_hydrate_children",
+                        lambda self, path, depth: (hydrated.append(path), real(self, path, depth))[1])
+    run_rules(store, rules=["a-clause-sits-in-a-source"])
+    assert hydrated == []
+
+
 def test_find_parity(stores):
     quern, store = stores
     for kwargs in (

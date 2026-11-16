@@ -481,7 +481,7 @@ def payload_at(tree: Quern | TreeStore, path: str, field: str, default: Any = No
     exactly as `payload_matches` reads it, so `payload(self, 'state') == 'Proposed'`
     is false on a node that states nothing rather than an error, and
     `payload(self, 'owner', '') != ''` asks whether one is set."""
-    node = tree.get(path)
+    node = tree.get(path, depth=0)
     if node is None:
         return default
     return _walk_payload(node.payload, [s for s in str(field).split(".") if s], default)
@@ -593,11 +593,11 @@ def unsupported(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     Absence counts. A target that resolved yesterday and resolves to nothing today
     was deleted, and a node resting on a hole is in exactly the trouble this verb
     exists to name."""
-    node = tree.get(path)
+    node = tree.get(path, depth=0)
     if node is None:
         return []
     return sorted(t for t in node.links.get(rel, [])
-                  if tree.get(t) is None or is_superseded(tree, t))
+                  if tree.get(t, depth=0) is None or is_superseded(tree, t))
 
 
 def linked(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
@@ -611,11 +611,11 @@ def linked(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     what `rel` means is the domain's, and the core reads none of it. Targets that
     resolve to nothing are dropped, not raised — a dangling link is `unsupported`'s
     finding, and this verb answers what is actually there."""
-    node = tree.get(path)
+    node = tree.get(path, depth=0)
     if node is None:
         return []
     return sorted("/".join(_segs(t)) for t in node.links.get(rel, [])
-                  if tree.get(t) is not None)
+                  if tree.get(t, depth=0) is not None)
 
 
 def linked_current(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
@@ -670,10 +670,10 @@ def dangling(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     superseded target is a worked revision, a MISSING one is a broken record, and
     a link vocabulary like `contradicts` legitimately points at superseded nodes
     while never legitimately pointing at holes."""
-    node = tree.get(path)
+    node = tree.get(path, depth=0)
     if node is None:
         return []
-    return sorted(t for t in node.links.get(rel, []) if tree.get(t) is None)
+    return sorted(t for t in node.links.get(rel, []) if tree.get(t, depth=0) is None)
 
 
 def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
@@ -695,7 +695,7 @@ def superseded_paths(tree: Quern | TreeStore) -> list[str]:
     stale: set[str] = set()
     for _, n in tree.walk(""):
         stale.update(n.links.get(SUPERSEDES, []))
-    return sorted(p for p in stale if tree.get(p) is not None)
+    return sorted(p for p in stale if tree.get(p, depth=0) is not None)
 
 
 def _prose_words(value: Any) -> int:
@@ -721,7 +721,7 @@ def lineage(tree: Quern | TreeStore, path: str) -> list[str]:
     """What `path` was derived from: the union of its node-level `derived_from` link
     and the `derived_from` of every value it carries. The traversable half of
     provenance — walk it to find what a change upstream should invalidate."""
-    node = tree.get(path)
+    node = tree.get(path, depth=0)
     if node is None:
         return []
     refs = set(node.links.get(DERIVED_FROM, []))
@@ -1383,7 +1383,7 @@ def reckon(tree: Quern | TreeStore, results: Iterable[RuleResult],
     for r in results:
         if r.ok:
             continue
-        node = tree.get(r.node)
+        node = tree.get(r.node, depth=0)
         (carried if node is not None and r.rule in expectations(node) else news).append(r)
 
     # An expectation that no longer matches a red. Reported against the node so the
@@ -1393,7 +1393,7 @@ def reckon(tree: Quern | TreeStore, results: Iterable[RuleResult],
     # walk("") yields children and not the root, so the root is named separately - an
     # expectation there must go stale like any other, or the one note that can excuse a
     # global red would be the one note that never expires.
-    root = tree.get("")
+    root = tree.get("", depth=0)
     bearers = list(tree.walk("")) + ([("", root)] if root is not None else [])
     stale = [f"{path or '(root)'} expects {rule} to be RED and it is not - the note "
              f"excused a red that is gone, so withdraw it ({why})" if why else
@@ -1417,7 +1417,7 @@ def _rule_bindings(tree: Quern | TreeStore, rule: Rule, under: str):
     else:
         target = rule.path or ""
         if _within(target, under) or _within(under, target):
-            node = tree.get(target)
+            node = tree.get(target, depth=0)
             variables = ({k: q.value for k, q in node.params.items()}
                          if node is not None else {})
             variables["self"] = target
@@ -1510,6 +1510,10 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         "index": lambda p: child_index(tree, p),
         "at": lambda parent, i: child_at(tree, parent, i),
         "parent": lambda p: "/".join(_segs(p)[:-1]),
+        # a node's kind as it states it ('' for none or no node): `kind(parent(self)) ==
+        # 'source'` asks of one node what `some(s, nodes('source'), s == parent(self))`
+        # asked of every node of the kind, at each node the rule judges
+        "kind": lambda p: _kind_of(tree, p),
         # the payload read (#45) and text containment (#60): a value the domain
         # wrote, at a dotted path, and whether a fragment occurs in it
         "payload": lambda p, field, default=None: payload_at(tree, p, field, default),
@@ -1520,6 +1524,11 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         "abs": abs, "min": min, "max": max,
         "sum": lambda xs: sum(xs), "len": lambda xs: len(xs),
     }
+
+
+def _kind_of(tree: Quern | TreeStore, path: str) -> str:
+    node = tree.get(path, depth=0)
+    return node.kind if node is not None else ""
 
 
 def _param_of(tree: Quern | TreeStore, path: str, name: str) -> float:

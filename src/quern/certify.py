@@ -27,7 +27,7 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from .tree import Node, Quern, TreeStore, get_node, run_rules
+from .tree import Node, Quern, TreeStore, run_rules
 
 CRITERION = "criterion"
 LEVEL = "level"
@@ -77,7 +77,7 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
     nothing, are reds of the criterion itself, since a standard that names what does
     not judge the subject certifies nothing. A level whose `requires` names a path that
     is no criterion of this kind is blocked by it."""
-    subject = get_node(tree, path)
+    subject = tree.get(path, depth=0)
     if subject is None:
         raise ValueError(f"no node at '{path}'")
     kind = subject.kind

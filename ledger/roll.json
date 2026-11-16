@@ -280,6 +280,16 @@
     "digest": "a906a3c2859f"
   },
   {
+    "path": "a-verb-reads-only-what-it-answers-of",
+    "kind": "decision",
+    "digest": "7039a35af267"
+  },
+  {
+    "path": "a-verb-reads-only-what-it-answers-of/alt-memoise-nodes-in-rule-env",
+    "kind": "alternative",
+    "digest": "03ff4baf64d5"
+  },
+  {
     "path": "a-vocabulary-says-whole-sentences-per-language",
     "kind": "decision",
     "digest": "f8c380b8adaf"
