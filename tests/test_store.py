@@ -102,6 +102,16 @@ def test_a_walk_of_one_kind_gives_those_nodes_in_order_and_reads_no_other(stores
     assert read == ["programs/alpha", "programs/beta", "programs/gamma"]
 
 
+def test_a_param_keeps_the_grounding_it_was_given(stores):
+    """`grounded` stated against its label's default comes back as stated, from both stores."""
+    for store in stores:
+        store.set("readings/a", {"kind": "clause", "params": {
+            "found": {"value": 125.0, "unit": "mm", "provenance": "published", "grounded": True},
+            "doubted": {"value": 3.0, "unit": "mm", "provenance": "measured", "grounded": False}}})
+        got = store.get("readings/a").params
+        assert (got["found"].grounded, got["doubted"].grounded) == (True, False)
+
+
 def test_find_parity(stores):
     quern, store = stores
     for kwargs in (

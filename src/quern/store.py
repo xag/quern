@@ -374,7 +374,14 @@ def _payload_clauses(payload: dict[str, Any] | None,
 
 
 def _doc_of(node: Node) -> str:
-    return node.model_dump_json(exclude={"children"}, exclude_defaults=True)
+    """The node as its row keeps it: what differs from the defaults, and every param's `grounded`
+    as it stands. A Quantity read without `grounded` takes it from its provenance label, so a
+    value stated grounded under a label that is not (a published figure someone found printed)
+    would come back a guess if the default True were left out with the other defaults."""
+    doc = node.model_dump(mode="json", exclude={"children"}, exclude_defaults=True)
+    for name, q in node.params.items():
+        doc["params"][name]["grounded"] = q.grounded
+    return json.dumps(doc, ensure_ascii=False)
 
 
 def _node_of(path: str, doc: str) -> Node:
