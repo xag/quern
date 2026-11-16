@@ -2068,6 +2068,39 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-store-reads-a-shared-base-in-place",
+            kind="decision",
+            name="SqliteStore(path, base=...) reads another store's file beneath its own rows and never "
+                 "writes it: the base is attached read-only and immutable, reads go through views of the "
+                 "store's rows then the base's it neither rewrote nor deleted (a deleted base row is kept "
+                 "as gone), and writes name the store's own tables. It answers every verb as a copy of the "
+                 "base would, so trees that share what they are judged against open that one file and "
+                 "never copy it",
+            payload={
+                "decided_on": "2026-11-16",
+                "the_owner": "\"copy the knowledge file\" Where? On the client? If on the server, I hope we "
+                             "mutualize / leave it",
+                "why": "A consumer that judges many trees against the same large knowledge copied the whole "
+                       "store file for each, only to write a few nodes into it: disk, time and page cache per "
+                       "tree growing with the knowledge, not with what the tree changed. Over a base, a tree's "
+                       "own file holds what it set, and every process reads one file the system caches once.",
+                "measured": "2026-11-16, a bench's piece beside 7,559 nodes of knowledge (15 MB): the judgement "
+                            "is byte-identical; the first one takes 0.18 s for 0.36 s with the copy, later ones "
+                            "0.11 s both.",
+            },
+            links={"rests_on": ["a-node-read-is-changed-by-set-never-in-place"]},
+            children=[
+                Node(id="alt-copy-the-file", kind="alternative",
+                     name="Copy the store's file for each tree that writes into it",
+                     payload={"why": "What it was: each copy costs the whole knowledge for a few changed nodes."}),
+                Node(id="alt-an-overlay-in-python", kind="alternative",
+                     name="An overlay TreeStore in Python over two stores",
+                     payload={"why": "Every walk, find and backlink would merge two result sets by hand; SQLite's "
+                                     "views give the same answers through the queries the store already has."}),
+            ],
+        ),
+
+        Node(
             id="a-node-read-is-changed-by-set-never-in-place",
             kind="decision",
             name="A node a TreeStore gave is changed by `set()`, never by changing the object: SqliteStore "

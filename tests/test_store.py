@@ -54,12 +54,20 @@ def build(tree) -> None:
                     "note": "reopened once, then Opened again"}})
 
 
-@pytest.fixture()
-def stores(tmp_path):
+@pytest.fixture(params=["own file", "over a base"])
+def stores(request, tmp_path):
+    """The store holding the tree in its own file, and a store over a base file that holds it
+    (SqliteStore(base=...)), whose writes land in the store's own rows: each answers as the Quern."""
     quern = Quern()
     build(quern)
-    store = SqliteStore(tmp_path / "tree.db")
-    build(store)
+    if request.param == "own file":
+        store = SqliteStore(tmp_path / "tree.db")
+        build(store)
+    else:
+        base = SqliteStore(tmp_path / "base.db")
+        build(base)
+        base.close()
+        store = SqliteStore(":memory:", base=tmp_path / "base.db")
     yield quern, store
     store.close()
 
@@ -323,3 +331,25 @@ def test_a_wider_tree_stays_answerable(tmp_path):
     assert store.children("lines")[:2] == ["l0000", "l0001"]
     assert len(list(store.walk("lines"))) == 1501  # anchor + 1500
     store.close()
+
+
+def test_a_store_over_a_base_leaves_the_base_as_it_was_and_to_itself(tmp_path):
+    """Two stores over one base: each sees its own writes and deletions and not the other's,
+    and the base file is the same bytes after."""
+    base = SqliteStore(tmp_path / "base.db")
+    build(base)
+    base.close()
+    before = (tmp_path / "base.db").read_bytes()
+    one = SqliteStore(":memory:", base=tmp_path / "base.db")
+    two = SqliteStore(tmp_path / "two.db", base=tmp_path / "base.db")
+    one.set("rooms/kitchen/sink", {"params": {"width": {"value": 700, "unit": "mm"}}})
+    one.delete("parts")
+    two.set("rooms/hall", {"kind": "space"})
+    assert one.get("rooms/kitchen/sink").params["width"].value == 700
+    assert two.get("rooms/kitchen/sink").params["width"].value == 600
+    assert one.get("parts/bolt") is None and two.get("parts/bolt") is not None
+    assert one.backlinks("uses", "parts/bolt") == two.backlinks("uses", "parts/bolt") == ["assembly/line1"]
+    assert one.get("rooms/hall") is None and two.children("rooms") == ["kitchen", "hall"]
+    one.close()
+    two.close()
+    assert (tmp_path / "base.db").read_bytes() == before

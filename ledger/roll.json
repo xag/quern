@@ -280,6 +280,21 @@
     "digest": "a906a3c2859f"
   },
   {
+    "path": "a-store-reads-a-shared-base-in-place",
+    "kind": "decision",
+    "digest": "0d53193a3c8e"
+  },
+  {
+    "path": "a-store-reads-a-shared-base-in-place/alt-an-overlay-in-python",
+    "kind": "alternative",
+    "digest": "0c4cfc74eee6"
+  },
+  {
+    "path": "a-store-reads-a-shared-base-in-place/alt-copy-the-file",
+    "kind": "alternative",
+    "digest": "c253282692d9"
+  },
+  {
     "path": "a-verb-reads-only-what-it-answers-of",
     "kind": "decision",
     "digest": "7039a35af267"

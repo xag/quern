@@ -76,20 +76,54 @@ CREATE TABLE IF NOT EXISTS semantics (
     id  INTEGER PRIMARY KEY CHECK (id = 1),
     doc TEXT NOT NULL          -- vocabulary/rules/solvers/packages, one document
 );
+CREATE TABLE IF NOT EXISTS gone (
+    path TEXT PRIMARY KEY      -- a base's row this store deleted (SqliteStore(base=...))
+);
+"""
+
+# Over a base, the names the reads use are views: the store's own rows, then the base's rows
+# it neither rewrote nor deleted. Writes name main.nodes and main.links, so without a base
+# they reach the same tables the reads do.
+_LAYERED = """
+CREATE TEMP VIEW nodes AS
+    SELECT path, parent, pos, okey, kind, doc FROM main.nodes
+    UNION ALL
+    SELECT path, parent, pos, okey, kind, doc FROM base.nodes AS b
+    WHERE NOT EXISTS (SELECT 1 FROM main.nodes AS m WHERE m.path = b.path)
+      AND NOT EXISTS (SELECT 1 FROM main.gone AS g WHERE g.path = b.path);
+CREATE TEMP VIEW links AS
+    SELECT src, name, target FROM main.links
+    UNION ALL
+    SELECT src, name, target FROM base.links AS b
+    WHERE NOT EXISTS (SELECT 1 FROM main.nodes AS m WHERE m.path = b.src)
+      AND NOT EXISTS (SELECT 1 FROM main.gone AS g WHERE g.path = b.src);
 """
 
 
 class SqliteStore:
     """A `TreeStore` backed by one SQLite file. Open it where the tree lives;
-    pass it wherever a `Quern` goes."""
+    pass it wherever a `Quern` goes.
 
-    def __init__(self, path: Path | str) -> None:
-        self._db = sqlite3.connect(str(path))
+    `base` is another store's file this one reads beneath its own rows and never writes:
+    the store answers as a copy of the base would, with what was set and deleted in it,
+    while the base is read in place, by any number of stores at once (opened read-only and
+    immutable, so it must not change while they are open). A store's own file then holds
+    only what it changed, and ":memory:" keeps that in the process."""
+
+    def __init__(self, path: Path | str, base: Path | str | None = None) -> None:
+        self._db = sqlite3.connect(str(path), uri=True)
         self._read: OrderedDict[str, Node | None] = OrderedDict()   # rows last read, parsed
         self._db.executescript(_SCHEMA)
         self._db.execute("PRAGMA journal_mode=WAL")
         self._db.execute("PRAGMA foreign_keys=ON")
-        row = self._db.execute("SELECT doc FROM semantics WHERE id=1").fetchone()
+        self._base = base is not None
+        if self._base:
+            self._db.execute("ATTACH DATABASE ? AS base",
+                             (Path(base).resolve().as_uri() + "?mode=ro&immutable=1",))
+            self._db.executescript(_LAYERED)
+        row = self._db.execute("SELECT doc FROM main.semantics WHERE id=1").fetchone()
+        if row is None and self._base:
+            row = self._db.execute("SELECT doc FROM base.semantics WHERE id=1").fetchone()
         doc = json.loads(row[0]) if row else {}
         self.vocabulary: list[KindDef] = [
             KindDef.model_validate(k) for k in doc.get("vocabulary", [])]
@@ -113,7 +147,7 @@ class SqliteStore:
         })
         with self._db:
             self._db.execute(
-                "INSERT INTO semantics (id, doc) VALUES (1, ?) "
+                "INSERT INTO main.semantics (id, doc) VALUES (1, ?) "
                 "ON CONFLICT (id) DO UPDATE SET doc=excluded.doc", (doc,))
 
     # --- the TreeStore protocol ---------------------------------------------
@@ -184,8 +218,11 @@ class SqliteStore:
         self._read.clear()
         with self._db:
             self._delete_range(anchor)
-            self._db.execute("DELETE FROM nodes WHERE path=?", (anchor,))
-            self._db.execute("DELETE FROM links WHERE src=?", (anchor,))
+            self._db.execute("DELETE FROM main.nodes WHERE path=?", (anchor,))
+            self._db.execute("DELETE FROM main.links WHERE src=?", (anchor,))
+            if self._base:
+                self._db.execute("INSERT OR IGNORE INTO main.gone (path) "
+                                 "SELECT path FROM base.nodes WHERE path=?", (anchor,))
         return node
 
     def walk(self, under: str = "", kind: str | None = None) -> Iterator[tuple[str, Node]]:
@@ -360,7 +397,7 @@ class SqliteStore:
         if pos is None:
             pos = self._next_pos(parent)
         self._db.execute(
-            "INSERT INTO nodes (path, parent, pos, okey, kind, doc) "
+            "INSERT INTO main.nodes (path, parent, pos, okey, kind, doc) "
             "VALUES (?, ?, ?, ?, ?, ?)",
             (path, parent, pos, self._okey(parent, pos), node.kind, _doc_of(node)))
         self._write_links(path, node)
@@ -369,15 +406,18 @@ class SqliteStore:
                 self._insert(path, child, pos=cpos)
 
     def _write_row(self, path: str, node: Node) -> None:
+        # A base's row is rewritten as a row of the store's own, in the same place.
         self._db.execute(
-            "UPDATE nodes SET kind=?, doc=? WHERE path=?",
+            "INSERT INTO main.nodes (path, parent, pos, okey, kind, doc) "
+            "SELECT path, parent, pos, okey, ?, ? FROM nodes WHERE path=? "
+            "ON CONFLICT (path) DO UPDATE SET kind=excluded.kind, doc=excluded.doc",
             (node.kind, _doc_of(node), path))
         self._write_links(path, node)
 
     def _write_links(self, path: str, node: Node) -> None:
-        self._db.execute("DELETE FROM links WHERE src=?", (path,))
+        self._db.execute("DELETE FROM main.links WHERE src=?", (path,))
         self._db.executemany(
-            "INSERT INTO links (src, name, target) VALUES (?, ?, ?)",
+            "INSERT INTO main.links (src, name, target) VALUES (?, ?, ?)",
             [(path, name, "/".join(_segs(t)))
              for name, targets in node.links.items() for t in targets])
 
@@ -385,9 +425,12 @@ class SqliteStore:
         """Drop every row strictly under `anchor` (not the anchor itself)."""
         lo, hi = anchor + "/", anchor + _AFTER_SLASH
         self._db.execute(
-            "DELETE FROM links WHERE src >= ? AND src < ?", (lo, hi))
+            "DELETE FROM main.links WHERE src >= ? AND src < ?", (lo, hi))
         self._db.execute(
-            "DELETE FROM nodes WHERE path >= ? AND path < ?", (lo, hi))
+            "DELETE FROM main.nodes WHERE path >= ? AND path < ?", (lo, hi))
+        if self._base:
+            self._db.execute("INSERT OR IGNORE INTO main.gone (path) "
+                             "SELECT path FROM base.nodes WHERE path >= ? AND path < ?", (lo, hi))
 
 
 def _payload_clauses(payload: dict[str, Any] | None,
