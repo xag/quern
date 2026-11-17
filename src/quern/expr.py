@@ -38,6 +38,10 @@ like `self`. `some(x, i, xs, cond)` and `every(x, i, xs, cond)` also bind `i` to
 element's position, from 0 (#66: a payload list's order can be the only record of which
 entry came last). `let(name, value, body)` evaluates `value` once and binds it in `body`
 (#65: a condition a rule states over several pairs is written once, not pasted per pair).
+`where(x, xs, cond)` is the list of the elements of `xs` for which `cond` holds: a rule that
+judges only some of a node's links (`every(c, where(c, linked(self, 'uses'), kind(c) ==
+'connector'), ...)`) quantifies over those, since `and` and `or` evaluate both sides and a
+guard written with them still reads what the others lack.
 
 `and` and `or` evaluate BOTH sides, as this grammar always has. Short-circuiting
 would change what existing rules answer — an expression whose right half raises
@@ -211,13 +215,13 @@ _COMPARE = {"<": lambda a, b: a < b, "<=": lambda a, b: a <= b,
 
 
 # The binding forms. Evaluated by the grammar, never looked up in an environment.
-_BINDERS = {"some": any, "every": all, "let": None}
+_BINDERS = {"some": any, "every": all, "where": None, "let": None}
 
 
 def _bound_names(term: Call) -> tuple[list[str], Any, Any]:
     """`(names, source, body)` of a binding form, or ValueError naming its shape.
 
-    `some`/`every` take `(x, xs, cond)` or `(x, i, xs, cond)`, the second binding the
+    `some`/`every`/`where` take `(x, xs, cond)` or `(x, i, xs, cond)`, the second binding the
     element's position in the list from 0 (#66: a list's order can be the only record of
     which entry came last). `let` takes `(name, value, body)` (#65)."""
     args = term.args
@@ -252,7 +256,10 @@ def _bind(term: Call, env: dict[str, Any], variables: dict[str, Any],
     # answer would turn green a rule whose later elements raise.
     held = [bool(_run(body, env, {**variables, **dict(zip(names, (item, i)))}, reads))
             for i, item in enumerate(items)]
-    value = _BINDERS[term.fn](held)
+    if term.fn == "where":
+        value = [item for item, h in zip(items, held) if h]
+    else:
+        value = _BINDERS[term.fn](held)
     if reads is not None:
         reads.append(Read(call=term.fn, args=[names[0], list(items)], value=value))
     return value

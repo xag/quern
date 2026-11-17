@@ -220,6 +220,26 @@
     "digest": "7dd3b4734942"
   },
   {
+    "path": "a-rule-quantifies-over-the-elements-a-condition-keeps",
+    "kind": "decision",
+    "digest": "f6c3ca6b7d2f"
+  },
+  {
+    "path": "a-rule-quantifies-over-the-elements-a-condition-keeps/alt-a-kind-filter-verb",
+    "kind": "alternative",
+    "digest": "dc0bd304598f"
+  },
+  {
+    "path": "a-rule-quantifies-over-the-elements-a-condition-keeps/alt-short-circuit-or",
+    "kind": "alternative",
+    "digest": "8e93956a6873"
+  },
+  {
+    "path": "a-rule-quantifies-over-the-elements-a-condition-keeps/alt-the-rule-on-the-connector",
+    "kind": "alternative",
+    "digest": "bf3b4a8b9e11"
+  },
+  {
     "path": "a-rule-reads-the-payload",
     "kind": "decision",
     "digest": "24bb64dbb3e6"
@@ -340,6 +360,21 @@
     "digest": "163e8e790a60"
   },
   {
+    "path": "an-installed-package-requires-a-registry-package-by-its-pin",
+    "kind": "decision",
+    "digest": "4b344e18caf2"
+  },
+  {
+    "path": "an-installed-package-requires-a-registry-package-by-its-pin/alt-a-copy-in-the-package",
+    "kind": "alternative",
+    "digest": "2581ee8ce048"
+  },
+  {
+    "path": "an-installed-package-requires-a-registry-package-by-its-pin/alt-consume-from-the-installed-package",
+    "kind": "alternative",
+    "digest": "8067b5e14176"
+  },
+  {
     "path": "certification-is-authored-beside-its-reader",
     "kind": "decision",
     "digest": "91a4a67f2e6e"
@@ -358,6 +393,16 @@
     "path": "certification-is-authored-beside-its-reader/alt-the-ledger-repo",
     "kind": "alternative",
     "digest": "85cf62a0f576"
+  },
+  {
+    "path": "certification-travels-the-registry-like-grounding",
+    "kind": "decision",
+    "digest": "f0f414b824ba"
+  },
+  {
+    "path": "certification-travels-the-registry-like-grounding/alt-authored-in-quern",
+    "kind": "alternative",
+    "digest": "cd0ba4ede51a"
   },
   {
     "path": "every-checkable-claim-ships-with-its-proof",

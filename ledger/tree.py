@@ -1469,6 +1469,47 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-rule-quantifies-over-the-elements-a-condition-keeps",
+            kind="decision",
+            name="`where(x, xs, cond)` is the list of the elements of `xs` for which `cond` "
+                 "holds, a binding form like `some` and `every`: a rule that judges only some "
+                 "of a node's links quantifies over those",
+            links={"rests_on": ["a-rule-binds-a-list-element",
+                                "the-grammar-is-an-object-not-a-private-parser"]},
+            payload={
+                "decided_on": "2026-11-17",
+                "the_owner": "Now fix the identified issues",
+                "why":
+                    "furniture-design's rules on a joint's seat read a connector's limits "
+                    "through the joint's `uses`; a joint held by screws names a material "
+                    "there, which states none of them, and came out absent, so a screwed "
+                    "piece was non-compliant. A guard written with `or` cannot pass such a "
+                    "joint over, because both sides are evaluated and the side it guards "
+                    "reads what the screws lack. Quantifying over the links the condition "
+                    "keeps reads nothing of the others, and changes no answer an existing "
+                    "rule gives.",
+            },
+            children=[
+                Node(id="alt-short-circuit-or", kind="alternative",
+                     name="Make `or` short-circuit, so the guard stops the read",
+                     payload={"why":
+                              "Refused by the-grammar-is-an-object-not-a-private-parser: it "
+                              "would turn green every rule whose right half raises today."}),
+                Node(id="alt-a-kind-filter-verb", kind="alternative",
+                     name="A verb keeping the paths of one kind, `of_kind(paths, kind)`",
+                     payload={"why":
+                              "One fact only; a binding filters by any condition the grammar "
+                              "can state, the way `some` and `every` already do."}),
+                Node(id="alt-the-rule-on-the-connector", kind="alternative",
+                     name="Judge from the connector, over the joints that link it "
+                          "(`backlinked`)",
+                     payload={"why":
+                              "The red would name the connector, not the joint the person "
+                              "has to change."}),
+            ],
+        ),
+
+        Node(
             id="a-rule-reads-the-payload",
             kind="decision",
             name="The grammar reads a node's payload at a dotted path and asks whether a "
