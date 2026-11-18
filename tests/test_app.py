@@ -90,6 +90,10 @@ def test_dispatch_covers_the_app_surface(tmp_path):
 
     got = _dispatch(mcp, "tree_get", {"path": "a", "depth": 1})["structuredContent"]
     assert got["name"] == "Alpha"
+    # one level: the children by id, kind and name, to open each by its path
+    level = _dispatch(mcp, "tree_get", {"path": "a", "depth": 0})["structuredContent"]
+    assert [c["id"] for c in level["children"]] == ["b"]
+    assert all(set(c) <= {"id", "kind", "name"} for c in level["children"])
 
     hits = _dispatch(mcp, "tree_find", {"query": "beta"})["structuredContent"]
     assert [h["path"] for h in hits["matches"]] == ["a/b"]

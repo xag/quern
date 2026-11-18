@@ -709,12 +709,16 @@ def _prose_words(value: Any) -> int:
 
 
 def said_words(tree: Quern | TreeStore, path: str) -> int:
-    """Words in what the subtree at `path` says: names and payload prose, the node
-    and everything beneath it. This is the size a reader pays — a person or a model
-    context — for one entry and its whole argument, which is why a vocabulary may
-    budget it with a rule. Structural: the core counts words and reads none of them."""
-    return sum(len((n.name or "").split()) + _prose_words(n.payload)
-               for _, n in tree.walk(path))
+    """Words one read of `path` shows: its name and payload prose, and the name of
+    each child. A reader - a person or a model context - opens a tree one level at a
+    time and a child by its path, so this is what a vocabulary's budget rule prices:
+    each node's read on its own, never a subtree at once. Structural: the core counts
+    words and reads none of them."""
+    node = tree.get(path, depth=1)
+    if node is None:
+        return 0
+    return (len((node.name or "").split()) + _prose_words(node.payload)
+            + sum(len((c.name or "").split()) for c in node.children))
 
 
 def lineage(tree: Quern | TreeStore, path: str) -> list[str]:

@@ -936,7 +936,10 @@ def slice_at(ws: "Workspace", path: str = "",
 def _prune(data: dict[str, Any], depth: int) -> None:
     kids = data.get("children") or []
     if depth <= 0 and kids:
-        data["children"] = f"({len(kids)} children — raise depth or address them by path)"
+        # the next level by kind and name: what a reader needs to choose a child to
+        # open by its path, and what `said_words` counts of it
+        data["children"] = [{k: c[k] for k in ("id", "kind", "name") if k in c}
+                            for c in kids]
         return
     for c in kids:
         _prune(c, depth - 1)

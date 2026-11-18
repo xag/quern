@@ -30,11 +30,12 @@ def ledger() -> Quern:
     return tree
 
 
-def test_said_words_counts_the_whole_subtree():
+def test_said_words_counts_one_read():
     tree = ledger()
     own = said_words(tree, "cache-the-parse/alt-per-request")  # name + payload.why
     assert own == 4 + 4
-    assert said_words(tree, "cache-the-parse") == own + 7  # + the parent's name
+    # the parent's name and its child's name; the child's why is the child's own read
+    assert said_words(tree, "cache-the-parse") == 7 + 4
 
 
 def test_a_superseded_entry_costs_a_count_not_its_prose():
