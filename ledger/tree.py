@@ -591,6 +591,7 @@ def build() -> Quern:
         Node(
             id="the-working-set-is-computed",
             kind="decision",
+            meta={"amended": "e3f6e7facd56 the owner had the sentence on said_words removed: it described the code, and was false once said_words counted one read"},
             name="Reading a ledger costs one line per current claim: the brief drops "
                  "what is superseded, and the tree keeps it",
             payload={
@@ -604,10 +605,7 @@ def build() -> Quern:
                     "tree_get, then source. The same seam serves the navigator: "
                     "tree_get now carries the reverse link index (`linked_from`) and "
                     "the not-current set, so every relation is navigable both ways "
-                    "and the stale is dimmed, with the viewer still vocabulary-blind. "
-                    "`said_words` prices a subtree in the rule language, so a "
-                    "vocabulary can put a budget where the decay actually happens: "
-                    "not lying, growing.",
+                    "and the stale is dimmed, with the viewer still vocabulary-blind.",
             },
             children=[
                 Node(id="alt-summarize-with-a-model", kind="alternative",

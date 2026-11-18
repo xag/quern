@@ -832,7 +832,7 @@
   {
     "path": "the-working-set-is-computed",
     "kind": "decision",
-    "digest": "b8ccd94c8145"
+    "digest": "e3f6e7facd56"
   },
   {
     "path": "the-working-set-is-computed/alt-keep-ledgers-small-by-writing-less",
