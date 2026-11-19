@@ -22,6 +22,7 @@ bill without changing a call site.
 
 from __future__ import annotations
 
+import sys
 from typing import Any, Iterable, Iterator, Literal, Protocol
 
 from pydantic import BaseModel, Field, model_validator
@@ -139,6 +140,16 @@ class KindDef(BaseModel):
     its digest.
 
     `messages` is what the kind says to a person, per language: see `Messages`.
+
+    `refs` says which payload fields hold the name of another node: a dotted path in
+    the payload, read as `payload()` reads it (a segment that meets a list is applied
+    to each element), mapped to the branch the name is found under -
+    `{"citations.source": "sources"}` reads `citations[i].source == "smith-2020"` as
+    the node `sources/smith-2020`, and `""` takes the value as a whole path. A tree
+    that refers to nodes from its payload states which fields do so here, rather than
+    have a reader guess from a string that happens to match an id. The navigator shows
+    such a value as the node it names; `quern owed` implies the rule that it names one.
+    None rather than an empty dict for the digest reason given for `convention`.
     """
 
     kind: str
@@ -149,6 +160,7 @@ class KindDef(BaseModel):
     convention: bool | None = None
     section: bool | None = None
     messages: Messages | None = None
+    refs: dict[str, str] | None = None
 
 
 class Rule(BaseModel):
@@ -532,7 +544,7 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
                payload: dict[str, Any] | None = None,
-               limit: int = 20) -> list[tuple[str, Node]]:
+               limit: int = 20, where: str | None = None) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
     given filter. `query` is a case-insensitive substring over a node's prose — id,
     name, kind, meta values, the strings in its payload and the sources its params
@@ -543,10 +555,36 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
     `current_only` drops nodes some other node supersedes — the "what do we hold
     now?" query. Purely structural — the search knows no more about kinds than the
     tree does; the payload is searched as text by `query` and compared as values by
-    `payload`, and interpreted by neither."""
-    return tree.find(query=query, kind=kind, has_param=has_param,
-                     links_to=links_to, under=under, current_only=current_only,
-                     payload=payload, limit=limit)
+    `payload`, and interpreted by neither.
+
+    `where` is a condition in the rule grammar, evaluated on each node the other
+    filters keep with `self` bound to its path, as a rule bound to a kind is (#75): the
+    nodes it holds for are kept. It asks a structural question of the nodes ("which
+    have no deadline", "which cite two sources of different standing") without writing
+    a rule and reading its failures among every other red. A node the condition reads
+    something absent on is not kept, as a rule on it would be absent; a condition that
+    does not parse, or fails for another reason, raises ValueError naming the node."""
+    if where is None:
+        return tree.find(query=query, kind=kind, has_param=has_param,
+                         links_to=links_to, under=under, current_only=current_only,
+                         payload=payload, limit=limit)
+    expr = compile_expr(where)
+    env = rule_env(tree)
+    out: list[tuple[str, Node]] = []
+    for p, n in tree.find(query=query, kind=kind, has_param=has_param,
+                          links_to=links_to, under=under, current_only=current_only,
+                          payload=payload, limit=sys.maxsize):
+        try:
+            held = bool(expr.evaluate(env, {"self": p}))
+        except Absent:
+            continue
+        except Exception as e:
+            raise ValueError(f"where: {e} (at '{p}')") from e
+        if held:
+            out.append((p, n))
+            if len(out) >= limit:
+                break
+    return out
 
 
 # --- the reserved structural verbs: supersession, lineage and reuse -------------
@@ -674,6 +712,43 @@ def dangling(tree: Quern | TreeStore, path: str, rel: str) -> list[str]:
     if node is None:
         return []
     return sorted(t for t in node.links.get(rel, []) if tree.get(t, depth=0) is None)
+
+
+def ref_targets(node: Node, field: str, under: str) -> list[str]:
+    """The paths a node's payload names at `field`, each found under `under`: the
+    string values at that dotted path, as `payload()` reads them, joined to the branch.
+    A value that is not a non-empty string names nothing and is skipped."""
+    got = _walk_payload(node.payload, [s for s in str(field).split(".") if s], None)
+    values = got if isinstance(got, list) else [got]
+    return ["/".join(_segs(under) + _segs(v)) for v in values
+            if isinstance(v, str) and _segs(v)]
+
+
+def payload_refs(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
+    """The nodes a node names from its payload, by field, as its kind's `refs`
+    declares them - whether or not they exist. Empty for a node whose kind declares
+    none, so nothing that merely looks like an id is ever read as one."""
+    node = tree.get(path, depth=0)
+    if node is None or not node.kind:
+        return {}
+    kd = next((k for k in tree.vocabulary if k.kind == node.kind), None)
+    out: dict[str, list[str]] = {}
+    for field, under in ((kd.refs or {}) if kd is not None else {}).items():
+        targets = ref_targets(node, field, under)
+        if targets:
+            out[field] = targets
+    return out
+
+
+def dangling_ref(tree: Quern | TreeStore, path: str, field: str, under: str) -> list[str]:
+    """The paths a node's payload names at `field` under `under` that resolve to
+    nothing - the floor predicate a declared payload reference implies, as `dangling`
+    is a declared link's. The branch is an argument, not read off the vocabulary, so a
+    rule's verdict depends on the node and the targets it names and nothing else."""
+    node = tree.get(path, depth=0)
+    if node is None:
+        return []
+    return sorted(t for t in ref_targets(node, field, under) if tree.get(t, depth=0) is None)
 
 
 def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
@@ -1499,6 +1574,8 @@ def rule_env(tree: Quern | TreeStore, context: dict[str, Any] | None = None,
         # generated rule can carry without guessing at meaning
         "states": lambda p, name: states(tree, p, name),
         "dangling": lambda p, rel: float(len(dangling(tree, p, rel))),
+        # ...and the same holes in a payload field a kind declares names nodes (`refs`)
+        "dangling_ref": lambda p, field, under: float(len(dangling_ref(tree, p, field, under))),
         # the cost verb: how many words a subtree makes every reader pay. A budget
         # rule (`said_words(self) <= N`) is the one mechanical brake on the way
         # ledgers actually decay - not by lying, by growing.

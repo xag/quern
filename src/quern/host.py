@@ -312,7 +312,7 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
                   has_param: str | None = None, links_to: str | None = None,
                   under: str = "", current_only: bool = False,
                   payload: dict[str, Any] | None = None,
-                  limit: int = 20,
+                  limit: int = 20, where: str | None = None,
             ctx: Context | None = None) -> dict[str, Any]:
         """Search the Quern instead of walking it — when the user names an element,
         locate it in one call. `query` is a case-insensitive substring over a
@@ -325,15 +325,21 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
         several — which is how you scope by state without a substring also
         matching the word in a description; `under` scopes to a branch;
         `current_only` drops nodes another node supersedes (the "what do we hold
-        now?" query). Returns paths + a one-line summary each; then tree_get the
-        one you meant. Purely structural."""
+        now?" query); `where` is a condition in the rule grammar, with `self` the
+        node it is asked of — `kind == 'state'` nodes where
+        `len(linked(self, 'deadline')) == 0` — keeping the nodes it holds for,
+        read-only, without writing a rule. Returns paths + a one-line summary each;
+        then tree_get the one you meant. Purely structural."""
         ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
-        hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
-                                  has_param=has_param, links_to=links_to,
-                                  under=under, current_only=current_only,
-                                  payload=payload, limit=limit)
+        try:
+            hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
+                                      has_param=has_param, links_to=links_to,
+                                      under=under, current_only=current_only,
+                                      payload=payload, limit=limit, where=where)
+        except ValueError as e:
+            return {"error": str(e)}
         return {"matches": [
             {"path": p, "kind": n.kind or None, "name": n.name or None,
              "shape": (n.payload.get("shape") or {}).get("op"),
@@ -924,6 +930,12 @@ def slice_at(ws: "Workspace", path: str = "",
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
+    # The nodes the slice's payloads name, where a kind declares the field names one
+    # (KindDef.refs): each target's name and kind, or None where it is missing, so a
+    # viewer shows a reference as what it points at without a read per value.
+    named = _ref_targets(composed, path, depth)
+    if named:
+        data["refs"] = named
     # Whether this node can be written here, asked of the workspace's own guard, so a
     # viewer offers no edit it would refuse. A guard refuses with PermissionError.
     try:
@@ -931,6 +943,28 @@ def slice_at(ws: "Workspace", path: str = "",
     except PermissionError:
         data["writable"] = False
     return data
+
+
+def _ref_targets(tree: Any, path: str, depth: int | None) -> dict[str, Any]:
+    """Every target a declared payload reference names in the slice at `path`, down to
+    the depth whose payloads the slice carries, with that node's name and kind."""
+    out: dict[str, Any] = {}
+    declared = {k.kind: k.refs for k in tree.vocabulary if k.refs}
+    if not declared:
+        return out
+    reach = depth
+    anchor = "/".join(s for s in path.split("/") if s)
+    for p, node in tree.walk(path):
+        rel = p[len(anchor):].lstrip("/") if anchor else p
+        if reach is not None and len([s for s in rel.split("/") if s]) > reach:
+            continue
+        for field, under in declared.get(node.kind, {}).items():
+            for t in treemod.ref_targets(node, field, under):
+                if t not in out:
+                    n = tree.get(t, depth=0)
+                    out[t] = None if n is None else {"name": n.name or None,
+                                                     "kind": n.kind or None}
+    return out
 
 
 def _prune(data: dict[str, Any], depth: int) -> None:

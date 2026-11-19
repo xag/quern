@@ -1508,6 +1508,76 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-kind-declares-the-payload-fields-that-name-nodes",
+            kind="decision",
+            name="A kind's `refs` maps a payload field (a dotted path, read as `payload()` "
+                 "reads it) to the branch its value names a node under; the navigator shows "
+                 "such a value as that node, and `quern owed` implies `dangling_ref(self, "
+                 "field, branch) == 0` for it (#72)",
+            links={"rests_on": ["the-navigator-is-vocabulary-blind",
+                                "the-obvious-predicates-are-computed-never-remembered"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Address the new quern issues",
+                "why":
+                    "Trees refer to nodes from the payload as well as through links: a "
+                    "citation's `source` is the id of a node under `sources/`. A reader "
+                    "saw the id as typed and searched for each one. The declaration sits "
+                    "on the kind beside its `links`, so the navigator reads it the way it "
+                    "reads any kind's declarations and still knows no vocabulary. The "
+                    "slice carries each named node's name and kind, or null where it is "
+                    "missing. The rule takes the branch as an argument and never reads the "
+                    "vocabulary, so a kept verdict depends on the node and the nodes it "
+                    "names, not on the whole tree.",
+            },
+            children=[
+                Node(id="alt-link-any-string-that-matches-an-id", kind="alternative",
+                     name="Show as a link any payload string that matches an existing id",
+                     payload={"why":
+                              "Short or common ids would be linked where nothing was meant, "
+                              "and a missing target could never be told from plain text."}),
+                Node(id="alt-dangling-reads-the-vocabulary", kind="alternative",
+                     name="Let `dangling(self, name)` also check a field the kind declares "
+                          "under `refs`",
+                     payload={"why":
+                              "The verb would read the vocabulary, which the verdict cache "
+                              "counts as reading the whole tree, so every generated "
+                              "dangling rule would be judged again after any write."}),
+            ],
+        ),
+
+        Node(
+            id="a-search-keeps-the-nodes-a-condition-holds-for",
+            kind="decision",
+            name="`tree_find(where=...)` keeps the nodes a condition in the rule grammar "
+                 "holds for, `self` bound to each, read-only; a node it reads something "
+                 "absent on is not kept, and a condition that fails otherwise is an error "
+                 "(#75)",
+            links={"rests_on": ["the-grammar-is-an-object-not-a-private-parser",
+                                "the-host-can-be-asked-one-question"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Address the new quern issues",
+                "why":
+                    "The questions a reader brings to a tree are structural (which state "
+                    "has no deadline, which claim cites sources that disagree), and the "
+                    "only way to ask one was to write a rule and read its failures among "
+                    "every other red. The condition is a rule's expression evaluated the "
+                    "way a kind rule is, so it says nothing a rule could not, and the "
+                    "other filters narrow the nodes it is asked of. The limit counts kept "
+                    "nodes.",
+            },
+            children=[
+                Node(id="alt-a-saved-view-kind", kind="alternative",
+                     name="Save a condition in the tree as a named view",
+                     payload={"why":
+                              "It needs a kind quern would define for every tree, and no "
+                              "reader has asked to keep one yet; the condition is a "
+                              "string the caller can keep."}),
+            ],
+        ),
+
+        Node(
             id="a-rule-reads-the-payload",
             kind="decision",
             name="The grammar reads a node's payload at a dotted path and asks whether a "

@@ -39,6 +39,7 @@ becomes an AST walk.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 from .tree import KindDef, Node, Rule
 
@@ -50,6 +51,8 @@ KINDDEF_FIELDS_MAPPED = {
     "params": "presence predicates (states) + the sharpening the hint describes",
     "links": "resolution predicates (dangling == 0) + the meaning the hint "
              "describes",
+    "refs": "resolution predicates over a payload field that names nodes "
+            "(dangling_ref == 0)",
 }
 KINDDEF_FIELDS_EXEMPT = {
     "kind": "the scope itself — every cell is keyed by it",
@@ -78,11 +81,14 @@ GRAMMAR_VERBS = {
     # verb -> (disposition, why)
     "states": ("floor", "presence of a declared param — emitted per owed cell"),
     "dangling": ("floor", "no holes in a declared link — emitted per owed cell"),
+    "dangling_ref": ("floor", "no holes in a declared payload reference — emitted per "
+                     "owed cell"),
     "param": ("sharpening", "reads the value; any assertion about it (a range, "
               "a bound) is the meaning the hint describes — the domain's"),
     "params_of": ("sharpening", "the aggregate read; same reason as param"),
-    "payload": ("sharpening", "reads a value the domain wrote; a vocabulary declares "
-                "no payload fields, so no declaration implies a floor over one"),
+    "payload": ("sharpening", "reads a value the domain wrote; the one floor a "
+                "vocabulary implies over a payload field (a declared ref names a "
+                "node) is dangling_ref's"),
     "linked": ("query", "returns paths and asserts nothing; assertions over it "
                "encode what the link MEANS, which is the domain's"),
     "linked_current": ("query", "same — currency-filtered traversal"),
@@ -134,7 +140,7 @@ GRAMMAR_VERBS = {
 class Cell:
     """One implied predicate: a kind's declared param or link, and who covers it."""
     kind: str
-    subject: str                       # "param:<name>" or "link:<name>"
+    subject: str                       # "param:<name>", "link:<name>" or "ref:<field>"
     hint: str                          # the declaration's own prose
     covered_by: list[str] = field(default_factory=list)
 
@@ -166,6 +172,10 @@ def matrix(vocabulary: list[KindDef], rules: list[Rule]) -> list[Cell]:
         for l, hint in (kd.links or {}).items():
             cells.append(Cell(kd.kind, f"link:{l}", hint,
                               [r.name for r in in_scope if _mentions(r, l)]))
+        for f, under in (kd.refs or {}).items():
+            cells.append(Cell(kd.kind, f"ref:{f}", f"names a node under '{under}/'"
+                              if under else "names a node by its path",
+                              [r.name for r in in_scope if _mentions(r, f)]))
     return cells
 
 
@@ -194,6 +204,24 @@ def floor(vocabulary: list[KindDef], rules: list[Rule]
             refuters.append((rule.name, Node(
                 id=f"a-{c.kind}-missing-{name.replace('_', '-')}", kind=c.kind,
                 name=f"a {c.kind} that never states its {name}")))
+        elif what == "ref":
+            under = next(kd.refs[name] for kd in vocabulary if kd.kind == c.kind)
+            slug = name.replace('_', '-').replace('.', '-')
+            rule = Rule(
+                name=f"a-{c.kind}-{slug}-names-a-node",
+                kind=c.kind, expr=f"dangling_ref(self, '{name}', '{under}') == 0",
+                description=f"generated floor: the vocabulary declares that "
+                            f"'{name}' ({c.hint}) — a value that names no node is a "
+                            "broken record; what the reference MEANS is the "
+                            "domain's to state, superseding this rule")
+            field_, _, leaf = name.rpartition(".")
+            value: Any = {leaf: "nowhere-that-exists"}
+            for seg in reversed([s for s in field_.split(".") if s]):
+                value = {seg: value}
+            refuters.append((rule.name, Node(
+                id=f"a-{c.kind}-with-a-dangling-{slug}", kind=c.kind,
+                name=f"a {c.kind} whose {name} names no node",
+                payload=value)))
         else:
             rule = Rule(
                 name=f"a-{c.kind}-{name.replace('_', '-')}-link-resolves",

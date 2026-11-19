@@ -102,10 +102,12 @@ def test_the_schema_set_is_held_complete_against_the_grammar_itself():
 
     # ...and the table is tied to the code: every verb classified as `floor`
     # actually appears in the emitted exprs, so the claim cannot rot into prose
-    gen, _ = floor(VOCAB, [])
+    cited = KindDef(kind="note", description="a note naming a node from its payload",
+                    refs={"source": "sources"})
+    gen, _ = floor(VOCAB + [cited], [])
     emitted = " ".join(r.expr for r in gen)
     floors = {v for v, (d, _) in GRAMMAR_VERBS.items() if d == "floor"}
-    assert floors == {"states", "dangling"}
+    assert floors == {"states", "dangling", "dangling_ref"}
     for v in floors:
         assert f"{v}(" in emitted, f"'{v}' is declared a floor and emits nothing"
 

@@ -45,6 +45,21 @@
     "digest": "ec6fa669552b"
   },
   {
+    "path": "a-kind-declares-the-payload-fields-that-name-nodes",
+    "kind": "decision",
+    "digest": "f5489b3f7b6e"
+  },
+  {
+    "path": "a-kind-declares-the-payload-fields-that-name-nodes/alt-dangling-reads-the-vocabulary",
+    "kind": "alternative",
+    "digest": "ad710fd0059f"
+  },
+  {
+    "path": "a-kind-declares-the-payload-fields-that-name-nodes/alt-link-any-string-that-matches-an-id",
+    "kind": "alternative",
+    "digest": "3cfec8741d24"
+  },
+  {
     "path": "a-kind-is-a-word-something-is",
     "kind": "decision",
     "digest": "e1c1e7a6c1b3"
@@ -273,6 +288,16 @@
     "path": "a-rules-verdict-is-kept-while-what-it-read-is-unchanged/alt-rejudge-the-written-node",
     "kind": "alternative",
     "digest": "f3d68a0ccde7"
+  },
+  {
+    "path": "a-search-keeps-the-nodes-a-condition-holds-for",
+    "kind": "decision",
+    "digest": "7125fdcd2b7a"
+  },
+  {
+    "path": "a-search-keeps-the-nodes-a-condition-holds-for/alt-a-saved-view-kind",
+    "kind": "alternative",
+    "digest": "c2c35d31d7e4"
   },
   {
     "path": "a-slice-says-what-may-run-on-it-not-how-to-call-it",
