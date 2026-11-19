@@ -47,5 +47,6 @@ def test_each_verdict_carries_its_node_name_and_each_rule_its_text():
 
 def test_the_slice_counts_the_kinds_beneath_it_at_any_depth():
     ws = ReadOnlyWorkspace(tree(), "t")
-    assert slice_at(ws, "", 0)["kinds_under"] == {"folder": 1, "state": 2}
-    assert slice_at(ws, "process", 0)["kinds_under"] == {"state": 2}
+    assert slice_at(ws, "", 0, kinds=True)["kinds_under"] == {"folder": 1, "state": 2}
+    assert slice_at(ws, "process", 0, kinds=True)["kinds_under"] == {"state": 2}
+    assert "kinds_under" not in slice_at(ws, "", 0), "asked for, not sent on every read"

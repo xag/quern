@@ -294,18 +294,20 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
         return f"set '{path}'." + _broke(ws, path)
 
     @mcp.tool(structured_output=True)
-    def tree_get(path: str = "", depth: int | None = None,
+    def tree_get(path: str = "", depth: int | None = None, kinds: bool = False,
             ctx: Context | None = None) -> dict[str, Any]:
         """Read the Quern at `path` (default: whole tree), pruned to `depth` levels if
         given. Each slice arrives with its own semantics: the kinds present (with
         the operations they afford — full contract at operation://{kind}/{name}),
         the rules that apply, the solvers whose reads cover the slice. A workspace
         may expose derived branches (recomputed from their source on every read) —
-        inspect and link to them, don't edit."""
+        inspect and link to them, don't edit. `kinds` adds `kinds_under`: the kinds
+        beneath the node at any depth, with how many of each (a walk of the branch,
+        so asked for, not sent on every read)."""
         ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
-        return slice_at(ws, path, depth, caller)
+        return slice_at(ws, path, depth, caller, kinds=kinds)
 
     @mcp.tool(structured_output=True)
     def tree_find(query: str | None = None, kind: str | None = None,
@@ -564,7 +566,9 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
         if isinstance(ws, str):
             return {"error": ws}
         tree = ws.effective()
-        results = treemod.run_rules(tree, path)
+        # with the kept verdicts the commit gate keeps: a read after a write judges again
+        # only what the write moved
+        results = treemod.run_rules(tree, path, verdicts=_verdicts(ws))
         names: dict[str, str | None] = {}
         for r in results:
             if r.node and r.node not in names:
@@ -937,7 +941,8 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
 
 
 def slice_at(ws: "Workspace", path: str = "",
-             depth: int | None = None, caller: Any = None) -> dict[str, Any]:
+             depth: int | None = None, caller: Any = None,
+             kinds: bool = False) -> dict[str, Any]:
     """One slice of a workspace's effective tree, with the semantics and the relational
     envelope that make it readable on its own.
 
@@ -970,13 +975,14 @@ def slice_at(ws: "Workspace", path: str = "",
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
-    # The kinds beneath the node, at any depth, with how many of each: what a viewer
-    # offers to ask about the branch, where the semantics carry two levels only.
-    under: dict[str, int] = {}
-    for p, n in composed.walk(path):
-        if n.kind and p != "/".join(s for s in path.split("/") if s):
-            under[n.kind] = under.get(n.kind, 0) + 1
-    if under:
+    # On request, the kinds beneath the node at any depth, with how many of each: what a
+    # viewer offers to ask about the branch, where the semantics carry two levels only.
+    if kinds:
+        under: dict[str, int] = {}
+        anchor = "/".join(s for s in path.split("/") if s)
+        for p, n in composed.walk(path):
+            if n.kind and p != anchor:
+                under[n.kind] = under.get(n.kind, 0) + 1
         data["kinds_under"] = under
     # Every node the slice names - its link targets, the sources linking or referring here, and the
     # payload fields a kind declares name a node (KindDef.refs) - with its name and kind,
