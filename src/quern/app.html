@@ -707,7 +707,8 @@ function renderNode() {
   const params = Object.entries(n.params || {});
   const links = Object.entries(n.links || {});
   // what links here, and what names this node from a payload field its kind declares (refs)
-  const linkedFrom = [...Object.entries(n.linked_from || {}), ...Object.entries(n.referenced_from || {})];
+  const linkedFrom = [...Object.entries(n.linked_from || {}),
+    ...Object.entries(n.referenced_from || {}).map(([f, srcs]) => [f, srcs, true])];
   const supersededBy = (n.linked_from || {}).supersedes || [];
   const payload = n.payload || {};
   const meta = n.meta || {};
@@ -742,8 +743,8 @@ function renderNode() {
       </div>`).join("")}</section>` : ""}
 
     ${linkedFrom.length ? `<section class="block"><div class="blockhead"><h2>Linked here</h2></div>
-      ${linkedFrom.map(([name, sources]) => `<div>
-        <span class="muted" title="nodes whose '${esc(name)}' names this one">&larr; ${esc(name)}:</span>
+      ${linkedFrom.map(([name, sources, field]) => `<div>
+        <span class="muted" title="nodes whose '${esc(name)}' names this one">&larr; ${esc(name)}${field ? " (field)" : ""}:</span>
         ${sources.map(chip).join(" ")}</div>`).join("")}</section>` : ""}
 
     ${params.length || !readonly ? `<section class="block"><div class="blockhead"><h2>Params</h2>${btn("addparam", "+ param")}</div>
