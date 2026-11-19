@@ -209,11 +209,85 @@ details.raw > summary { cursor: pointer; color: var(--fg2); font-size: 11px;
   text-transform: uppercase; letter-spacing: .08em; }
 .refmissing { color: var(--bad); }
 .tname { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
+
+/* ---- #74 #73 #75 #76 ---- */
+.offchip[hidden] { display: none; }
+.offchip { display: inline-flex; align-items: center; gap: 2px; max-width: 240px; border: 1px solid var(--line); }
+.offchip #offwhat { color: var(--fg); margin: 0; font-size: 11px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 210px; }
+.offchip #offx { margin: 0; font-size: 13px; color: var(--fg2); min-width: 24px; min-height: 24px; }
+.rchead { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; }
+.rcounts { display: flex; gap: 12px; margin-top: 4px; font-size: 12px; }
+.rcounts button { font-size: 12px; margin: 0; }
+.rfail { color: var(--bad) !important; font-weight: 600; }
+.rcant { color: var(--inferred) !important; }
+.rholds { color: var(--fg2); font-size: 12px; }
+.rtotal { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--fg2);
+  margin-top: 4px; cursor: pointer; }
+.rulecard.off .rcounts button { text-decoration: line-through; }
+.rnodes { margin-top: 4px; }
+.rnodes .entryrow { padding: 3px 6px; }
+.blockhead { flex-wrap: wrap; row-gap: 4px; }
+.viewsw { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+.viewsw button { border: none; border-radius: 0; padding: 2px 10px; background: var(--bg); color: var(--fg2); }
+.viewsw button[aria-pressed="true"] { background: var(--bg3); color: var(--fg); font-weight: 600; }
+.listbar { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; flex-wrap: wrap; }
+.tablebox { background:
+    linear-gradient(to right, var(--bg) 30%, transparent) left / 24px 100% no-repeat local,
+    linear-gradient(to left, var(--bg) 30%, transparent) right / 24px 100% no-repeat local,
+    radial-gradient(farthest-side at 0 50%, rgba(0,0,0,.4), transparent) left / 14px 100% no-repeat scroll,
+    radial-gradient(farthest-side at 100% 50%, rgba(0,0,0,.4), transparent) right / 14px 100% no-repeat scroll;
+  container-type: inline-size; overflow-x: auto; max-width: 100%; margin: 4px 0 14px; border: 1px solid var(--line); border-radius: 8px; }
+table.nt { width: max-content; min-width: 100%; }
+table.nt th { padding: 0; white-space: nowrap; }
+table.nt th button { all: unset; cursor: pointer; display: block; padding: 6px 8px; font-size: 10px;
+  text-transform: uppercase; letter-spacing: .06em; color: var(--fg2); font-weight: 600; }
+table.nt th button:hover, table.nt th button:focus-visible { color: var(--accent); }
+table.nt td { white-space: nowrap; }
+table.nt .ncol { position: sticky; left: 0; background: var(--bg); min-width: 110px; max-width: min(280px, 45cqw);
+  white-space: normal; z-index: 1; }
+table.nt tr.rowbtn:hover .ncol { background: var(--bg3); }
+.tkindh { font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--fg2); margin: 10px 0 2px; font-weight: 600; }
+.sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.rowname { font-size: 13px !important; color: var(--fg) !important; text-align: left; margin: 0 !important; }
+.redcell { color: var(--bad); font-size: 11px; font-weight: 600; }
+.filterrow { display: flex; gap: 6px; align-items: center; margin: 2px 0 8px; flex-wrap: wrap; }
+.filterrow select, .filterrow input { background: var(--bg); color: var(--fg); border: 1px solid var(--line);
+  border-radius: 6px; padding: 4px 8px; font: inherit; font-size: 12px; }
+.filterrow input { flex: 1 1 220px; min-width: 160px; font-family: ui-monospace, Consolas, monospace; }
+.filtererr { color: var(--bad); font-size: 12px; margin: -4px 0 8px; }
+.filtercount { color: var(--fg2); font-size: 12px; margin: 0 0 4px; }
+.graphbox { overflow: auto; border: 1px solid var(--line); border-radius: 8px; margin-top: 10px; background: var(--bg); }
+.graphbox svg { display: block; }
+.gv { cursor: pointer; }
+.gv:focus { outline: none; }
+.gv:focus circle.body, .gv:hover circle.body { stroke: var(--accent); stroke-width: 3; }
+.gplus { cursor: pointer; }
+.gv[data-more]:focus text { text-decoration: underline; font-weight: 700; }
+.gplus:focus circle, .gplus:hover circle { stroke: var(--accent); stroke-width: 2; }
+.gfocus { font-size: 12px; color: var(--fg2); padding: 6px 2px; min-height: 1.5em; }
+#graphtab { padding: 6px; }
+.outlinetoggle { display: none; }
+@media (max-width: 820px) {
+  body { height: auto; min-height: 100vh; overflow: visible; }
+  header { flex-wrap: wrap; }
+  #crumbs { order: 3; flex: 1 1 100%; white-space: normal; }
+  #searchbox { flex: 1 1 160px; }
+  #search { width: 100%; }
+  main { flex-direction: column; }
+  #tree { width: auto; border-right: none; border-bottom: 1px solid var(--line); overflow: visible; padding: 4px 8px; }
+  #tree.folded > :not(.outlinetoggle) { display: none; }
+  .outlinetoggle { display: flex; width: 100%; justify-content: space-between; margin: 2px 0; }
+  #node { overflow: visible; padding: 14px 16px; }
+  #side { width: auto; border-left: none; border-top: 1px solid var(--line); overflow: visible; }
+  .tab { overflow: visible; }
+}
+.glabel { paint-order: stroke; stroke: var(--bg); stroke-width: 3px; stroke-linejoin: round; }
 </style>
 </head>
 <body>
 <header>
   <span id="wslabel" class="chip">quern</span>
+  <span id="offchip" class="chip offchip" hidden><button class="linkish" id="offwhat"></button> <button class="linkish" id="offx" aria-label="Count every rule again">×</button></span>
   <nav id="crumbs"></nav>
   <div id="searchbox">
     <input id="search" placeholder="search" autocomplete="off">
@@ -229,10 +303,12 @@ details.raw > summary { cursor: pointer; color: var(--fg2); font-size: 11px;
       <button data-tab="rulestab">Rules</button>
       <button data-tab="solverstab">Solvers</button>
       <button data-tab="checktab">Check</button>
+      <button data-tab="graphtab">Graph</button>
     </div>
     <div id="kindstab" class="tab on"></div>
     <div id="rulestab" class="tab"></div>
     <div id="solverstab" class="tab"></div>
+    <div id="graphtab" class="tab"></div>
     <div id="checktab" class="tab">
       <button id="runcheck">run rules on this branch</button>
       <div id="checkout"></div>
@@ -266,6 +342,23 @@ const collapsedKinds = new Set();   // "path|kind" -> that kind's group folded a
 const openSections = new Set();     // section paths the reader unfolded
 let groupsPrimed = false;    // have the groups been folded shut for the first paint?
 let redByPath = new Map();   // path -> [failing rule names]
+let verdicts = [], ruleText = {}, offRules = new Set();
+/* The verdicts, for the outline's markers and the Rules tab's counts. tree_get says nothing
+   about rule verdicts - evaluating every rule on every navigation would make browsing cost a
+   check - so they are fetched once at boot and again after a commit or a run, as data
+   (tree_verdicts: rule, node, the node's name, verdict, detail, and each rule's text). */
+async function refreshReds() {
+  const r = await call("tree_verdicts", { path: "" });
+  if (!r || r.error) return;
+  verdicts = r.verdicts || [];
+  ruleText = Object.fromEntries((r.rules || []).map(x => [x.name, x]));
+  const next = new Map();
+  for (const v of verdicts)
+    if (v.verdict === "broken" && v.node) next.set(v.node, [...(next.get(v.node) || []), v.rule]);
+  redByPath = next;
+}
+/* The rules failing on a node, less the ones the reader took out of the totals. */
+function redOf(p) { return (redByPath.get(p) || []).filter(r => !offRules.has(r)); }
 let refNames = {};           // every node the slice names -> {name, kind}, or null where missing
 
 function norm(r) {
@@ -331,6 +424,7 @@ async function commit(changes, okMsg) {
     if (r && r.committed === false)
       throw new Error("still refused — the red set moved underneath you; reload and retry");
   }
+  await refreshReds();   // a write changes reds: the counts describe the tree on screen
   if (okMsg) flash(okMsg + (r?.acknowledged?.length ? " — red acknowledged, recorded" : ""));
   return true;
 }
@@ -349,6 +443,7 @@ async function go(path) {
   if (sectionKinds().has(d.kind)) openSections.add(path);
   revealGroup(path);
   const moved = path !== shownPath;
+  if (moved) gExpanded.clear();
   shownPath = path;
   renderAll();
   if (moved) $("#node").scrollTop = 0;   // a node opens at its top, not at the list's scroll
@@ -357,23 +452,6 @@ async function go(path) {
 function childPath(base, id) { return base ? base + "/" + id : id; }
 
 /* ---------- left pane: outline ---------- */
-
-/* The reds, for the outline's markers. tree_get says nothing about rule verdicts — it
-   is a read, and evaluating every rule on every navigation would make browsing cost a
-   check. So the verdicts are fetched once, here, and parsed out of tree_check's report
-   (`FAIL <rule> @ <path> (detail)`). Parsing a human report is the weak seam in this;
-   it is contained to this one function, and a format change costs the markers, never
-   the outline. */
-async function refreshReds() {
-  const r = await call("tree_check", { path: "" });
-  const text = r?.text ?? "";
-  const next = new Map();
-  for (const line of String(text).split("\n")) {
-    const m = /^FAIL\s+(\S+)\s+@\s+(\S+)/.exec(line.trim());
-    if (m) next.set(m[2], [...(next.get(m[2]) || []), m[1]]);
-  }
-  redByPath = next;
-}
 
 function renderTree() {
   const rootSlice = cache.get("") || (current.path === "" ? current.node : null);
@@ -410,7 +488,7 @@ function sectionCount(node, path, secs) {
     const p = childPath(path, c.id);
     if (secs.has(c.kind)) { const [a, b] = sectionCount(cache.get(p) || c, p, secs); n += a; red += b; continue; }
     if (staleSet.has(p) && hideStale) continue;
-    n += 1; red += (redByPath.get(p) || []).length ? 1 : 0;
+    n += 1; red += redOf(p).length ? 1 : 0;
   }
   return [n, red];
 }
@@ -493,7 +571,7 @@ function grouped(node, path) {
   for (const [kind, kids] of buckets) {
     const key = path + "|" + kind;
     const folded = collapsedKinds.has(key);
-    const reds = kids.filter(c => (redByPath.get(childPath(path, c.id)) || []).length).length;
+    const reds = kids.filter(c => redOf(childPath(path, c.id)).length).length;
     const head = document.createElement("div");
     head.className = "tgrouphead";
     head.innerHTML = `<span class="twist">${folded ? "▸" : "▾"}</span>
@@ -529,7 +607,7 @@ function outline(node, path, hideKind = false) {
     // and it is exactly what a gate reads to refuse.
     const hollow = Object.entries(c.params || {})
       .filter(([, q]) => q && q.grounded === false).map(([k]) => k).sort();
-    const red = redByPath.get(p) || [];
+    const red = redOf(p);
     row.innerHTML = `<span class="twist">${hasKids ? (expanded.has(p) ? "▾" : "▸") : ""}</span>
       <span class="tname" title="${esc((c.name ? c.name + " — " : "") + p)}">${esc(c.name || c.id)}</span>
       ${c.kind && !hideKind ? `<span class="tkind" title="${esc(kinds[c.kind]?.description || "")}">${esc(c.kind)}</span>` : ""}
@@ -673,7 +751,7 @@ function excerpt(c) {
   return one.length > 170 ? one.slice(0, 170) + "…" : one;
 }
 function entryRow(c, p) {
-  const red = (redByPath.get(p) || []).length;
+  const red = redOf(p).length;
   return `<div class="entryrow" data-go="${esc(p)}">
     <div><span class="ename">${esc(c.name || c.id)}</span>
       ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}
@@ -729,11 +807,11 @@ function renderNode() {
       ? `<details class="kinddesc"><summary>${esc(desc.slice(0, cut + 1))}</summary>${esc(desc.slice(cut + 1))}</details>`
       : `<div class="kinddesc">${esc(desc)}</div>`) : ""}
 
-    ${branch ? `<div class="contents">${contents(n, path)}</div>` : `
+    ${branch ? `<div class="contents">${listBlock(n, path, "contents")}</div>` : `
       <div class="fields">${fields(payload, false, refsOf(n.kind))}</div>
       ${kids.length || !readonly ? `<section class="block"><div class="blockhead">
-        <h2>${kids.length ? esc(kindCounts(kids)) : "Children"}</h2>${btn("addchild", "+ child")}</div>
-        ${kids.map(c => kidCard(c, path)).join("")}</section>` : ""}`}
+        <h2>${kids.length ? esc(kindCounts(kids)) : "Children"}</h2>${kids.length ? viewSwitch(path) : ""}${btn("addchild", "+ child")}</div>
+        ${listBlock(n, path, "kids")}</section>` : ""}`}
 
     ${links.length || !readonly ? `<section class="block"><div class="blockhead"><h2>Links</h2>${btn("addlink", "+ link")}</div>
       ${links.map(([name, targets]) => `<div>
@@ -761,6 +839,7 @@ function renderNode() {
         ${btn("editmeta", "edit meta")}</p>
       <pre class="payload mono">${esc(JSON.stringify(payload, null, 1))}</pre>${btn("editpayload", "edit payload")}
       ${btn("delnode", "delete this node", "danger")}</details>` : ""}`;
+  wireLists(el);
 
   el.querySelectorAll("[data-go]").forEach(x => x.onclick = e => {
     if (e.target.closest("a")) return;
@@ -935,18 +1014,6 @@ function renderSide() {
   });
 }
 
-$("#runcheck").onclick = async () => {
-  const r = await call("tree_check", { path: current.path });
-  const text = r?.text || JSON.stringify(r);
-  $("#checkout").innerHTML = text.split("\n").map(l => {
-    const cls = l.startsWith("PASS") ? "PASS" : l.startsWith("FAIL") ? "FAIL" : "";
-    return `<div class="line ${cls} mono">${esc(l)}</div>`;
-  }).join("");
-  // The report the user just ran is the freshest verdict there is; fold it back into
-  // the outline's markers rather than letting the two views disagree on screen.
-  await refreshReds();
-  renderTree();
-};
 
 /* ---------- header: crumbs + search ---------- */
 
@@ -990,9 +1057,488 @@ document.querySelectorAll(".tabs button").forEach(b => b.onclick = () => {
   document.querySelectorAll(".tab").forEach(t => t.classList.toggle("on", t.id === b.dataset.tab));
 });
 
+
+/* On a narrow screen the outline folds behind one button, and folds again after it navigates. */
+let outlineOpen = false;
+const narrow = () => matchMedia("(max-width: 820px)").matches;
+const renderTreeWide = renderTree;
+renderTree = function () {
+  renderTreeWide();
+  const el = $("#tree");
+  el.classList.toggle("folded", !outlineOpen);
+  const b = document.createElement("button");
+  b.className = "outlinetoggle";
+  b.setAttribute("aria-expanded", String(outlineOpen));
+  b.innerHTML = `<span>Outline</span><span aria-hidden="true">${outlineOpen ? "▾" : "▸"}</span>`;
+  b.onclick = () => { outlineOpen = !outlineOpen; renderTree(); };
+  el.prepend(b);
+};
+const goWide = go;
+go = async function (p) { if (narrow()) outlineOpen = false; return goWide(p); };
+/* ================= #74: reds by rule, and a rule out of the totals ================= */
+const openRuleLists = new Set();
+function renderOffChip() {
+  const el = $("#offchip");
+  if (!offRules.size) { el.hidden = true; return; }
+  el.hidden = false;
+  $("#offwhat").textContent = "Not counted: " + (offRules.size === 1 ? [...offRules][0] : `${offRules.size} rules`);
+  $("#offwhat").onclick = () => document.querySelector('.tabs button[data-tab="rulestab"]').click();
+  $("#offx").onclick = () => { offRules.clear(); renderAll(); };
+}
+function under(p, base) { return !base || p === base || p.startsWith(base + "/"); }
+function ruleGroups(base) {
+  const by = new Map();
+  for (const v of verdicts) {
+    if (v.node ? !under(v.node, base) : base) continue;
+    if (!by.has(v.rule)) by.set(v.rule, { rule: v.rule, broken: [], cannot: [], holds: 0 });
+    const g = by.get(v.rule);
+    if (v.verdict === "broken") g.broken.push(v);
+    else if (v.verdict === "holds") g.holds += 1;
+    else g.cannot.push(v);
+  }
+  const gs = [...by.values()];
+  return [...gs.filter(g => g.broken.length || g.cannot.length), ...gs.filter(g => !g.broken.length && !g.cannot.length)];
+}
+function parentName(p) {
+  const pp = p.split("/").slice(0, -1).join("/");
+  if (!pp) return "";
+  return refNames[pp]?.name || nameOf(pp) || pp.split("/").pop();
+}
+function nodeRow(v) {
+  if (!v.node) return `<div class="entryrow muted">the whole tree${v.detail ? " — " + esc(v.detail) : ""}</div>`;
+  const pn = parentName(v.node);
+  return `<div class="entryrow" data-go="${esc(v.node)}"><span class="ename">${esc(v.name || v.node.split("/").pop())}</span>
+    ${pn ? `<span class="muted"> · ${esc(pn)}</span>` : ""}${v.verdict !== "broken" && v.detail ? `<div class="muted ex">${esc(v.detail)}</div>` : ""}</div>`;
+}
+function ruleCard(g, withHolds) {
+  const t = ruleText[g.rule] || (current.semantics.rules || []).find(r => r.name === g.rule) || { name: g.rule };
+  const off = offRules.has(g.rule);
+  const nb = new Set(g.broken.map(v => v.node)).size, nc = new Set(g.cannot.map(v => v.node)).size;
+  const whole = g.broken.length && g.broken.every(v => !v.node);
+  const list = k => openRuleLists.has(g.rule + "|" + k)
+    ? `<div class="rnodes">${(k === "b" ? g.broken : g.cannot).map(nodeRow).join("")}</div>` : "";
+  return `<div class="rulecard${off ? " off" : ""}" data-rule="${esc(g.rule)}">
+    <div class="rchead"><b>${esc(g.rule)}</b>${t.kind ? `<span class="chip kind">${esc(t.kind)}</span>` : ""}</div>
+    ${t.description ? `<div class="muted">${esc(t.description)}</div>` : ""}
+    ${t.expr ? `<code>${esc(t.expr)}</code>` : ""}
+    <div class="rcounts">
+      ${nb ? `<button class="linkish rfail" data-list="b" aria-expanded="${openRuleLists.has(g.rule + "|b")}">${whole ? "fails on the whole tree" : `fails on ${nb}`}</button>` : ""}
+      ${nc ? `<button class="linkish rcant" data-list="c" aria-expanded="${openRuleLists.has(g.rule + "|c")}">cannot run on ${nc}</button>` : ""}
+      ${withHolds && g.holds ? `<span class="rholds">holds on ${g.holds}</span>` : ""}
+    </div>
+    ${list("b")}${list("c")}
+    ${nb || off ? `<label class="rtotal"><input type="checkbox" ${off ? "" : "checked"}> Count in red totals</label>` : ""}
+  </div>`;
+}
+function wireRuleCards(root) {
+  root.querySelectorAll(".rulecard[data-rule]").forEach(card => {
+    const rule = card.dataset.rule;
+    card.querySelectorAll("[data-list]").forEach(b => b.onclick = () => {
+      const k = rule + "|" + b.dataset.list;
+      openRuleLists.has(k) ? openRuleLists.delete(k) : openRuleLists.add(k);
+      renderRuleViews();
+    });
+    const cb = card.querySelector(".rtotal input");
+    if (cb) cb.onchange = () => { cb.checked ? offRules.delete(rule) : offRules.add(rule); renderAll(); };
+    card.querySelectorAll("[data-go]").forEach(x => x.onclick = () => go(x.dataset.go));
+  });
+}
+function renderRuleViews() {
+  const here = ruleGroups(current.path), seen = new Set(here.map(g => g.rule));
+  // a rule out of the totals is listed first wherever the reader is, so it can be counted again here
+  const off = ruleGroups("").filter(g => offRules.has(g.rule) && !seen.has(g.rule));
+  const groups = [...off, ...here];
+  const judged = new Set(groups.map(g => g.rule));
+  const rest = (current.semantics.rules || []).filter(r => !judged.has(r.name));
+  $("#rulestab").innerHTML = (groups.length || rest.length ? groups.map(g => ruleCard(g, false)).join("") + rest.map(r => `
+      <div class="rulecard"><b>${esc(r.name)}</b> ${r.kind ? `<span class="chip kind">${esc(r.kind)}</span>` : ""}
+        <div class="muted">${esc(r.description || "")}</div><code>${esc(r.expr)}</code></div>`).join("")
+      : `<p class="muted">no rules apply here</p>`);
+  wireRuleCards($("#rulestab"));
+}
+/* The Check tab prints the report of the open branch, as it did; the run it makes is the
+   freshest verdict there is, so the counts and markers follow it. */
+$("#runcheck").onclick = async () => {
+  const r = await call("tree_check", { path: current.path });
+  const text = r?.text || JSON.stringify(r);
+  $("#checkout").innerHTML = text.split("\n").map(l => {
+    const cls = l.startsWith("PASS") ? "PASS" : l.startsWith("FAIL") ? "FAIL" : "";
+    return `<div class="line ${cls} mono">${esc(l)}</div>`;
+  }).join("");
+  await refreshReds(); renderAll();
+};
+
+/* ================= #73: the children as a table ================= */
+const tableAt = new Set(), wideTables = new Set(), sortBy = new Map();
+function viewSwitch(path) {
+  const t = tableAt.has(path);
+  return `<span class="viewsw" role="group" aria-label="Show as" data-sw="${esc(path)}">
+    <button aria-pressed="${!t}" data-v="list">List</button><button aria-pressed="${t}" data-v="table">Table</button></span>`;
+}
+function payloadValues(payload, dotted) {
+  let vals = [payload];
+  for (const seg of dotted.split(".")) {
+    vals = vals.flatMap(v => Array.isArray(v) ? v : [v]).map(v => v && typeof v === "object" ? v[seg] : undefined);
+  }
+  return vals.flatMap(v => Array.isArray(v) ? v : [v]).filter(v => typeof v === "string" && v);
+}
+function nodeChip(t) {
+  const nm = refNames[t]?.name || nameOf(t);
+  return `<span class="chip linkchip${nm ? "" : " mono"}" data-go="${esc(t)}" title="${esc(t)}">${esc(nm || t)}</span>`;
+}
+function columnsFor(kind, rows) {
+  const kd = (current.semantics.kinds || {})[kind] || {};
+  const refs = kd.refs || {};
+  const cols = [];
+  for (const l of Object.keys(kd.links || {})) cols.push({ t: "link", k: l });
+  for (const q of Object.keys(kd.params || {})) cols.push({ t: "param", k: q });
+  for (const f of Object.keys(refs)) cols.push({ t: "ref", k: f, under: refs[f] });
+  const seen = new Map();
+  for (const [c] of rows) for (const [k, v] of Object.entries(c.payload || {}))
+    if (!(k in refs) && isShort(v)) seen.set(k, (seen.get(k) || 0) + 1);
+  for (const [k, n] of seen) if (n * 2 >= rows.length) cols.push({ t: "field", k });
+  return cols.map(c => ({ ...c, id: c.t + ":" + c.k }));
+}
+function cellOf(col, c) {
+  if (col.t === "link") { const ts = (c.links || {})[col.k] || []; return { html: ts.map(nodeChip).join(" "), key: ts.length ? (refNames[ts[0]]?.name || ts[0]) : "" }; }
+  if (col.t === "param") {
+    const q = (c.params || {})[col.k];
+    if (!q) return { html: "", key: "" };
+    return { html: `${esc(q.value)}${q.unit ? " " + esc(q.unit) : ""}${q.grounded === false ? ` ${provBadge(q)}` : ""}`, key: q.value };
+  }
+  if (col.t === "ref") { const vs = payloadValues(c.payload || {}, col.k); return { html: vs.map(v => refChip(refTarget(col.under, v), v)).join(" "), key: vs.length ? (refNames[refTarget(col.under, vs[0])]?.name || vs[0]) : "" }; }
+  const v = (c.payload || {})[col.k];
+  return { html: v == null ? "" : esc(v), key: v == null ? "" : v };
+}
+function tableHtml(key, rows, cols) {
+  const wide = wideTables.has(key);
+  let shownCols;
+  const extra2 = cols.length - 8;
+  shownCols = wide || extra2 <= 0 ? cols : cols.slice(0, 8);
+  const all = [{ t: "name", id: "name", label: "Name" }, { t: "red", id: "red", label: "Red" }, ...shownCols.map(c => ({ ...c, label: c.k }))];
+  const st = sortBy.get(key);
+  let ordered = rows.map((r, i) => ({ r, i }));
+  if (st) {
+    const col = all.find(c => c.id === st.id);
+    const k = ({ r: [c, p] }) => col.t === "name" ? (c.name || c.id) : col.t === "red" ? redOf(p).join(",") : cellOf(col, c).key;
+    const rank = v => v === "" || v == null ? 1 : 0;
+    ordered.sort((a, b) => {
+      const x = k(a), y = k(b);
+      if (rank(x) || rank(y)) return rank(x) - rank(y) || a.i - b.i;
+      const d = typeof x === "number" && typeof y === "number" ? x - y : String(x).localeCompare(String(y));
+      return (st.dir === "asc" ? d : -d) || a.i - b.i;
+    });
+  }
+  const head = all.map(c => {
+    const on = st && st.id === c.id;
+    return `<th ${c.t === "name" ? 'class="ncol"' : ""} aria-sort="${on ? (st.dir === "asc" ? "ascending" : "descending") : "none"}"><button data-sort="${esc(c.id)}">${esc(fieldLabel(c.label))}${on ? (st.dir === "asc" ? " ▲" : " ▼") : ""}</button></th>`;
+  }).join("") + (extra2 > 0 ? `<th><button data-wide="1">${wide ? "fewer columns" : `+${extra2} columns`}</button></th>` : "");
+  const body = ordered.map(({ r: [c, p] }) => `<tr class="rowbtn" data-go="${esc(p)}">
+      <td class="ncol"><button class="linkish rowname" data-go="${esc(p)}">${esc(c.name || c.id)}</button></td>
+      <td class="redcell">${redOf(p).map(esc).join("<br>")}</td>
+      ${shownCols.map(col => `<td>${cellOf(col, c).html}</td>`).join("")}${extra2 > 0 ? "<td></td>" : ""}</tr>`).join("");
+  return `<div class="tablebox" data-table="${esc(key)}"><table class="nt"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
+function tablesFor(rows, key) {
+  if (!rows.length) return "";
+  const kinds = [...new Set(rows.map(([c]) => c.kind || "—"))];
+  return kinds.map(k => {
+    const mine = rows.filter(([c]) => (c.kind || "—") === k);
+    return `<div class="tkindh">${mine.length} ${esc(k)}</div>` + tableHtml(key + "|" + k, mine, columnsFor(k, mine));
+  }).join("");
+}
+function listBlock(n, path, where) {
+  const secs = sectionKinds();
+  const state = filters.get(path);
+  const bar = (where === "contents" ? `<div class="listbar">${viewSwitch(path)}</div>` : "")
+    + ((n.children || []).length ? filterRow("list", path, n) : "");
+  if (state && state.result) return bar + filterResults(state);
+  if (!tableAt.has(path)) {
+    return bar + (where === "contents" ? contents(n, path) : (n.children || []).map(c => kidCard(c, path)).join(""));
+  }
+  const direct = (n.children || []).filter(c => !isFolder(c, secs)).map(c => [c, childPath(path, c.id)]);
+  let html = tablesFor(direct, path);
+  for (const c of (n.children || []).filter(c => isFolder(c, secs))) {
+    const p = childPath(path, c.id), sl = cache.get(p) || c;
+    html += `<h2 class="sect" data-go="${esc(p)}">${esc(c.name || c.id)} <span class="muted">${(sl.children || []).length}</span></h2>`
+      + tablesFor((sl.children || []).filter(e => !isFolder(e, secs)).map(e => [e, childPath(p, e.id)]), p);
+  }
+  return bar + html;
+}
+function wireLists(root) {
+  root.querySelectorAll("[data-sw] button").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const p = b.closest("[data-sw]").dataset.sw;
+    b.dataset.v === "table" ? tableAt.add(p) : tableAt.delete(p);
+    renderNode();
+  });
+  root.querySelectorAll("[data-sort]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const key = b.closest("[data-table]").dataset.table, id = b.dataset.sort, st = sortBy.get(key);
+    if (!st || st.id !== id) sortBy.set(key, { id, dir: "asc" });
+    else if (st.dir === "asc") sortBy.set(key, { id, dir: "desc" });
+    else sortBy.delete(key);
+    renderNode();
+  });
+  root.querySelectorAll("[data-wide]").forEach(b => b.onclick = e => {
+    e.stopPropagation();
+    const key = b.closest("[data-table]").dataset.table;
+    wideTables.has(key) ? wideTables.delete(key) : wideTables.add(key);
+    renderNode();
+  });
+  root.querySelectorAll("tr[data-go] [data-go]").forEach(x => x.onclick = e => { e.stopPropagation(); go(x.dataset.go); });
+  wireFilters(root);
+}
+
+/* ================= #75: the nodes a condition holds for ================= */
+const kindsAt = new Map();
+async function loadKinds(p) {
+  kindsAt.set(p, {});
+  const d = await call("tree_get", { path: p, depth: 0, kinds: true });
+  kindsAt.set(p, d?.kinds_under || {});
+  if (current.path === p) renderNode();
+}
+const filters = new Map();   // path (or "rules|path") -> {kind, cond, result, error}
+function filterRow(where, path, n) {
+  const key = path;
+  const st = filters.get(key) || {};
+  const kinds = Object.entries(kindsAt.get(current.path) || {});
+  if (!kindsAt.has(current.path)) loadKinds(current.path);
+  const secs = sectionKinds();
+  const dflt = st.kind ?? ((n?.children || []).find(c => c.kind && !secs.has(c.kind))?.kind || "");
+  return `<div class="filterrow" data-filter="${esc(key)}">
+    <select aria-label="Kind"><option value="" ${dflt ? "" : "selected"} disabled>kind</option>${kinds.map(([k, c]) =>
+      `<option value="${esc(k)}" ${k === dflt ? "selected" : ""}>${esc(k)} (${c})</option>`).join("")}</select>
+    <input aria-label="Condition" placeholder="len(linked(self, 'deadline')) == 0" value="${esc(st.cond || "")}">
+    <button data-find>Find</button>${st.result || st.error ? `<button data-clear aria-label="Clear the condition">×</button>` : ""}</div>
+    ${st.error ? `<div class="filtererr">${esc(st.error)}</div>` : ""}
+`;
+}
+function filterResults(st) {
+  const r = st.result;
+  const head = `${r.truncated ? `first ${r.matches.length} nodes` : `${r.matches.length} node${r.matches.length === 1 ? "" : "s"}`}${r.unjudged ? ` · ${r.unjudged} could not be judged` : ""}`;
+  return `<div class="filtercount">${head}</div>` + r.matches.map(m => {
+    const red = redOf(m.path).length, pn = parentName(m.path);
+    return `<div class="entryrow" data-go="${esc(m.path)}"><span class="ename">${esc(m.name || m.path.split("/").pop())}</span>
+      ${pn ? `<span class="muted"> · ${esc(pn)}</span>` : ""} ${m.kind ? `<span class="chip kind">${esc(m.kind)}</span>` : ""}
+      ${red ? `<span class="tred">RED</span>` : ""}</div>`;
+  }).join("");
+}
+function wireFilters(root) {
+  root.querySelectorAll("[data-filter]").forEach(row => {
+    const key = row.dataset.filter, sel = row.querySelector("select"), inp = row.querySelector("input");
+    const run = async () => {
+      const cond = inp.value.trim(), kind = sel.value;
+      if (!cond) { filters.delete(key); renderNode(); return; }
+      const st = { kind, cond };
+      if (!kind) { st.error = "Choose a kind to ask the condition of."; filters.set(key, st); renderNode(); return; }
+      const r = await call("tree_find", { kind, where: cond, under: current.path, limit: 200 });
+      if (r?.error) st.error = r.error; else st.result = r;
+      filters.set(key, st);
+      renderNode();
+    };
+    inp.onkeydown = e => { if (e.key === "Enter") run(); };
+    row.querySelector("[data-find]").onclick = run;
+    const clr = row.querySelector("[data-clear]");
+    if (clr) clr.onclick = () => { filters.delete(key); renderNode(); };
+    sel.onchange = () => { const st = filters.get(key) || {}; filters.set(key, { ...st, kind: sel.value }); if (inp.value.trim()) run(); };
+    root.querySelectorAll(`[data-filter="${CSS.escape(key)}"] ~ [data-go], .filtercount ~ [data-go]`).forEach(x => x.onclick = () => go(x.dataset.go));
+  });
+}
+
+/* ================= #76: the links around a node, as a graph ================= */
+const gExpanded = new Set();
+const PALETTE = ["#4e79a7", "#59a14f", "#b07aa1", "#76b7b2", "#9c755f", "#7f8fa6", "#3d9db3", "#8f8f3a"];
+function kindColour(k) {
+  const secs = sectionKinds();
+  const order = Object.keys(kindsAt.get("") || {}).filter(k => !secs.has(k));
+  const i = order.indexOf(k);
+  return i >= 0 && i < PALETTE.length ? PALETTE[i] : "#8a8a8a";
+}
+function edgeKinds() {
+  const ks = {};
+  for (const sl of cache.values()) for (const [k, d] of Object.entries(sl.semantics?.kinds || {})) if (d.edge) ks[k] = d.edge;
+  return ks;
+}
+function neighbours(p) {
+  const s = cache.get(p);
+  if (!s) return [];
+  const out = [], edges = edgeKinds();
+  const kindOf = t => s.targets?.[t]?.kind || cache.get(t)?.kind;
+  // what links here through an edge kind's end is the node at its other end, the arrow labelled with the edge
+  for (const [name, ts] of Object.entries(s.linked_from || {})) for (const t of ts) {
+    const e = edges[kindOf(t)], ts2 = cache.get(t);
+    if (!e || !e.includes(name) || !ts2) continue;
+    const other = (ts2.links || {})[e[0] === name ? e[1] : e[0]] || [];
+    for (const o of other) out.push({ p: o.split("/").filter(Boolean).join("/"), label: ts2.name || t.split("/").pop(), dir: name === e[1] ? "in" : "out", via: t });
+  }
+  for (const [name, ts] of Object.entries(s.links || {})) for (const t of ts) out.push({ p: t.split("/").filter(Boolean).join("/"), label: name, dir: "out" });
+  for (const [name, ts] of Object.entries(s.linked_from || {})) for (const t of ts) {
+    const e = edges[kindOf(t)];
+    if (!(e && e.includes(name))) out.push({ p: t, label: name, dir: "in" });
+  }
+  for (const [name, ts] of Object.entries(s.referenced_from || {})) for (const t of ts) out.push({ p: t, label: name, dir: "in", field: true });
+  const red = x => redOf(x.p).length ? 0 : 1;
+  return out.map((x, i) => ({ ...x, i })).sort((a, b) => red(a) - red(b) || (a.dir === b.dir ? a.i - b.i : a.dir === "out" ? -1 : 1));
+}
+function infoOf(p) {
+  for (const s of cache.values()) if (s.targets && s.targets[p]) return s.targets[p];
+  const s = cache.get(p);
+  return s ? { name: s.name, kind: s.kind } : { name: nameOf(p), kind: null };
+}
+async function drawGraph(box) {
+  if (!box) return;
+  const W = Math.max(280, Math.min(720, box.clientWidth - 4));
+  let H = Math.round(Math.min(560, W * 0.95));
+  const center = current.path;
+  if (!kindsAt.has("") || !Object.keys(kindsAt.get("")).length) {
+    const d = await call("tree_get", { path: "", depth: 0, kinds: true });
+    kindsAt.set("", d?.kinds_under || {});
+  }
+  for (const p of [center, ...gExpanded]) if (!cache.get(p)) { const d = await call("tree_get", { path: p, depth: 2 }); if (d && !d.error) cache.set(p, d); }
+  const ek = edgeKinds();
+  for (const p of [center, ...gExpanded]) {
+    const sl = cache.get(p);
+    for (const ts of Object.values(sl?.linked_from || {})) for (const t of ts)
+      if (ek[sl.targets?.[t]?.kind] && !cache.get(t)) { const d = await call("tree_get", { path: t, depth: 2 }); if (d && !d.error) cache.set(t, d); }
+  }
+  const pos = new Map([[center, { x: W / 2, y: H / 2, ring: 0, a: 0 }]]);
+  const edges = [], more = [];
+  let frontier = [center], ring = 0;
+  while (frontier.length) {
+    ring += 1;
+    const next = [];
+    frontier.forEach((p, fi) => {
+      if (p !== center && !gExpanded.has(p)) return;
+      const all = neighbours(p), shown = all.slice(0, 12);
+      const fresh = shown.filter(x => !pos.has(x.p));
+      const base = pos.get(p), spread = ring === 1 ? 2 * Math.PI : Math.min(2 * Math.PI / Math.max(1, frontier.length), Math.PI);
+      fresh.forEach((x, i) => {
+        const a = ring === 1 ? (2 * Math.PI * i) / Math.max(1, fresh.length) - Math.PI / 2
+          : base.a - spread / 2 + spread * (i + 0.5) / fresh.length;
+        pos.set(x.p, { ring, a });
+        next.push(x.p);
+      });
+      for (const x of shown) {
+        edges.push(x.dir === "out" ? { from: p, to: x.p, label: x.via ? "" : x.label, title: x.label, field: x.field } : { from: x.p, to: p, label: x.via ? "" : x.label, title: x.label, field: x.field });
+        const q = pos.get(x.p);
+        // a link's name is said on the neighbour; an edge (a transition) is the arrow itself
+        if (q && q.ring === ring && !q.rel && !x.via) q.rel = (x.dir === "out" ? "→ " : "← ") + x.label;
+      }
+      if (all.length > 12) more.push({ p, n: all.length - 12, dir: all.slice(12).some(x => x.dir === "in") ? "in" : "out" });
+    });
+    frontier = next;
+    if (ring > 4) break;
+  }
+  const maxRing = Math.max(1, ...[...pos.values()].map(q => q.ring));
+  // rings as wide as the box allows, and taller than wide where the box is narrow (it grows downward)
+  const RX = W / 2 - 60, RY = Math.max(RX, 190);
+  for (const [p, q] of pos) if (q.ring) { const f = maxRing === 1 ? 1 : (q.ring === 1 ? 0.68 : 0.68 + 0.32 * (q.ring - 1) / (maxRing - 1)); q.x = W / 2 + RX * f * Math.cos(q.a); q.y = H / 2 + RY * f * Math.sin(q.a); }
+  const cut = s => s.length > 16 ? s.slice(0, 15) + "…" : s;
+  const two = s => { if (s.length <= 18) return [s, ""]; const i = s.lastIndexOf(" ", 18); const a = i > 6 ? s.slice(0, i) : s.slice(0, 18); const b = s.slice(a.length).trim(); return [a, cut(b)]; };
+  // each vertex with the box its circle and its lines take; overlapping boxes are pushed apart
+  const lines = new Map();
+  for (const [p] of pos) {
+    const inf = p === center ? { name: current.node.name, kind: current.node.kind } : infoOf(p);
+    const nm = inf.name || p.split("/").pop(), [l1, l2] = two(nm);
+    lines.set(p, { inf, nm, l1, l2, sub: inf.kind || "" });
+  }
+  const boxOf = (p, q) => {
+    const L = lines.get(p), r0 = p === center ? 20 : 15;
+    const w = Math.max(2 * r0 + 16, ...[L.l1, L.l2, L.sub + (redOf(p).length ? " RED" : "")].map(t => (t || "").length * 6.4));
+    return { x0: q.x - w / 2, x1: q.x + w / 2, y0: q.y - r0 - 10, y1: q.y + r0 + 10 + (L.l2 ? 42 : 28) };
+  };
+  const ps = [...pos.keys()];
+  for (let it = 0; it < 200; it++) {
+    let moved = false;
+    for (let i = 0; i < ps.length; i++) for (let j = i + 1; j < ps.length; j++) {
+      const qa = pos.get(ps[i]), qb = pos.get(ps[j]), a = boxOf(ps[i], qa), b = boxOf(ps[j], qb);
+      const ox = Math.min(a.x1, b.x1) - Math.max(a.x0, b.x0), oy = Math.min(a.y1, b.y1) - Math.max(a.y0, b.y0);
+      if (ox <= 0 || oy <= 0) continue;
+      moved = true;
+      const fa = ps[i] === center ? 0 : ps[j] === center ? 1 : 0.5, fb = 1 - fa;
+      const hd = (qa.x < qb.x ? -1 : 1) * (ox + 2);
+      const fits = a.x0 + hd * fa >= 4 && a.x1 + hd * fa <= W - 4 && b.x0 - hd * fb >= 4 && b.x1 - hd * fb <= W - 4;
+      if (ox < oy && fits) { qa.x += hd * fa; qb.x -= hd * fb; }
+      else { const d = (qa.y < qb.y ? -1 : 1) * (oy + 2); qa.y += d * fa; qb.y -= d * fb; }
+    }
+    for (const p of ps) { const q = pos.get(p), b = boxOf(p, q); if (b.x0 < 4) q.x += 4 - b.x0; if (b.x1 > W - 4) q.x -= b.x1 - (W - 4); }
+    if (!moved) break;
+  }
+  const ys = ps.map(p => boxOf(p, pos.get(p)));
+  const top = Math.min(...ys.map(b => b.y0)), bottom = Math.max(...ys.map(b => b.y1));
+  for (const p of ps) pos.get(p).y += 8 - top;
+  H = Math.max(H, Math.round(bottom - top + 16));
+  const vx = [...pos].map(([p, q]) => {
+    const inf = p === center ? { name: current.node.name, kind: current.node.kind } : infoOf(p);
+    const nm = inf.name || p.split("/").pop(), red = redOf(p).length;
+    return `<g class="gv${staleSet.has(p) ? " stale" : ""}" tabindex="0" role="link" aria-label="${esc(nm)}, ${esc(inf.kind || "")}${red ? ", RED" : ""}${staleSet.has(p) ? ", superseded" : ""}" data-node="${esc(p)}" data-full="${esc(nm + (inf.kind ? " — " + inf.kind : ""))}">
+      <circle class="body" cx="${q.x}" cy="${q.y}" r="${p === center ? 20 : 15}" fill="${kindColour(inf.kind)}" stroke="${red ? "var(--bad)" : "var(--bg)"}" stroke-width="${red ? 3 : 2}"/>
+      <text class="glabel" x="${q.x}" y="${q.y + 30}" text-anchor="middle" font-size="12" fill="var(--fg)">${esc(two(nm)[0])}</text>
+      ${two(nm)[1] ? `<text class="glabel" x="${q.x}" y="${q.y + 44}" text-anchor="middle" font-size="12" fill="var(--fg)">${esc(two(nm)[1])}</text>` : ""}
+      <text class="glabel" x="${q.x}" y="${q.y + (two(nm)[1] ? 57 : 43)}" text-anchor="middle" font-size="10" fill="var(--fg2)">${esc(lines.get(p).sub)}${red ? ` <tspan fill="var(--bad)" font-weight="600">RED</tspan>` : ""}</text></g>
+      ${p === center ? "" : `<g class="gplus" tabindex="0" role="button" aria-label="Show the links of ${esc(nm)}" data-plus="${esc(p)}">
+        <circle cx="${q.x + 15}" cy="${q.y - 13}" r="8" fill="var(--bg2)" stroke="var(--line)"/>
+        <text x="${q.x + 15}" y="${q.y - 9}" text-anchor="middle" font-size="12" fill="var(--fg)">${gExpanded.has(p) ? "−" : "+"}</text></g>`}`;
+  }).join("");
+  const ed = edges.map(e => {
+    const a = pos.get(e.from), b = pos.get(e.to);
+    if (!a || !b) return "";
+    const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, rb = e.to === center ? 22 : 17;
+    const x2 = b.x - dx / L * rb, y2 = b.y - dy / L * rb;
+    // the link's name runs along the stretch of its edge between the two nodes' boxes,
+    // turned to read left to right, cut to fit, and left off where the stretch is too short
+    const exitT = (bx) => {   // the last t in [0,1] where the segment a->b is inside box bx
+      let t0 = 0, t1 = 1;
+      for (const [p0, d, lo, hi] of [[a.x, dx, bx.x0, bx.x1], [a.y, dy, bx.y0, bx.y1]]) {
+        if (Math.abs(d) < 1e-6) { if (p0 < lo || p0 > hi) return null; continue; }
+        let u = (lo - p0) / d, v = (hi - p0) / d; if (u > v) [u, v] = [v, u];
+        t0 = Math.max(t0, u); t1 = Math.min(t1, v);
+      }
+      return t0 <= t1 ? [t0, t1] : null;
+    };
+    const ia = exitT(boxOf(e.from, a)), ib = exitT(boxOf(e.to, b));
+    const ta = ia ? ia[1] : 0, tb = ib ? ib[0] : 1;
+    const room = Math.max(0, (tb - ta) * L - 8), fit = Math.floor(room / 5.6);
+    const text = !e.label || fit < 4 ? "" : e.label.length <= fit ? e.label : e.label.slice(0, fit - 1) + "…";
+    let ang = Math.atan2(dy, dx) * 180 / Math.PI;
+    if (ang > 90) ang -= 180; if (ang < -90) ang += 180;
+    const tm = (ta + tb) / 2, mx = a.x + dx * tm, my = a.y + dy * tm;
+    return `<g><title>${esc(e.title)}</title><line x1="${a.x}" y1="${a.y}" x2="${x2}" y2="${y2}" stroke="var(--line)" stroke-width="1.5"${e.field ? ' stroke-dasharray="5 4"' : ""} marker-end="url(#arr)"/>
+      ${text ? `<text class="glabel" transform="translate(${mx} ${my}) rotate(${ang})" y="-4" text-anchor="middle" font-size="10" fill="var(--fg2)">${esc(text)}</text>` : ""}</g>`;
+  }).join("");
+  const mv = more.map(m => { const q = pos.get(m.p); return `<g class="gv" tabindex="0" role="link" data-more="${esc(m.p)}" data-dir="${m.dir}" aria-label="${m.n} more">
+      <text x="${q.x}" y="${q.y - 26}" text-anchor="middle" font-size="11" fill="var(--accent)">+${m.n} more</text></g>`; }).join("");
+  box.innerHTML = `<div class="graphbox"><svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="group" aria-label="Links around ${esc(current.node.name || center)}">
+    <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="var(--fg2)"/></marker></defs>
+    ${ed}${vx}${mv}</svg></div><div class="gfocus" aria-live="polite"></div>`;
+  const focusLine = box.querySelector(".gfocus");
+  box.querySelectorAll("[data-node]").forEach(g => {
+    const open = () => { if (g.dataset.node !== center) go(g.dataset.node); };
+    g.onclick = open;
+    g.onkeydown = e => { if (e.key === "Enter") open(); if (e.key === "+" && g.dataset.node !== center) { gExpanded.add(g.dataset.node); redrawGraph(); } };
+    g.onfocus = g.onmouseenter = () => focusLine.textContent = g.dataset.full;
+  });
+  box.querySelectorAll("[data-plus]").forEach(g => {
+    const t = () => { const p = g.dataset.plus; gExpanded.has(p) ? gExpanded.delete(p) : gExpanded.add(p); redrawGraph(); };
+    g.onclick = t; g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); t(); } };
+  });
+  box.querySelectorAll("[data-more]").forEach(g => g.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); g.onclick(); } });
+  box.querySelectorAll("[data-more]").forEach(g => g.onclick = async () => {
+    if (g.dataset.more !== center) await go(g.dataset.more); else renderNode();
+    const want = g.dataset.dir === "in" ? "Linked here" : "Links";
+    [...document.querySelectorAll("#node .blockhead h2")].find(h => h.textContent === want)?.scrollIntoView();
+  });
+}
+function redrawGraph() { renderGraphTab(); }
+function renderGraphTab() {
+  if ($("#graphtab").classList.contains("on")) drawGraph($("#graphtab"));
+}
+document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab === "graphtab") renderGraphTab(); }));
+
 /* ---------- boot ---------- */
 
-function renderAll() { renderCrumbs(); renderTree(); renderNode(); renderSide(); }
+function renderAll() { renderCrumbs(); renderTree(); renderNode(); renderSide(); renderOffChip(); renderRuleViews(); renderGraphTab(); }
 
 function boot(rootSlice) {
   if (rootSlice.label) wsLabel = rootSlice.label;
@@ -1005,7 +1551,7 @@ function boot(rootSlice) {
   // should show its outline immediately and gain the RED markers a moment later, not
   // hold the whole view hostage to a check. A failure here costs the markers and is
   // swallowed — the outline is not worth losing to a red-marker fetch.
-  refreshReds().then(renderTree).catch(() => {});
+  refreshReds().then(renderAll).catch(() => {});
 }
 
 await initBridge();

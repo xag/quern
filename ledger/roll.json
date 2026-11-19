@@ -720,6 +720,31 @@
     "digest": "ec92043486da"
   },
   {
+    "path": "the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph",
+    "kind": "decision",
+    "digest": "7a7abf751034"
+  },
+  {
+    "path": "the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph/alt-condition-in-the-rules-tab",
+    "kind": "alternative",
+    "digest": "7b0b718a5e4a"
+  },
+  {
+    "path": "the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph/alt-graph-in-the-centre",
+    "kind": "alternative",
+    "digest": "44b1a31d0eff"
+  },
+  {
+    "path": "the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph/alt-one-table-for-all-children",
+    "kind": "alternative",
+    "digest": "892cb5e8424e"
+  },
+  {
+    "path": "the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph/alt-reds-in-the-check-tab",
+    "kind": "alternative",
+    "digest": "63f9a2ca13cf"
+  },
+  {
     "path": "the-navigator-shows-what-an-entry-says",
     "kind": "decision",
     "digest": "d8b2d667005f"

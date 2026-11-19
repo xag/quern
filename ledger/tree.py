@@ -1608,6 +1608,49 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph",
+            kind="decision",
+            name="The navigator counts reds by rule in the Rules tab, with a checkbox that "
+                 "takes a rule out of every red total; turns a list of children into one "
+                 "table per kind; asks a condition from a filter row on the list; draws the "
+                 "links around the open node in a Graph tab; and stacks its panes on a "
+                 "narrow screen (#73, #74, #75, #76)",
+            links={"rests_on": ["the-navigator-shows-what-an-entry-says",
+                                "a-viewer-reads-the-verdicts-as-data"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Ok go",
+                "why":
+                    "Two alternatives each were drawn on the real page over an example tree, "
+                    "reviewed in five research rounds and by two blind testers, and played "
+                    "on a phone; the owner said go on the recommended ones. The Rules tab is "
+                    "where #74 itself put the counts. One table per kind keeps each table to "
+                    "its kind's own columns. The filter sits where the list it replaces is. "
+                    "The graph in the side panel follows the node open in the centre, as a "
+                    "local graph does, and is the only one of the two that fits a 760 px "
+                    "chat frame. The owner reads on a phone, where the three panes crushed "
+                    "the content to a few characters. In the graph a link's name runs along "
+                    "its edge, a payload reference is dashed and an edge kind is an "
+                    "unlabelled arrow: the owner objected to the relation repeated in node "
+                    "labels.",
+            },
+            children=[
+                Node(id="alt-reds-in-the-check-tab", kind="alternative",
+                     name="Group the Check tab's report by rule instead",
+                     payload={"why": "Moves the report the Check tab printed; the Rules tab already lists the rules."}),
+                Node(id="alt-one-table-for-all-children", kind="alternative",
+                     name="One table for all children, in child order, with a Kind column",
+                     payload={"why": "Cells of other kinds' columns read \"—\", and a later kind's columns are pushed off to the right."}),
+                Node(id="alt-condition-in-the-rules-tab", kind="alternative",
+                     name="Ask the condition from the Rules tab, beside the rule expressions",
+                     payload={"why": "A 320 px panel, away from the list the results stand for."}),
+                Node(id="alt-graph-in-the-centre", kind="alternative",
+                     name="Draw the graph in the centre, switched with the document",
+                     payload={"why": "140 px wide in a 760 px chat frame; the document and the picture cannot be read together."}),
+            ],
+        ),
+
+        Node(
             id="a-search-keeps-the-nodes-a-condition-holds-for",
             kind="decision",
             name="`tree_find(where=...)` keeps the nodes a condition in the rule grammar "

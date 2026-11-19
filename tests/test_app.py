@@ -184,6 +184,36 @@ def test_a_declared_payload_reference_shows_as_the_node_it_names():
     assert "refsOf(n.kind)" in html and "refsOf(c.kind)" in html
 
 
+def test_the_page_reads_verdicts_as_data_and_counts_reds_by_rule():
+    """#74: the page reads tree_verdicts, not tree_check's printed report, lists each rule
+    with the nodes it fails on, and lets the reader take a rule out of the red totals."""
+    html = app_html()
+    assert 'call("tree_verdicts"' in html
+    assert "/^FAIL" not in html, "no parser of the printed report is left"
+    assert "Count in red totals" in html and "function redOf" in html and "Not counted: " in html
+
+
+def test_the_children_show_as_a_table_per_kind_and_a_condition_lists_nodes():
+    """#73 and #75: a List/Table switch on each list of children, one table per kind, and
+    a filter row asking tree_find a rule-grammar condition over the open branch."""
+    html = app_html()
+    assert 'aria-label="Show as"' in html and "function tablesFor" in html
+    assert 'call("tree_find", { kind, where: cond, under: current.path' in html
+
+
+def test_the_graph_draws_an_edge_kind_as_an_arrow_and_lives_in_the_side_panel():
+    """#76: a Graph tab beside the others; a node whose kind declares `edge` is drawn as an
+    arrow between its ends; a link's name runs along its edge."""
+    html = app_html()
+    assert 'data-tab="graphtab">Graph</button>' in html
+    assert "d.edge" in html and "function drawGraph" in html
+
+
+def test_the_page_stacks_its_panes_on_a_narrow_screen():
+    html = app_html()
+    assert "@media (max-width: 820px)" in html and "outlinetoggle" in html
+
+
 def test_every_link_the_page_builds_from_data_is_a_web_address():
     """A ledger is read by people who did not write it. A `javascript:` url in a payload,
     made a link, runs in the reader's page with its bridge to the workspace - so every
