@@ -992,6 +992,13 @@ def slice_at(ws: "Workspace", path: str = "",
                      {**(data.get("linked_from") or {}), **(data.get("referenced_from") or {})})
     if named:
         data["targets"] = named
+        # ...and what each named kind means, so a viewer reads a target's kind as it reads
+        # the slice's own (an edge kind's ends, above all) without a read per kind
+        kinds = data.setdefault("semantics", {}).setdefault("kinds", {})
+        for k in {t["kind"] for t in named.values() if t and t.get("kind")} - set(kinds):
+            kd = next((v for v in composed.vocabulary if v.kind == k), None)
+            if kd is not None:
+                kinds[k] = kd.model_dump(exclude_defaults=True)
     # Whether this node can be written here, asked of the workspace's own guard, so a
     # viewer offers no edit it would refuse. A guard refuses with PermissionError.
     try:

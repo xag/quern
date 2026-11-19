@@ -95,6 +95,16 @@
     "digest": "6286c229e7ad"
   },
   {
+    "path": "a-kind-may-be-an-edge",
+    "kind": "decision",
+    "digest": "eb108df45038"
+  },
+  {
+    "path": "a-kind-may-be-an-edge/alt-guess-from-link-names",
+    "kind": "alternative",
+    "digest": "94e055d973a3"
+  },
+  {
     "path": "a-kind-may-ship-with-nothing-that-is-one",
     "kind": "debt",
     "digest": "a6cc49e1b87a"

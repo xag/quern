@@ -1578,6 +1578,36 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-kind-may-be-an-edge",
+            kind="decision",
+            name="A kind's `edge` names two of its links, the end it leaves and the end it "
+                 "goes to: a node of that kind is a connection between their targets, and "
+                 "the navigator's graph draws it as an arrow between them labelled with its "
+                 "name; a slice carries the meaning of every kind it names (#76)",
+            links={"rests_on": ["the-navigator-is-vocabulary-blind"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Transitions as nodes?",
+                "why":
+                    "A neighbourhood graph drew a state's transitions as vertices around "
+                    "it, so the states a transition joins sat two hops away and the state "
+                    "machine the tree describes could not be seen. The navigator knows no "
+                    "vocabulary, so it cannot tell a transition from any other node; the "
+                    "kind says it, as it says which links it declares and which payload "
+                    "fields name nodes. A state's slice names the transitions linking to it "
+                    "and now carries their kind's definition, so the page reads the two "
+                    "ends without a read per kind.",
+            },
+            children=[
+                Node(id="alt-guess-from-link-names", kind="alternative",
+                     name="Draw as an edge any node with exactly a `from` and a `to` link",
+                     payload={"why":
+                              "A guess from link names, which the-navigator-is-vocabulary-"
+                              "blind forbids, and wrong for a node that happens to have both."}),
+            ],
+        ),
+
+        Node(
             id="a-search-keeps-the-nodes-a-condition-holds-for",
             kind="decision",
             name="`tree_find(where=...)` keeps the nodes a condition in the rule grammar "

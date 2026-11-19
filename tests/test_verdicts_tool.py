@@ -50,3 +50,28 @@ def test_the_slice_counts_the_kinds_beneath_it_at_any_depth():
     assert slice_at(ws, "", 0, kinds=True)["kinds_under"] == {"folder": 1, "state": 2}
     assert slice_at(ws, "process", 0, kinds=True)["kinds_under"] == {"state": 2}
     assert "kinds_under" not in slice_at(ws, "", 0), "asked for, not sent on every read"
+
+
+def test_a_kind_that_is_an_edge_says_so_in_the_semantics_a_viewer_reads():
+    """#76: a transition is a connection between two states; its kind names the links
+    that are its two ends, and the slice's semantics carry them to the navigator."""
+    from quern import KindDef as K
+    t = Quern(vocabulary=[K(kind="transition", description="a move",
+                            links={"from": "left", "to": "entered"}, edge=("from", "to"))])
+    set_node(t, "t1", {"kind": "transition", "links": {"from": ["a"], "to": ["b"]}})
+    ws = ReadOnlyWorkspace(t, "t")
+    assert list(slice_at(ws, "", 1)["semantics"]["kinds"]["transition"]["edge"]) == ["from", "to"]
+
+
+def test_the_slice_carries_the_meaning_of_the_kinds_it_names():
+    """A state's slice names the transitions linking to it; the transition kind's
+    definition travels with it, so a viewer knows they are edges."""
+    from quern import KindDef as K
+    t = Quern(vocabulary=[K(kind="state", description="s"),
+                          K(kind="transition", description="a move",
+                            links={"from": "left", "to": "entered"}, edge=("from", "to"))])
+    set_node(t, "a", {"kind": "state"})
+    set_node(t, "b", {"kind": "state"})
+    set_node(t, "t1", {"kind": "transition", "links": {"from": ["a"], "to": ["b"]}})
+    kinds = slice_at(ReadOnlyWorkspace(t, "t"), "b", 2)["semantics"]["kinds"]
+    assert list(kinds["transition"]["edge"]) == ["from", "to"]

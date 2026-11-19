@@ -65,6 +65,8 @@ KINDDEF_FIELDS_EXEMPT = {
     "messages": "what the kind says to people, per language; claims nothing about a "
                 "node, and its one mechanical property (every language the same "
                 "messages and blanks) is gated at publish (library.check_messages)",
+    "edge": "how a viewer draws the kind (an arrow between two of its links' targets); "
+            "the links it names carry their own floors",
 }
 
 # THE SECOND DENOMINATOR: the verb table. The channel walk above proves the

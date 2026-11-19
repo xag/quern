@@ -150,6 +150,12 @@ class KindDef(BaseModel):
     have a reader guess from a string that happens to match an id. The navigator shows
     such a value as the node it names; `quern owed` implies the rule that it names one.
     None rather than an empty dict for the digest reason given for `convention`.
+
+    `edge` names two of the kind's links, the one it leaves from and the one it goes to:
+    a node of this kind is a connection between their targets - a transition between
+    two states - and a viewer draws it as an arrow from the first target to the second,
+    labelled with the node's name, where it would otherwise draw the node and both its
+    links. None for the digest reason above.
     """
 
     kind: str
@@ -161,6 +167,7 @@ class KindDef(BaseModel):
     section: bool | None = None
     messages: Messages | None = None
     refs: dict[str, str] | None = None
+    edge: tuple[str, str] | None = None
 
 
 class Rule(BaseModel):
