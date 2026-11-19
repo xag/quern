@@ -350,6 +350,16 @@
     "digest": "03ff4baf64d5"
   },
   {
+    "path": "a-viewer-reads-the-verdicts-as-data",
+    "kind": "decision",
+    "digest": "85c733ab72e3"
+  },
+  {
+    "path": "a-viewer-reads-the-verdicts-as-data/alt-parse-more-reports",
+    "kind": "alternative",
+    "digest": "4a84adffc01a"
+  },
+  {
     "path": "a-vocabulary-says-whole-sentences-per-language",
     "kind": "decision",
     "digest": "f8c380b8adaf"

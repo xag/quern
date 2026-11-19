@@ -553,6 +553,33 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
         return "\n".join(lines)
 
     @mcp.tool(structured_output=True)
+    def tree_verdicts(path: str = "", ctx: Context | None = None) -> dict[str, Any]:
+        """Every rule's verdict at or under `path`, as data, for a viewer that marks and
+        counts reds: each verdict with the rule, the node ('' for a rule that names no
+        node), the node's name, the verdict (holds, broken, absent, error) and its
+        detail; and each rule that gave one, with its kind, path, description and
+        expression, from the effective tree (pinned packages' rules included). The
+        report tree_check prints, without a parser between it and a page."""
+        ws, caller = at(ctx)
+        if isinstance(ws, str):
+            return {"error": ws}
+        tree = ws.effective()
+        results = treemod.run_rules(tree, path)
+        names: dict[str, str | None] = {}
+        for r in results:
+            if r.node and r.node not in names:
+                n = tree.get(r.node, depth=0)
+                names[r.node] = (n.name or None) if n is not None else None
+        judged = {r.rule for r in results}
+        return {
+            "verdicts": [{"rule": r.rule, "node": r.node, "name": names.get(r.node),
+                          "verdict": r.verdict, "detail": r.detail or None} for r in results],
+            "rules": [{"name": r.name, "kind": r.kind, "path": r.path,
+                       "description": r.description or None, "expr": r.expr}
+                      for r in tree.rules if r.name in judged],
+        }
+
+    @mcp.tool(structured_output=True)
     def tree_roll(against: list[dict[str, Any]] | None = None,
                   excused: list[str] | None = None,
             ctx: Context | None = None) -> dict[str, Any]:
@@ -943,6 +970,14 @@ def slice_at(ws: "Workspace", path: str = "",
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
+    # The kinds beneath the node, at any depth, with how many of each: what a viewer
+    # offers to ask about the branch, where the semantics carry two levels only.
+    under: dict[str, int] = {}
+    for p, n in composed.walk(path):
+        if n.kind and p != "/".join(s for s in path.split("/") if s):
+            under[n.kind] = under.get(n.kind, 0) + 1
+    if under:
+        data["kinds_under"] = under
     # Every node the slice names - its link targets, the sources linking or referring here, and the
     # payload fields a kind declares name a node (KindDef.refs) - with its name and kind,
     # or None where no node has that path, so a viewer shows each as what it is without

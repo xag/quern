@@ -1547,6 +1547,37 @@ def build() -> Quern:
         ),
 
         Node(
+            id="a-viewer-reads-the-verdicts-as-data",
+            kind="decision",
+            name="`tree_verdicts(path)` gives every rule's verdict at or under a path as data "
+                 "- rule, node, the node's name, verdict, detail - with each judging rule's "
+                 "text from the effective tree, and the slice counts the kinds beneath it "
+                 "(`kinds_under`); a page counting reds by rule reads these, not "
+                 "tree_check's printed report (#74, #75)",
+            links={"rests_on": ["the-outline-groups-by-kind-and-refuses-to-nest-by-link"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Address the new quern issues",
+                "why":
+                    "Counting reds by rule, naming the nodes a rule fails on and letting a "
+                    "reader set a rule aside needs, per verdict, the node's name and, per "
+                    "rule, its text; the printed report carries neither, drops a rule that "
+                    "names no node, and lists only the stored rules where the check runs "
+                    "the effective ones. The outline decision called parsing that report "
+                    "the weak seam; the page now reads data. The verdicts are still "
+                    "fetched apart from tree_get, for the reason that decision gives.",
+            },
+            children=[
+                Node(id="alt-parse-more-reports", kind="alternative",
+                     name="Parse tree_check, tree_rule and tree_vocabulary's printed reports",
+                     payload={"why":
+                              "Three parsers over text written for people, one of them "
+                              "listing the stored rules only, so a pinned package's rule "
+                              "would have a verdict and no text."}),
+            ],
+        ),
+
+        Node(
             id="a-search-keeps-the-nodes-a-condition-holds-for",
             kind="decision",
             name="`tree_find(where=...)` keeps the nodes a condition in the rule grammar "
