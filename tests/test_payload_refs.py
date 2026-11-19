@@ -61,9 +61,17 @@ def test_owed_implies_the_rule_and_the_rule_convicts_its_refuter_and_passes_a_so
 def test_the_slice_carries_each_named_node_and_none_for_a_missing_one():
     ws = ReadOnlyWorkspace(cited(), "t")
     data = slice_at(ws, "", 2)
-    assert data["refs"] == {
+    assert data["targets"] == {
         "sources/smith-2020": {"name": "Smith, 2020", "kind": "source"},
         "sources/gone-1999": None,
         "roles/editor": {"name": "the editor", "kind": None}}
     # a slice that stops above the payload carries none of what it names
-    assert "refs" not in slice_at(ws, "", 0)
+    assert "targets" not in slice_at(ws, "", 0)
+
+
+def test_a_node_a_payload_names_is_linked_here_from_it_under_the_field():
+    """S2: a source shows the claims that cite it, as it shows the nodes that link to it."""
+    ws = ReadOnlyWorkspace(cited(), "t")
+    data = slice_at(ws, "sources/smith-2020", 1)
+    assert data["linked_from"] == {"citations.source": ["c1"]}
+    assert data["targets"]["c1"] == {"name": None, "kind": "claim"}

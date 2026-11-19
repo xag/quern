@@ -175,11 +175,11 @@ def test_the_outline_opens_a_tree_by_its_sections():
 
 
 def test_a_declared_payload_reference_shows_as_the_node_it_names():
-    """#72: the slice's `refs` (each named node's name, or null) reaches the page, and a
+    """#72: the slice's `targets` (each named node's name, or null) reaches the page, and a
     payload value at a field the kind declares under `refs` is drawn by refChip - the
     node's name opening it, or the value as written, marked missing."""
     html = app_html()
-    assert "refNames = d.refs" in html
+    assert "refNames = d.targets" in html
     assert "function refChip" in html and "refmissing" in html
     assert "refsOf(n.kind)" in html and "refsOf(c.kind)" in html
 

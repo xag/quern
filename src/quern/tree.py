@@ -544,7 +544,8 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
                has_param: str | None = None, links_to: str | None = None,
                under: str = "", current_only: bool = False,
                payload: dict[str, Any] | None = None,
-               limit: int = 20, where: str | None = None) -> list[tuple[str, Node]]:
+               limit: int = 20, where: str | None = None,
+               unjudged: list[str] | None = None) -> list[tuple[str, Node]]:
     """Search the tree instead of walking it: (path, node) pairs matching every
     given filter. `query` is a case-insensitive substring over a node's prose — id,
     name, kind, meta values, the strings in its payload and the sources its params
@@ -562,8 +563,9 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
     nodes it holds for are kept. It asks a structural question of the nodes ("which
     have no deadline", "which cite two sources of different standing") without writing
     a rule and reading its failures among every other red. A node the condition reads
-    something absent on is not kept, as a rule on it would be absent; a condition that
-    does not parse, or fails for another reason, raises ValueError naming the node."""
+    something absent on is not kept, as a rule on it would be absent, and its path is
+    appended to `unjudged` when the caller passes a list; a condition that does not
+    parse, or fails for another reason, raises ValueError naming the node."""
     if where is None:
         return tree.find(query=query, kind=kind, has_param=has_param,
                          links_to=links_to, under=under, current_only=current_only,
@@ -577,6 +579,8 @@ def find_nodes(tree: Quern | TreeStore, query: str | None = None, kind: str | No
         try:
             held = bool(expr.evaluate(env, {"self": p}))
         except Absent:
+            if unjudged is not None:
+                unjudged.append(p)
             continue
         except Exception as e:
             raise ValueError(f"where: {e} (at '{p}')") from e
@@ -755,13 +759,21 @@ def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
     """Every (link name -> source paths) that names `path`: the whole reverse index
     at one node, domain links and reserved verbs alike. This is what makes a link
     navigable in BOTH directions — `rests_on` says what this leans on; this says
-    what leans on it — without the viewer knowing what any link means."""
+    what leans on it — without the viewer knowing what any link means. A payload
+    field a kind declares names a node (`KindDef.refs`) counts as a link under the
+    field's name."""
     out: dict[str, list[str]] = {}
+    declared = {k.kind: k.refs for k in tree.vocabulary if k.refs}
     for p, n in tree.walk(""):
         for name, targets in n.links.items():
             if path in targets:
                 out.setdefault(name, []).append(p)
-    return {k: sorted(v) for k, v in sorted(out.items())}
+        # ...and the payload fields a kind declares name a node (`refs`), under the
+        # field's name: a source is linked here by the claims whose citations name it
+        for field, under in declared.get(n.kind, {}).items():
+            if path in ref_targets(n, field, under):
+                out.setdefault(field, []).append(p)
+    return {k: sorted(set(v)) for k, v in sorted(out.items())}
 
 
 def superseded_paths(tree: Quern | TreeStore) -> list[str]:

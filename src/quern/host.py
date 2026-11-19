@@ -328,16 +328,19 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
         now?" query); `where` is a condition in the rule grammar, with `self` the
         node it is asked of — `kind == 'state'` nodes where
         `len(linked(self, 'deadline')) == 0` — keeping the nodes it holds for,
-        read-only, without writing a rule. Returns paths + a one-line summary each;
+        read-only, without writing a rule; `unjudged` counts the nodes it read
+        something absent on. Returns paths + a one-line summary each;
         then tree_get the one you meant. Purely structural."""
         ws, caller = at(ctx)
         if isinstance(ws, str):
             return {"error": ws}
+        unjudged: list[str] = []
         try:
             hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
                                       has_param=has_param, links_to=links_to,
                                       under=under, current_only=current_only,
-                                      payload=payload, limit=limit, where=where)
+                                      payload=payload, limit=limit, where=where,
+                                      unjudged=unjudged)
         except ValueError as e:
             return {"error": str(e)}
         return {"matches": [
@@ -346,7 +349,10 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
              "params": sorted(n.params) or None,
              "links": {k: v for k, v in n.links.items()} or None}
             for p, n in hits],
-            "truncated": len(hits) >= limit}
+            "truncated": len(hits) >= limit,
+            # the nodes `where` read something absent on: an empty answer then says whether
+            # nothing matched or nothing could be judged
+            **({"unjudged": len(unjudged)} if where is not None else {})}
 
     @mcp.tool()
     def tree_brief(all: bool = False, fat: bool = False, under: str = "",
@@ -930,12 +936,13 @@ def slice_at(ws: "Workspace", path: str = "",
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
-    # The nodes the slice's payloads name, where a kind declares the field names one
-    # (KindDef.refs): each target's name and kind, or None where it is missing, so a
-    # viewer shows a reference as what it points at without a read per value.
-    named = _ref_targets(composed, path, depth)
+    # Every node the slice names - its link targets, the sources linking here, and the
+    # payload fields a kind declares name a node (KindDef.refs) - with its name and kind,
+    # or None where no node has that path, so a viewer shows each as what it is without
+    # a read per name.
+    named = _targets(composed, path, depth, data.get("linked_from") or {})
     if named:
-        data["refs"] = named
+        data["targets"] = named
     # Whether this node can be written here, asked of the workspace's own guard, so a
     # viewer offers no edit it would refuse. A guard refuses with PermissionError.
     try:
@@ -945,25 +952,33 @@ def slice_at(ws: "Workspace", path: str = "",
     return data
 
 
-def _ref_targets(tree: Any, path: str, depth: int | None) -> dict[str, Any]:
-    """Every target a declared payload reference names in the slice at `path`, down to
-    the depth whose payloads the slice carries, with that node's name and kind."""
+def _targets(tree: Any, path: str, depth: int | None,
+             linked_from: dict[str, list[str]]) -> dict[str, Any]:
+    """Every node the slice at `path` names, down to the depth whose links and payloads
+    it carries, with that node's name and kind, or None where it is missing."""
     out: dict[str, Any] = {}
     declared = {k.kind: k.refs for k in tree.vocabulary if k.refs}
-    if not declared:
-        return out
+
+    def name(t: str) -> None:
+        if t not in out:
+            n = tree.get(t, depth=0)
+            out[t] = None if n is None else {"name": n.name or None, "kind": n.kind or None}
+
+    for sources in linked_from.values():
+        for t in sources:
+            name(t)
     reach = depth
     anchor = "/".join(s for s in path.split("/") if s)
     for p, node in tree.walk(path):
         rel = p[len(anchor):].lstrip("/") if anchor else p
         if reach is not None and len([s for s in rel.split("/") if s]) > reach:
             continue
+        for targets in node.links.values():
+            for t in targets:
+                name("/".join(s for s in t.split("/") if s))
         for field, under in declared.get(node.kind, {}).items():
             for t in treemod.ref_targets(node, field, under):
-                if t not in out:
-                    n = tree.get(t, depth=0)
-                    out[t] = None if n is None else {"name": n.name or None,
-                                                     "kind": n.kind or None}
+                name(t)
     return out
 
 

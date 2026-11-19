@@ -266,7 +266,7 @@ const collapsedKinds = new Set();   // "path|kind" -> that kind's group folded a
 const openSections = new Set();     // section paths the reader unfolded
 let groupsPrimed = false;    // have the groups been folded shut for the first paint?
 let redByPath = new Map();   // path -> [failing rule names]
-let refNames = {};           // target path -> {name, kind}, or null where it is missing
+let refNames = {};           // every node the slice names -> {name, kind}, or null where missing
 
 function norm(r) {
   if (!r) return null;
@@ -342,7 +342,7 @@ async function go(path) {
   if (!d || d.error) { flash(d?.error || "load failed", true); return; }
   cache.set(path, d);
   if (d.superseded) staleSet = new Set(d.superseded);
-  refNames = d.refs || {};
+  refNames = d.targets || {};
   current = { path, node: d, semantics: d.semantics || {} };
   readonly = d.writable === false;
   expanded.add(path);
@@ -715,7 +715,7 @@ function renderNode() {
   const btn = (id, label, cls = "") => readonly ? "" : `<button id="${id}" class="${cls}">${label}</button>`;
   const desc = kd?.description || "";
   const cut = desc.search(/\.(\s+[A-Z`'"(]|$)/);
-  const chip = t => { const nm = nameOf(t); return `<span class="chip linkchip${nm ? "" : " mono"}${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}" title="${esc(t)}">${esc(nm || t)}</span>`; };
+  const chip = t => { const nm = refNames[t]?.name || nameOf(t); return `<span class="chip linkchip${nm ? "" : " mono"}${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}" title="${esc(t)}">${esc(nm || t)}</span>`; };
 
   el.innerHTML = `
     <h1 id="nname" ${readonly ? "" : `contenteditable="plaintext-only" spellcheck="false" title="click to edit the name"`}>${esc(path ? (n.name || n.id) : wsLabel)}</h1>

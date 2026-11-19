@@ -28,9 +28,12 @@ def test_the_condition_keeps_the_nodes_it_holds_for():
     assert [p for p, _ in hits] == ["obj/review", "obj/done"]
 
 
-def test_a_node_the_condition_reads_something_absent_on_is_not_kept():
-    hits = find_nodes(states(), kind="state", where="param(self, 'days') > 1")
+def test_a_node_the_condition_reads_something_absent_on_is_not_kept_and_is_counted():
+    unjudged: list[str] = []
+    hits = find_nodes(states(), kind="state", where="param(self, 'days') > 1",
+                      unjudged=unjudged)
     assert [p for p, _ in hits] == ["obj/done"]
+    assert unjudged == ["obj/draft", "obj/review"]
 
 
 def test_the_limit_counts_kept_nodes_not_candidates():
@@ -57,3 +60,4 @@ def test_the_tool_returns_the_error_to_the_caller():
     _, out = asyncio.run(_mcp.call_tool(mcp, "tree_find",
                                         {"kind": "state", "where": "count(self) == 0"}))
     assert [m["path"] for m in out["matches"]] == ["obj/draft", "obj/review", "obj/done"]
+    assert out["unjudged"] == 0
