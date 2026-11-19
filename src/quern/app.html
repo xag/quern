@@ -207,6 +207,7 @@ details.kinddesc summary { cursor: pointer; font-style: italic; }
 details.kinddesc[open] summary { margin-bottom: 4px; }
 details.raw > summary { cursor: pointer; color: var(--fg2); font-size: 11px;
   text-transform: uppercase; letter-spacing: .08em; }
+.refmissing { color: var(--bad); }
 .tname { overflow: hidden; text-overflow: ellipsis; flex: 1 1 auto; min-width: 0; }
 </style>
 </head>
@@ -265,6 +266,7 @@ const collapsedKinds = new Set();   // "path|kind" -> that kind's group folded a
 const openSections = new Set();     // section paths the reader unfolded
 let groupsPrimed = false;    // have the groups been folded shut for the first paint?
 let redByPath = new Map();   // path -> [failing rule names]
+let refNames = {};           // target path -> {name, kind}, or null where it is missing
 
 function norm(r) {
   if (!r) return null;
@@ -340,6 +342,7 @@ async function go(path) {
   if (!d || d.error) { flash(d?.error || "load failed", true); return; }
   cache.set(path, d);
   if (d.superseded) staleSet = new Set(d.superseded);
+  refNames = d.refs || {};
   current = { path, node: d, semantics: d.semantics || {} };
   readonly = d.writable === false;
   expanded.add(path);
@@ -610,11 +613,24 @@ function isShort(v) {
     (typeof v === "string" && v.length <= 60 && !v.includes("\n") && !/https?:\/\//.test(v));
 }
 function fieldLabel(k) { return String(k).replace(/_/g, " "); }
-function value(v) {
+/* A payload value a kind declares names a node (its `refs`): the node's name, opening it, as a
+   link shows its target; a name that resolves to nothing stays as written, marked missing. */
+function refTarget(under, v) {
+  return [under, v].join("/").split("/").filter(Boolean).join("/");
+}
+function refChip(t, raw) {
+  const r = refNames[t];
+  if (!r) return `<span class="chip mono refmissing" title="no node at ${esc(t)}">${esc(raw)}</span>`;
+  return `<span class="chip linkchip${staleSet.has(t) ? " stale" : ""}" data-go="${esc(t)}" title="${esc(t)}">${esc(r.name || t)}</span>`;
+}
+const joinAt = (at, k) => at ? at + "." + k : String(k);
+function value(v, at = null, refs = {}) {
   if (v == null) return "";
+  if (typeof v === "string" && at !== null && at in refs && v) return refChip(refTarget(refs[at], v), v);
   if (Array.isArray(v)) {
-    if (v.every(isShort)) return v.map(x => `<span class="chip">${esc(x)}</span>`).join(" ");
-    return `<ul class="vlist">${v.map(x => `<li>${value(x)}</li>`).join("")}</ul>`;
+    if (v.every(isShort) && !(at in refs)) return v.map(x => `<span class="chip">${esc(x)}</span>`).join(" ");
+    if (v.every(x => typeof x === "string") && at in refs) return v.map(x => value(x, at, refs)).join(" ");
+    return `<ul class="vlist">${v.map(x => `<li>${value(x, at, refs)}</li>`).join("")}</ul>`;
   }
   if (typeof v === "object") {
     // Only a web address becomes a link: a `javascript:` url in someone's ledger would run
@@ -628,26 +644,27 @@ function value(v) {
         + others.map(([k, x]) => ` <span class="muted">· ${esc(fieldLabel(k))}</span> ${inline(x)}`).join("");
     }
     return `<dl class="vobj">${Object.entries(v).map(([k, x]) =>
-      `<dt>${esc(fieldLabel(k))}</dt><dd>${value(x)}</dd>`).join("")}</dl>`;
+      `<dt>${esc(fieldLabel(k))}</dt><dd>${value(x, joinAt(at, k), refs)}</dd>`).join("")}</dl>`;
   }
   if (typeof v === "string") return v.length > 140 || v.includes("\n") ? prose(v) : inline(v);
   return esc(v);
 }
 /* Long fields read as text, in the order they were written; short ones on one line under them. */
-function fields(payload, compact = false) {
+function fields(payload, compact = false, refs = {}) {
   const all = Object.entries(payload || {});
   const body = all.filter(([, v]) => !isShort(v));
   const facts = all.filter(([, v]) => isShort(v));
   return body.map(([k, v]) => `<div class="field${compact ? " inline" : ""}">
-      <div class="flabel">${esc(fieldLabel(k))}</div><div class="fval">${value(v)}</div></div>`).join("")
+      <div class="flabel">${esc(fieldLabel(k))}</div><div class="fval">${value(v, k, refs)}</div></div>`).join("")
     + (facts.length ? `<div class="facts">${facts.map(([k, v]) =>
-      `<span><span class="muted">${esc(fieldLabel(k))}</span> ${esc(v)}</span>`).join("")}</div>` : "");
+      `<span><span class="muted">${esc(fieldLabel(k))}</span> ${k in refs ? value(v, k, refs) : esc(v)}</span>`).join("")}</div>` : "");
 }
+function refsOf(kind) { return (current.semantics.kinds || {})[kind]?.refs || {}; }
 function kidCard(c, path) {
   return `<div class="kidcard" data-go="${esc(childPath(path, c.id))}">
     <div class="kidhead"><b>${esc(c.name || c.id)}</b>
       ${c.kind ? `<span class="chip kind">${esc(c.kind)}</span>` : ""}</div>
-    ${Object.keys(c.payload || {}).length ? `<div class="kidbody">${fields(c.payload, true)}</div>` : ""}</div>`;
+    ${Object.keys(c.payload || {}).length ? `<div class="kidbody">${fields(c.payload, true, refsOf(c.kind))}</div>` : ""}</div>`;
 }
 function excerpt(c) {
   const t = Object.values(c.payload || {}).find(v => typeof v === "string" && v.length > 60);
@@ -711,7 +728,7 @@ function renderNode() {
       : `<div class="kinddesc">${esc(desc)}</div>`) : ""}
 
     ${branch ? `<div class="contents">${contents(n, path)}</div>` : `
-      <div class="fields">${fields(payload)}</div>
+      <div class="fields">${fields(payload, false, refsOf(n.kind))}</div>
       ${kids.length || !readonly ? `<section class="block"><div class="blockhead">
         <h2>${kids.length ? esc(kindCounts(kids)) : "Children"}</h2>${btn("addchild", "+ child")}</div>
         ${kids.map(c => kidCard(c, path)).join("")}</section>` : ""}`}
