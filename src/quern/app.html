@@ -706,7 +706,8 @@ function renderNode() {
   const el = $("#node");
   const params = Object.entries(n.params || {});
   const links = Object.entries(n.links || {});
-  const linkedFrom = Object.entries(n.linked_from || {});
+  // what links here, and what names this node from a payload field its kind declares (refs)
+  const linkedFrom = [...Object.entries(n.linked_from || {}), ...Object.entries(n.referenced_from || {})];
   const supersededBy = (n.linked_from || {}).supersedes || [];
   const payload = n.payload || {};
   const meta = n.meta || {};

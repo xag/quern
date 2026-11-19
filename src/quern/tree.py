@@ -759,21 +759,29 @@ def linked_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
     """Every (link name -> source paths) that names `path`: the whole reverse index
     at one node, domain links and reserved verbs alike. This is what makes a link
     navigable in BOTH directions — `rests_on` says what this leans on; this says
-    what leans on it — without the viewer knowing what any link means. A payload
-    field a kind declares names a node (`KindDef.refs`) counts as a link under the
-    field's name."""
+    what leans on it — without the viewer knowing what any link means."""
     out: dict[str, list[str]] = {}
-    declared = {k.kind: k.refs for k in tree.vocabulary if k.refs}
     for p, n in tree.walk(""):
         for name, targets in n.links.items():
             if path in targets:
                 out.setdefault(name, []).append(p)
-        # ...and the payload fields a kind declares name a node (`refs`), under the
-        # field's name: a source is linked here by the claims whose citations name it
+    return {k: sorted(v) for k, v in sorted(out.items())}
+
+
+def referenced_from(tree: Quern | TreeStore, path: str) -> dict[str, list[str]]:
+    """Every (payload field -> source paths) whose value names `path`, over the fields a
+    kind declares name a node (`KindDef.refs`): a source is named by the claims whose
+    citations cite it. Kept apart from `linked_from`, so a field never reads as a link of
+    the same name - `supersedes` above all, which the core reads."""
+    declared = {k.kind: k.refs for k in tree.vocabulary if k.refs}
+    out: dict[str, list[str]] = {}
+    if not declared:
+        return out
+    for p, n in tree.walk(""):
         for field, under in declared.get(n.kind, {}).items():
             if path in ref_targets(n, field, under):
                 out.setdefault(field, []).append(p)
-    return {k: sorted(set(v)) for k, v in sorted(out.items())}
+    return {k: sorted(v) for k, v in sorted(out.items())}
 
 
 def superseded_paths(tree: Quern | TreeStore) -> list[str]:

@@ -69,9 +69,15 @@ def test_the_slice_carries_each_named_node_and_none_for_a_missing_one():
     assert "targets" not in slice_at(ws, "", 0)
 
 
-def test_a_node_a_payload_names_is_linked_here_from_it_under_the_field():
-    """S2: a source shows the claims that cite it, as it shows the nodes that link to it."""
-    ws = ReadOnlyWorkspace(cited(), "t")
+def test_a_node_a_payload_names_shows_who_names_it_apart_from_its_links():
+    """A source shows the claims that cite it, under the field's name and apart from
+    `linked_from`, so no field is read as the link of the same name."""
+    tree = cited()
+    tree.vocabulary[0] = KindDef(kind="claim", description="x",
+                                 refs={"citations.source": "sources", "supersedes": "sources"})
+    set_node(tree, "c2", {"kind": "claim", "payload": {"supersedes": "smith-2020"}})
+    ws = ReadOnlyWorkspace(tree, "t")
     data = slice_at(ws, "sources/smith-2020", 1)
-    assert data["linked_from"] == {"citations.source": ["c1"]}
+    assert data["referenced_from"] == {"citations.source": ["c1"], "supersedes": ["c2"]}
+    assert "linked_from" not in data and "superseded" not in data
     assert data["targets"]["c1"] == {"name": None, "kind": "claim"}

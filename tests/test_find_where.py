@@ -61,3 +61,17 @@ def test_the_tool_returns_the_error_to_the_caller():
                                         {"kind": "state", "where": "count(self) == 0"}))
     assert [m["path"] for m in out["matches"]] == ["obj/draft", "obj/review", "obj/done"]
     assert out["unjudged"] == 0
+
+
+def test_truncated_says_there_is_more_not_that_the_limit_was_met():
+    from quern import _mcp
+    import asyncio
+
+    mcp = _mcp.new_server("t")
+    ws = ReadOnlyWorkspace(states(), "t")
+    register_tree_tools(mcp, lambda: ws)
+    where = "len(linked(self, 'deadline')) == 0"
+    _, exact = asyncio.run(_mcp.call_tool(mcp, "tree_find", {"kind": "state", "where": where, "limit": 2}))
+    _, cut = asyncio.run(_mcp.call_tool(mcp, "tree_find", {"kind": "state", "where": where, "limit": 1}))
+    assert (len(exact["matches"]), exact["truncated"]) == (2, False)
+    assert (len(cut["matches"]), cut["truncated"]) == (1, True)

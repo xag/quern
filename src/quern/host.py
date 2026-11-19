@@ -336,22 +336,26 @@ def register_tree_tools(mcp: Server, get_ws: Resolver,
             return {"error": ws}
         unjudged: list[str] = []
         try:
+            # one past the limit, so `truncated` says there IS more, not that the limit was met
             hits = treemod.find_nodes(ws.effective(), query=query, kind=kind,
                                       has_param=has_param, links_to=links_to,
                                       under=under, current_only=current_only,
-                                      payload=payload, limit=limit, where=where,
+                                      payload=payload, limit=limit + 1, where=where,
                                       unjudged=unjudged)
         except ValueError as e:
             return {"error": str(e)}
+        truncated = len(hits) > limit
+        hits = hits[:limit]
         return {"matches": [
             {"path": p, "kind": n.kind or None, "name": n.name or None,
              "shape": (n.payload.get("shape") or {}).get("op"),
              "params": sorted(n.params) or None,
              "links": {k: v for k, v in n.links.items()} or None}
             for p, n in hits],
-            "truncated": len(hits) >= limit,
+            "truncated": truncated,
             # the nodes `where` read something absent on: an empty answer then says whether
-            # nothing matched or nothing could be judged
+            # nothing matched or nothing could be judged; on a truncated answer, of the
+            # nodes judged before the search stopped
             **({"unjudged": len(unjudged)} if where is not None else {})}
 
     @mcp.tool()
@@ -933,14 +937,18 @@ def slice_at(ws: "Workspace", path: str = "",
         rev = treemod.linked_from(composed, path)
         if rev:
             data["linked_from"] = rev
+        cited = treemod.referenced_from(composed, path)
+        if cited:
+            data["referenced_from"] = cited
     stale = treemod.superseded_paths(composed)
     if stale:
         data["superseded"] = stale
-    # Every node the slice names - its link targets, the sources linking here, and the
+    # Every node the slice names - its link targets, the sources linking or referring here, and the
     # payload fields a kind declares name a node (KindDef.refs) - with its name and kind,
     # or None where no node has that path, so a viewer shows each as what it is without
     # a read per name.
-    named = _targets(composed, path, depth, data.get("linked_from") or {})
+    named = _targets(composed, path, depth,
+                     {**(data.get("linked_from") or {}), **(data.get("referenced_from") or {})})
     if named:
         data["targets"] = named
     # Whether this node can be written here, asked of the workspace's own guard, so a
