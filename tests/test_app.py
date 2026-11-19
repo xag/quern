@@ -209,6 +209,15 @@ def test_the_graph_draws_an_edge_kind_as_an_arrow_and_lives_in_the_side_panel():
     assert "d.edge" in html and "function drawGraph" in html
 
 
+def test_the_side_panels_have_dividers_that_set_their_widths():
+    """The outline and the side panel each have a divider, a focusable separator with its
+    value, whose width lives in a CSS variable so the narrow layout's width: auto still wins."""
+    html = app_html()
+    assert html.count('role="separator"') == 2 and 'aria-label="Outline width"' in html
+    assert "var(--tree-w, 300px)" in html and "var(--side-w, 320px)" in html
+    assert "ResizeObserver" in html, "the graph is drawn again to its panel's new width"
+
+
 def test_the_page_stacks_its_panes_on_a_narrow_screen():
     html = app_html()
     assert "@media (max-width: 820px)" in html and "outlinetoggle" in html

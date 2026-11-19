@@ -1608,6 +1608,38 @@ def build() -> Quern:
         ),
 
         Node(
+            id="the-reader-sets-the-side-panels-widths",
+            kind="decision",
+            name="On a wide screen the outline and the side panel each have a divider the "
+                 "reader drags, or moves with the arrow keys, to set the panel's width; a "
+                 "double-click or Enter puts the default back, the centre keeps 360 px, and "
+                 "the widths are kept in the browser",
+            links={"rests_on": ["the-navigator-shows-what-an-entry-says"]},
+            payload={
+                "decided_on": "2026-11-19",
+                "the_owner": "Could the user adjust the width of the left and right panels on "
+                             "desktop; then: These are simple dividers",
+                "why":
+                    "A dragged divider is how VS Code, Zed, Spectrum's split view and Apple's "
+                    "split views let a reader size a pane, and WAI-ARIA's window splitter "
+                    "gives it a keyboard and a screen-reader value. Two known gaps are kept: "
+                    "no way to set a width by a single click without dragging (WCAG 2.2 SC "
+                    "2.5.7, the keys not counting for it) and a 7 px target under SC 2.5.8's "
+                    "24 px, as VS Code's 4 px divider has; the owner asked for simple dividers. "
+                    "Below 820 px, which includes a chat client's frame, the panes stack and "
+                    "there is nothing to size.",
+            },
+            children=[
+                Node(id="alt-a-widen-toggle", kind="alternative",
+                     name="A button on each panel switching it between two fixed widths",
+                     payload={"why": "The reader cannot choose the width the graph or a wide table needs."}),
+                Node(id="alt-collapse-only", kind="alternative",
+                     name="A button hiding a panel to give the centre its room",
+                     payload={"why": "Gives the centre room but never widens a panel."}),
+            ],
+        ),
+
+        Node(
             id="the-navigator-shows-reds-by-rule-tables-conditions-and-a-graph",
             kind="decision",
             name="The navigator counts reds by rule in the Rules tab, with a checkbox that "

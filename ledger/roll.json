@@ -790,6 +790,21 @@
     "digest": "a41c412bacd9"
   },
   {
+    "path": "the-reader-sets-the-side-panels-widths",
+    "kind": "decision",
+    "digest": "5f30a21691a7"
+  },
+  {
+    "path": "the-reader-sets-the-side-panels-widths/alt-a-widen-toggle",
+    "kind": "alternative",
+    "digest": "6757c9d60fa6"
+  },
+  {
+    "path": "the-reader-sets-the-side-panels-widths/alt-collapse-only",
+    "kind": "alternative",
+    "digest": "6642e69ea4e1"
+  },
+  {
     "path": "the-recorder-is-upstream-and-the-circle-is-not-closed",
     "kind": "decision",
     "digest": "72e6f2ada4cc"

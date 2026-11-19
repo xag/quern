@@ -46,8 +46,17 @@ header { display: flex; align-items: center; gap: 10px; padding: 8px 12px;
 #hits .hit { padding: 6px 10px; cursor: pointer; border-bottom: 1px solid var(--line); }
 #hits .hit:hover { background: var(--bg3); }
 main { flex: 1; display: flex; min-height: 0; }
-#tree { width: 300px; flex: none; overflow: auto; border-right: 1px solid var(--line);
-  padding: 8px 4px; }
+#tree { width: var(--tree-w, 300px); flex: none; overflow: auto; padding: 8px 4px; }
+/* The dividers between the panes: the line a pane's border was, in a strip wide enough to
+   grab. Dragged, or moved with the arrow keys once focused, they set the outline's and the
+   side panel's widths (the window splitter of WAI-ARIA's practices). */
+.divider { flex: none; width: 7px; position: relative; cursor: col-resize; touch-action: none; }
+.divider::after { content: ""; position: absolute; top: 0; bottom: 0; left: 3px; width: 1px;
+  background: var(--line); }
+.divider:hover::after, .divider:focus-visible::after, .divider.drag::after {
+  left: 2px; width: 3px; background: var(--accent); }
+.divider:focus { outline: none; }
+body.dragging { cursor: col-resize; user-select: none; }
 .tnode { user-select: none; }
 .trow { display: flex; align-items: center; gap: 4px; padding: 2px 6px;
   border-radius: 6px; cursor: pointer; white-space: nowrap; }
@@ -83,7 +92,7 @@ main { flex: 1; display: flex; min-height: 0; }
 .tflag { font-size: 10px; color: var(--inferred); flex: none; }
 .tred { font-size: 10px; color: var(--bad); flex: none; font-weight: 600; }
 #node { flex: 1; min-width: 0; overflow: auto; padding: 16px 20px; }
-#side { width: 320px; flex: none; overflow: auto; border-left: 1px solid var(--line);
+#side { width: var(--side-w, 320px); flex: none; overflow: auto;
   background: var(--bg2); display: flex; flex-direction: column; }
 .tabs { display: flex; border-bottom: 1px solid var(--line); flex: none; }
 .tabs button { flex: 1; background: none; border: none; color: var(--fg2);
@@ -274,6 +283,7 @@ table.nt tr.rowbtn:hover .ncol { background: var(--bg3); }
   #searchbox { flex: 1 1 160px; }
   #search { width: 100%; }
   main { flex-direction: column; }
+  .divider { display: none; }
   #tree { width: auto; border-right: none; border-bottom: 1px solid var(--line); overflow: visible; padding: 4px 8px; }
   #tree.folded > :not(.outlinetoggle) { display: none; }
   .outlinetoggle { display: flex; width: 100%; justify-content: space-between; margin: 2px 0; }
@@ -296,7 +306,9 @@ table.nt tr.rowbtn:hover .ncol { background: var(--bg3); }
 </header>
 <main>
   <aside id="tree"></aside>
+  <div class="divider" id="treediv" role="separator" aria-orientation="vertical" aria-controls="tree" aria-label="Outline width" tabindex="0"></div>
   <section id="node"><p class="muted">loading…</p></section>
+  <div class="divider" id="sidediv" role="separator" aria-orientation="vertical" aria-controls="side" aria-label="Side panel width" tabindex="0"></div>
   <aside id="side">
     <div class="tabs">
       <button data-tab="kindstab" class="on">Kinds</button>
@@ -1535,6 +1547,81 @@ function renderGraphTab() {
   if ($("#graphtab").classList.contains("on")) drawGraph($("#graphtab"));
 }
 document.querySelectorAll(".tabs button").forEach(b => b.addEventListener("click", () => { if (b.dataset.tab === "graphtab") renderGraphTab(); }));
+
+/* ---------- the pane widths ----------
+   A divider dragged, or moved with the arrow keys (Shift for bigger steps, Home and End for
+   the narrowest and widest), sets its pane's width; a double-click puts the default back.
+   The centre always keeps CENTRE_MIN. The widths are kept in this browser, and the page
+   opens at the defaults where it cannot keep them. */
+const PANES = { tree: { def: 300, min: 180, sign: 1 }, side: { def: 320, min: 260, sign: -1 } };
+const CENTRE_MIN = 360;
+const wanted = {};   // the width the reader set, which a narrower window only clamps
+function paneMax(id) {
+  const other = id === "tree" ? "side" : "tree";
+  const room = $("main").clientWidth - CENTRE_MIN - $("#" + other).offsetWidth
+    - $("#treediv").offsetWidth - $("#sidediv").offsetWidth;
+  return Math.max(PANES[id].min, room);
+}
+function setPane(id, w, keep) {
+  const p = PANES[id], d = $("#" + id + "div"), max = paneMax(id);
+  w = Math.round(Math.min(max, Math.max(p.min, w)));
+  document.documentElement.style.setProperty(`--${id}-w`, w + "px");
+  d.setAttribute("aria-valuenow", w); d.setAttribute("aria-valuetext", w + " pixels");
+  d.setAttribute("aria-valuemin", p.min); d.setAttribute("aria-valuemax", max);
+  if (keep) {
+    wanted[id] = w;
+    try { localStorage.setItem("quern.pane." + id, String(w)); } catch {}
+  }
+}
+function fitPanes() {
+  if (narrow()) return;
+  for (const id of Object.keys(PANES)) setPane(id, wanted[id] ?? PANES[id].def, false);
+}
+for (const id of Object.keys(PANES)) {
+  const p = PANES[id], d = $("#" + id + "div"), width = () => $("#" + id).offsetWidth;
+  d.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    e.preventDefault(); d.setPointerCapture(e.pointerId);
+    d.classList.add("drag"); document.body.classList.add("dragging");
+    const x0 = e.clientX, w0 = width();
+    const move = ev => setPane(id, w0 + p.sign * (ev.clientX - x0), false);
+    const up = () => {
+      d.removeEventListener("pointermove", move);
+      d.classList.remove("drag"); document.body.classList.remove("dragging");
+      setPane(id, width(), true);
+    };
+    d.addEventListener("pointermove", move);
+    d.addEventListener("pointerup", up, { once: true });
+    d.addEventListener("pointercancel", up, { once: true });
+  });
+  const reset = () => {
+    delete wanted[id]; setPane(id, p.def, false);
+    try { localStorage.removeItem("quern.pane." + id); } catch {}
+  };
+  d.addEventListener("dblclick", reset);
+  d.addEventListener("keydown", e => {
+    if (e.key === "Enter") { e.preventDefault(); reset(); return; }
+    const step = e.shiftKey ? 64 : 16, w = width();
+    const to = { ArrowLeft: w - p.sign * step, ArrowRight: w + p.sign * step, Home: p.min, End: paneMax(id) }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); setPane(id, to, true);
+  });
+}
+for (const id of Object.keys(PANES)) {
+  try { const kept = Number(localStorage.getItem("quern.pane." + id)); if (kept) wanted[id] = kept; } catch {}
+}
+fitPanes();
+window.addEventListener("resize", fitPanes);
+/* The graph is drawn to its panel's width: drawn again once the width stops changing,
+   however it changed (a divider, a key, the window). */
+let graphW = 0, graphTimer = 0;
+new ResizeObserver(() => {
+  clearTimeout(graphTimer);
+  graphTimer = setTimeout(() => {
+    const w = $("#graphtab").clientWidth;
+    if (w && w !== graphW) { graphW = w; renderGraphTab(); }
+  }, 120);
+}).observe($("#graphtab"));
 
 /* ---------- boot ---------- */
 
