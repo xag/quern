@@ -20,7 +20,9 @@ changes with it.
 A red says what it saw. The rule's own description and messages travel with it, and a
 contract may register an *explainer* beside its native: the same arguments, answered
 with the lines a person needs (which param, against what) where the contract answers a
-count. Explainers are host code for the same reason natives are.
+count. A line may be a mapping instead, a case as data: its sentence under `says`, and
+whatever else the contract knows of where the case is, for a reader that shows it there.
+Explainers are host code for the same reason natives are.
 """
 
 from __future__ import annotations
@@ -32,12 +34,13 @@ from .tree import Node, Quern, TreeStore, run_rules
 CRITERION = "criterion"
 LEVEL = "level"
 
-EXPLAINERS: dict[str, Callable[..., list[str]]] = {}  # contract -> fn(tree, *args) -> lines
+EXPLAINERS: dict[str, Callable[..., list]] = {}  # contract -> fn(tree, *args) -> lines or cases
 
 
-def register_explainer(contract: str, fn: Callable[..., list[str]]) -> None:
+def register_explainer(contract: str, fn: Callable[..., list]) -> None:
     """Install what a contract's count is a count of: `fn(tree, *args)` takes the
-    arguments the rule gave the contract and returns one line per thing counted."""
+    arguments the rule gave the contract and returns one item per thing counted, a line
+    or a case ({"says": the line, and the contract's own fields})."""
     EXPLAINERS[contract] = fn
 
 
@@ -45,15 +48,17 @@ def _kinds(value: Any) -> list[str]:
     return [value] if isinstance(value, str) else [str(v) for v in value or []]
 
 
-def _why(tree, reads) -> list[str]:
-    out: list[str] = []
+def _cases(tree, reads) -> list[dict[str, Any]]:
+    """Each thing the explainers count, as a case: {"says": its line, ...what the explainer adds}."""
+    out: list[dict[str, Any]] = []
     for r in reads or []:
         if r.call != "solve" or not r.args or r.args[0] not in EXPLAINERS:
             continue
         try:
-            out += [str(line) for line in EXPLAINERS[r.args[0]](tree, *r.args[1:])]
+            out += [{**item, "says": str(item.get("says", ""))} if isinstance(item, dict) else {"says": str(item)}
+                    for item in EXPLAINERS[r.args[0]](tree, *r.args[1:])]
         except Exception as e:  # noqa: BLE001 - an explainer never takes a certificate down
-            out.append(f"({r.args[0]} could not say what it counted: {e})")
+            out.append({"says": f"({r.args[0]} could not say what it counted: {e})"})
     return out
 
 
@@ -62,14 +67,15 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
     """What every criterion and level of the subject's kind says of the node at `path`.
 
     {"subject", "kind", "criteria": [{"criterion", "name", "say", "measures", "held", "reds":
-    [{"rule", "node", "verdict", "says", "messages", "detail", "why"}]}], "levels":
+    [{"rule", "node", "verdict", "says", "messages", "detail", "why", "cases"}]}], "levels":
     [{"level", "name", "say", "requires", "allows", "reached", "blocked_by"}],
     "reached": [level paths]}
 
     `say` is the criterion's or level's payload `say` as its standard wrote it (its name
     for people, per language), None when it states none; `requires` and `allows` are the
     level's own, so a reader lists what a use needs and what it opens without knowing
-    the standard.
+    the standard. A red's `why` is its explainers' lines, and `cases` the same things as
+    data: each {"says": its line} and what the explainer adds of where it is.
 
     A criterion is held when every rule it names holds wherever it ran, on the subject
     or beneath it. A rule that is absent (a value it needs is not stated) or in error
@@ -91,7 +97,8 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
         reds: list[dict[str, Any]] = []
         for missing in [n for n in names if n not in known]:
             reds.append({"rule": missing, "node": path, "verdict": "error",
-                         "says": "", "messages": None, "detail": "no rule of that name", "why": []})
+                         "says": "", "messages": None, "detail": "no rule of that name", "why": [],
+                         "cases": []})
         run = [n for n in names if n in known]
         results = run_rules(tree, path, context=context, solver_runner=solver_runner,
                             rules=run, trace=True) if run else []
@@ -99,13 +106,15 @@ def certificate(tree: Quern | TreeStore, path: str, context: dict[str, Any] | No
         for idle in [n for n in run if n not in ran]:
             reds.append({"rule": idle, "node": path, "verdict": "error", "says": known[idle].description,
                          "messages": None, "detail": "the rule judges nothing at or under the subject",
-                         "why": []})
+                         "why": [], "cases": []})
         for r in results:
             if r.verdict == "holds":
                 continue
             rule = known[r.rule]
+            cases = _cases(tree, r.reads)
             reds.append({"rule": r.rule, "node": r.node, "verdict": r.verdict, "says": rule.description,
-                         "messages": rule.messages, "detail": r.detail or "", "why": _why(tree, r.reads)})
+                         "messages": rule.messages, "detail": r.detail or "", "why": [c["says"] for c in cases],
+                         "cases": cases})
         criteria[cpath] = {"criterion": cpath, "name": c.name, "say": c.payload.get("say"),
                            "measures": c.payload.get("measures", ""),
                            "held": not reds, "reds": reds}

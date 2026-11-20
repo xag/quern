@@ -121,3 +121,23 @@ def test_a_certificate_carries_what_the_standard_says_to_people_and_what_a_level
     assert shared["requires"] == ["standards/complete", "standards/reliable"] and shared["allows"] == []
     assert shared["blocked_by"] == ["standards/reliable"]
 
+
+
+def test_an_explainer_may_give_each_case_as_data_and_its_line_is_still_in_why():
+    from quern.certify import EXPLAINERS, register_explainer
+    from quern.tree import NATIVE
+
+    def unnamed(tree, path):
+        return [{"says": "the pad has no name", "param": "pad", "at": path}, "a line as before"]
+
+    rule = Rule(name="a-tool-says-what-it-counts", kind="tool", expr="solve('test/unnamed', self) == 0")
+    NATIVE["test/unnamed"] = lambda tree, path: 2.0
+    register_explainer("test/unnamed", unnamed)
+    try:
+        cert = certificate(tree(sander("sources/manual/data/pad", "sources/page/specs/pad"),
+                                standard(complete=("a-tool-says-what-it-counts",)), rules=[*RULES, rule]), "sander")
+    finally:
+        EXPLAINERS.pop("test/unnamed"), NATIVE.pop("test/unnamed")
+    [red] = [r for c in cert["criteria"] for r in c["reds"]]
+    assert red["why"] == ["the pad has no name", "a line as before"]
+    assert red["cases"] == [{"says": "the pad has no name", "param": "pad", "at": "sander"}, {"says": "a line as before"}]
